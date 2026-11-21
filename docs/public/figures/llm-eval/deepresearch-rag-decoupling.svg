@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 490" role="img" aria-label="Deep Research 与复杂 RAG 解耦归因漏斗图：上方四阶段贯穿检索召回与重排、上下文利用与推理、声明级引用核验流水线、开放长报告加权 Rubrics 与 Rogan-Gladen 矫正；下方对应四类典型失败根因的诊断与修复抓手">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.8px; fill: #64748b; }
+    .st-t { font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .st-b { font-size: 10.8px; fill: #475569; }
+    .metric { font-size: 10.6px; font-weight: 700; text-anchor: middle; }
+    .diag-t { font-size: 12.2px; font-weight: 700; }
+    .diag-s { font-size: 10.7px; fill: #475569; }
+  </style>
+  <defs>
+    <marker id="dr-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+    <marker id="dr-down" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="490" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="32" y="36" class="title">Deep Research 与复杂 RAG 解耦归因漏斗：检索层 × 生成层 × 报告核验</text>
+  <text x="32" y="58" class="sub">逐级测量证据从知识库流向最终长报告的损耗位置，彻底杜绝“检索漏掉却怪模型胡说”的错误归因。</text>
+
+  <!-- Stage 1 -->
+  <g>
+    <rect x="32" y="80" width="194" height="190" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+    <rect x="44" y="92" width="170" height="24" rx="12" fill="#0284c7"/>
+    <text x="129" y="108" font-size="11.2" font-weight="700" fill="#ffffff" text-anchor="middle">① 检索召回与重排层</text>
+    <text x="44" y="135" class="st-b">• 多跳查询拆解与改写</text>
+    <text x="44" y="153" class="st-b">• 切片粒度与混合召回</text>
+    <text x="44" y="171" class="st-b">• Reranker 精排进 Top-k</text>
+    <text x="44" y="189" class="st-b">• 测量证据是否进入上下文</text>
+    <rect x="44" y="206" width="170" height="52" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="129" y="226" class="metric" fill="#0369a1">核心指标</text>
+    <text x="129" y="246" class="mono" font-size="10.8" font-weight="700" fill="#075985" text-anchor="middle">Recall@k · MRR · NDCG@k</text>
+  </g>
+
+  <line x1="226" y1="175" x2="248" y2="175" stroke="#64748b" stroke-width="1.8" marker-end="url(#dr-arr)"/>
+
+  <!-- Stage 2 -->
+  <g>
+    <rect x="252" y="80" width="194" height="190" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+    <rect x="264" y="92" width="170" height="24" rx="12" fill="#4f46e5"/>
+    <text x="349" y="108" font-size="11.2" font-weight="700" fill="#ffffff" text-anchor="middle">② 生成与上下文利用层</text>
+    <text x="264" y="135" class="st-b">• 证据忠实度（Faithfulness）</text>
+    <text x="264" y="153" class="st-b">• 答案相关性（Relevance）</text>
+    <text x="264" y="171" class="st-b">• 抗干扰段落鲁棒性</text>
+    <text x="264" y="189" class="st-b">• Lost-in-the-Middle 定位</text>
+    <rect x="264" y="206" width="170" height="52" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="349" y="226" class="metric" fill="#4338ca">解耦控制实验</text>
+    <text x="349" y="246" class="mono" font-size="10.5" font-weight="700" fill="#3730a3" text-anchor="middle">Oracle Context 对照差值</text>
+  </g>
+
+  <line x1="446" y1="175" x2="468" y2="175" stroke="#64748b" stroke-width="1.8" marker-end="url(#dr-arr)"/>
+
+  <!-- Stage 3 -->
+  <g>
+    <rect x="472" y="80" width="194" height="190" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+    <rect x="484" y="92" width="170" height="24" rx="12" fill="#059669"/>
+    <text x="569" y="108" font-size="11.2" font-weight="700" fill="#ffffff" text-anchor="middle">③ 声明级引用核验流水线</text>
+    <text x="484" y="135" class="st-b">• 长报告切分为原子声明</text>
+    <text x="484" y="153" class="st-b">• 抓取标注 URL / 切片原文</text>
+    <text x="484" y="171" class="st-b">• NLI / 裁判验证蕴含关系</text>
+    <text x="484" y="189" class="st-b">• 识别伪造链接与过度外推</text>
+    <rect x="484" y="206" width="170" height="52" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="569" y="226" class="metric" fill="#047857">引用双率</text>
+    <text x="569" y="246" class="mono" font-size="9.6" font-weight="700" fill="#065f46" text-anchor="middle">Citation Precision &amp; Recall</text>
+  </g>
+
+  <line x1="666" y1="175" x2="688" y2="175" stroke="#64748b" stroke-width="1.8" marker-end="url(#dr-arr)"/>
+
+  <!-- Stage 4 -->
+  <g>
+    <rect x="692" y="80" width="196" height="190" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+    <rect x="704" y="92" width="172" height="24" rx="12" fill="#d97706"/>
+    <text x="790" y="108" font-size="11.2" font-weight="700" fill="#ffffff" text-anchor="middle">④ 长报告多维 Rubrics</text>
+    <text x="704" y="135" class="st-b">• 去重事实点覆盖度与密度</text>
+    <text x="704" y="153" class="st-b">• 跨源冲突披露与边界声明</text>
+    <text x="704" y="171" class="st-b">• 分维度加权清单逐项评判</text>
+    <text x="704" y="189" class="st-b">• 剥离长度/排版风格偏见</text>
+    <rect x="704" y="206" width="172" height="52" rx="7" fill="#ffffff" stroke="#fde68a"/>
+    <text x="790" y="226" class="metric" fill="#b45309">统计矫正衔接 Ch 3</text>
+    <text x="790" y="246" class="mono" font-size="10.2" font-weight="700" fill="#92400e" text-anchor="middle">Rogan-Gladen (q₁, q₀) 校准</text>
+  </g>
+
+  <!-- Down arrows to Attribution Cards -->
+  <line x1="129" y1="270" x2="129" y2="298" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dr-down)"/>
+  <line x1="349" y1="270" x2="349" y2="298" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dr-down)"/>
+  <line x1="569" y1="270" x2="569" y2="298" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dr-down)"/>
+  <line x1="790" y1="270" x2="790" y2="298" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#dr-down)"/>
+
+  <!-- Bottom Diagnostic Attribution Plane -->
+  <g>
+    <rect x="32" y="302" width="856" height="170" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+    <text x="48" y="325" font-size="13.5" font-weight="700" fill="#1e293b">端到端失分四象限归因诊断手册（定位真根因，把工程预算花在刀刃上）</text>
+
+    <!-- Fault 1 -->
+    <rect x="46" y="338" width="196" height="120" rx="8" fill="#f0f9ff" stroke="#7dd3fc"/>
+    <text x="56" y="358" class="diag-t" fill="#075985">故障 Ⅰ：检索漏召回</text>
+    <text x="56" y="377" class="diag-s">症状：Recall@k 偏低，但直接</text>
+    <text x="56" y="393" class="diag-s">喂入 Oracle 金标段落后答对。</text>
+    <rect x="56" y="405" width="176" height="44" rx="5" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="64" y="422" font-size="10.4" font-weight="700" fill="#0369a1">修法：调切块/Query 改写/混合</text>
+    <text x="64" y="438" font-size="10.4" fill="#0369a1">检索，严禁盲目换更贵大模型</text>
+
+    <!-- Fault 2 -->
+    <rect x="256" y="338" width="196" height="120" rx="8" fill="#eef2ff" stroke="#a5b4fc"/>
+    <text x="266" y="358" class="diag-t" fill="#3730a3">故障 Ⅱ：进窗却没用上</text>
+    <text x="266" y="377" class="diag-s">症状：证据已在 Top-k，但中段</text>
+    <text x="266" y="393" class="diag-s">位置被干扰段落淹没或漏读。</text>
+    <rect x="266" y="405" width="176" height="44" rx="5" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="274" y="422" font-size="10.4" font-weight="700" fill="#4338ca">修法：强 Reranker 压缩噪声、</text>
+    <text x="274" y="438" font-size="10.4" fill="#4338ca">调整重排次序或升级长文底座</text>
+
+    <!-- Fault 3 -->
+    <rect x="466" y="338" width="196" height="120" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+    <text x="476" y="358" class="diag-t" fill="#9f1239">故障 Ⅲ：幻觉与假引用</text>
+    <text x="476" y="377" class="diag-s">症状：报告文采斐然但 Citation</text>
+    <text x="476" y="393" class="diag-s">Precision 暴跌，张冠李戴外推。</text>
+    <rect x="476" y="405" width="176" height="44" rx="5" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="484" y="422" font-size="10.4" font-weight="700" fill="#be123c">修法：强制声明级证据锚定、</text>
+    <text x="484" y="438" font-size="10.4" fill="#be123c">无证据诚实拒答与 NLI 拦截</text>
+
+    <!-- Fault 4 -->
+    <rect x="676" y="338" width="198" height="120" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+    <text x="686" y="358" class="diag-t" fill="#92400e">故障 Ⅳ：注水式“虚胖”</text>
+    <text x="686" y="377" class="diag-s">症状：字数过万却反复车轱辘，</text>
+    <text x="686" y="393" class="diag-s">靠冗长偏见骗取粗糙 Judge 高分。</text>
+    <rect x="686" y="405" width="178" height="44" rx="5" fill="#ffffff" stroke="#fde68a"/>
+    <text x="694" y="422" font-size="10.4" font-weight="700" fill="#b45309">修法：引入去重信息覆盖度 +</text>
+    <text x="694" y="438" font-size="10.4" fill="#b45309">原子清单 Rubrics + RG 矫正</text>
+  </g>
+</svg>
