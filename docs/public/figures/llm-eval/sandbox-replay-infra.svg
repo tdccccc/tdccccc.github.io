@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" role="img" aria-label="高并发沙箱隔离池、HTTP 录制回放代理与异常分桶熔断架构图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .zone-t { font-size: 14px; font-weight: 700; }
+    .zone-s { font-size: 10.5px; }
+    .card-t { font-size: 12px; font-weight: 700; fill: #0f172a; }
+    .card-b { font-size: 10.8px; fill: #334155; }
+    .badge { font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+    .foot-t { font-size: 12px; font-weight: 700; fill: #0f172a; }
+    .foot-b { font-size: 10.5px; fill: #475569; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+    <marker id="arr-s" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="520" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">Agent 评测确定性基建：沙箱池 × 录制回放代理 × 异常分桶熔断</text>
+  <text x="36" y="56" class="sub">把不可控的外网、脏环境与基础设施抖动从模型分数中彻底剥离，实现秒级回滚、离线零账单复测与可审计门禁。</text>
+
+  <!-- ZONE 1: Sandbox Pool -->
+  <g>
+    <rect x="36" y="80" width="276" height="310" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.5"/>
+    <text x="50" y="103" class="zone-t" fill="#075985">① 高并发隔离沙箱池</text>
+    <text x="50" y="119" class="zone-s mono" fill="#0284c7">Docker Pool / Firecracker MicroVM</text>
+
+    <!-- Subcard 1A -->
+    <rect x="48" y="130" width="252" height="76" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="58" y="148" class="card-t">预热快照池 &amp; CoW 写时复制</text>
+    <text x="58" y="166" class="card-b">• OverlayFS / MicroVM 内存快照秒级克隆</text>
+    <text x="58" y="182" class="card-b">• 强配额：CPU/RAM/磁盘/PIDs 上限防炸机</text>
+    <text x="58" y="198" class="card-b">• 每次任务结束销毁回滚，零脏状态残留</text>
+
+    <!-- Subcard 1B -->
+    <rect x="48" y="216" width="252" height="78" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="58" y="234" class="card-t">读写边界与防改测试挂载</text>
+    <rect x="58" y="242" width="112" height="20" rx="4" fill="#dcfce7" stroke="#86efac"/>
+    <text x="114" y="256" font-size="10.2" font-weight="700" fill="#166534" text-anchor="middle" class="mono">/workspace (rw)</text>
+    <rect x="178" y="242" width="112" height="20" rx="4" fill="#fee2e2" stroke="#fca5a5"/>
+    <text x="234" y="256" font-size="10.2" font-weight="700" fill="#991b1b" text-anchor="middle" class="mono">/eval_tests (ro)</text>
+    <text x="58" y="280" class="card-b">• 隐藏测试仅在评分阶段以独立只读层注入</text>
+
+    <!-- Subcard 1C -->
+    <rect x="48" y="304" width="252" height="74" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="58" y="322" class="card-t">默认断网与白名单网关</text>
+    <text x="58" y="340" class="card-b">• 纯代码任务默认 --network=none 彻底断网</text>
+    <text x="58" y="356" class="card-b">• 需联网工具强制走 HTTP_PROXY 受控出口</text>
+    <text x="58" y="371" class="card-b">• 阻断直连外网与内网元数据探测（SSRF）</text>
+  </g>
+
+  <!-- Arrows Zone 1 <-> Zone 2 -->
+  <line x1="312" y1="196" x2="342" y2="196" stroke="#0284c7" stroke-width="1.8" marker-end="url(#arr-b)"/>
+  <text x="328" y="188" font-size="9.5" font-weight="700" fill="#0284c7" text-anchor="middle">请求</text>
+  <line x1="344" y1="224" x2="314" y2="224" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-g)"/>
+  <text x="328" y="238" font-size="9.5" font-weight="700" fill="#059669" text-anchor="middle">回放</text>
+
+  <!-- ZONE 2: Replay Proxy / VCR -->
+  <g>
+    <rect x="346" y="80" width="272" height="310" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+    <text x="360" y="103" class="zone-t" fill="#065f46">② HTTP/API 录制回放代理</text>
+    <text x="360" y="119" class="zone-s mono" fill="#059669">Deterministic Replay Proxy (VCR)</text>
+
+    <!-- Canonical Key -->
+    <rect x="358" y="130" width="248" height="70" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="368" y="148" class="card-t">规范化请求指纹（Canonical Key）</text>
+    <rect x="368" y="156" width="228" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+    <text x="482" y="171" font-size="10" fill="#0f172a" text-anchor="middle" class="mono">SHA256(Method + URL + SortedParams)</text>
+    <text x="368" y="193" class="card-b">剔除时间戳 / TraceID / Auth Token 噪声头</text>
+
+    <!-- Record vs Replay -->
+    <rect x="358" y="210" width="248" height="92" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="368" y="228" class="card-t">双模式运行与磁带版本固化</text>
+    <rect x="368" y="236" width="62" height="19" rx="4" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="399" y="249" class="badge" fill="#92400e">Record</text>
+    <text x="438" y="249" class="card-b">首次采真实外网并加密落盘</text>
+    <rect x="368" y="261" width="62" height="19" rx="4" fill="#d1fae5" stroke="#6ee7b7"/>
+    <text x="399" y="274" class="badge" fill="#065f46">Replay</text>
+    <text x="438" y="274" class="card-b">离线直读 cassette.jsonl</text>
+    <text x="368" y="295" class="card-b">• 0 外网抖动 · 0 第三方 API 账单 · 100% 复现</text>
+
+    <!-- Strict Mode -->
+    <rect x="358" y="312" width="248" height="66" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="368" y="330" class="card-t">严格未命中策略（Strict Mode）</text>
+    <text x="368" y="348" class="card-b">• Replay 模式下未命中缓存严禁静默穿透外网</text>
+    <text x="368" y="364" class="card-b">• 返回确定性 404/Stub 或按规则显式记录越界</text>
+  </g>
+
+  <!-- Arrow Zone 2 -> Zone 3 -->
+  <line x1="618" y1="210" x2="648" y2="210" stroke="#475569" stroke-width="1.8" marker-end="url(#arr-s)"/>
+  <text x="633" y="201" font-size="9.5" font-weight="700" fill="#475569" text-anchor="middle">轨迹</text>
+
+  <!-- ZONE 3: Error Bucketing & Circuit Breaker -->
+  <g>
+    <rect x="652" y="80" width="272" height="310" rx="10" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+    <text x="666" y="103" class="zone-t" fill="#991b1b">③ 异常分桶与质量熔断门禁</text>
+    <text x="666" y="119" class="zone-s mono" fill="#dc2626">infra_error vs model_failure</text>
+
+    <!-- Bucket A: infra_error -->
+    <rect x="664" y="130" width="248" height="86" rx="7" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.3"/>
+    <rect x="674" y="139" width="96" height="19" rx="4" fill="#d97706"/>
+    <text x="722" y="152" class="badge mono" fill="#ffffff">infra_error</text>
+    <text x="778" y="152" font-size="11" font-weight="700" fill="#92400e">基础设施故障桶</text>
+    <text x="674" y="173" class="card-b">• 429/502/504 限流、容器 OOM、镜像超时</text>
+    <text x="674" y="189" class="card-b">• 处理铁律：严禁记 0 分！移出分母并队列重跑</text>
+    <text x="674" y="205" class="card-b">• 单独累计 infra_error_rate 监控健康度</text>
+
+    <!-- Bucket B: model_failure -->
+    <rect x="664" y="226" width="248" height="80" rx="7" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.3"/>
+    <rect x="674" y="235" width="106" height="19" rx="4" fill="#4f46e5"/>
+    <text x="727" y="248" class="badge mono" fill="#ffffff">model_failure</text>
+    <text x="788" y="248" font-size="11" font-weight="700" fill="#3730a3">模型能力失败桶</text>
+    <text x="674" y="269" class="card-b">• 答案错误、工具参数不合法、死循环、超步数</text>
+    <text x="674" y="285" class="card-b">• 处理铁律：正常计入准确率分母与误差分析</text>
+    <text x="674" y="299" class="card-b">• 关联完整轨迹供 Open Coding 归因</text>
+
+    <!-- Circuit Breaker -->
+    <rect x="664" y="316" width="248" height="62" rx="7" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="788" y="335" font-size="12" font-weight="700" fill="#991b1b" text-anchor="middle">⚠ 熔断阈值：infra_error_rate &gt; 2%</text>
+    <text x="788" y="353" font-size="10.8" fill="#7f1d1d" text-anchor="middle">整轮评测报告自动标红作废（INVALID）</text>
+    <text x="788" y="369" font-size="10.5" fill="#991b1b" text-anchor="middle">禁止进入模型选型排行榜与 CI 准入决策</text>
+  </g>
+
+  <!-- Bottom Governance & Idempotent Checkpoint Bar -->
+  <g>
+    <rect x="36" y="408" width="888" height="94" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.4"/>
+    <text x="52" y="430" class="foot-t">全链路可复现审计清单（Run Manifest）与幂等断点续跑机制</text>
+
+    <rect x="52" y="442" width="204" height="46" rx="7" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="154" y="461" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">① 环境镜像 Digest 锁定</text>
+    <text x="154" y="479" class="foot-b mono">sha256:9f4a... 禁用 :latest</text>
+
+    <rect x="268" y="442" width="204" height="46" rx="7" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="370" y="461" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">② 磁带与评测集哈希</text>
+    <text x="370" y="479" class="foot-b mono">cassette_v3 + tests_sha</text>
+
+    <rect x="484" y="442" width="204" height="46" rx="7" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="586" y="461" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">③ 幂等断点续跑键</text>
+    <text x="586" y="479" class="foot-b mono">(run_id, task_id, trial_k)</text>
+
+    <rect x="700" y="442" width="208" height="46" rx="7" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="804" y="461" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">④ 强制审计披露字段</text>
+    <text x="804" y="479" class="foot-b mono">N_total / N_eff / infra_%</text>
+  </g>
+</svg>

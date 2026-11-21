@@ -1,0 +1,210 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 506" role="img" aria-label="质量乘成本乘延迟双面板联合帕累托前沿图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .panel-t { font-size: 13.5px; font-weight: 700; fill: #0f172a; }
+    .tick { font-size: 10.5px; fill: #64748b; }
+    .ax { font-size: 11.5px; font-weight: 700; fill: #334155; }
+    .pt-lbl { font-size: 10.5px; font-weight: 700; fill: #1e293b; }
+    .pt-dom { font-size: 10px; fill: #64748b; }
+    .zone-warn { font-size: 10.5px; font-weight: 700; fill: #b91c1c; }
+    .leg-txt { font-size: 11px; fill: #334155; }
+  </style>
+
+  <rect width="960" height="506" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">质量 × 成本 × 延迟联合帕累托前沿（多轮 Agent 教学算例）</text>
+  <text x="36" y="56" class="sub">只追单轴准确率榜首（M5）会以 7.7× 成本和击穿 30s SLA 为代价换取区区 +4.7 pp；级联路由（M3）落于双面板联合甜点。</text>
+
+  <!-- LEFT PANEL: Accuracy vs Cost (Log) -->
+  <g>
+    <rect x="36" y="76" width="436" height="346" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+    <text x="52" y="100" class="panel-t">面板 A：任务通过率 vs 单任务成本（USD/Task，对数轴）</text>
+
+    <!-- Plot area x=94..450 (w=356), y=122..370 (h=248) -->
+    <!-- Over-budget shaded zone: cost > 0.15 => x > 328 -->
+    <rect x="328" y="122" width="122" height="248" fill="#fef2f2"/>
+    <text x="389" y="344" class="zone-warn" text-anchor="middle">超预算禁区</text>
+    <text x="389" y="358" font-size="9.5" fill="#dc2626" text-anchor="middle">&gt; $0.15/Task</text>
+
+    <!-- Horizontal gridlines (40, 50, 60, 70, 80, 90%) -->
+    <line x1="94" y1="122" x2="450" y2="122" stroke="#e2e8f0"/>
+    <line x1="94" y1="172" x2="450" y2="172" stroke="#e2e8f0"/>
+    <line x1="94" y1="221" x2="450" y2="221" stroke="#e2e8f0"/>
+    <line x1="94" y1="271" x2="450" y2="271" stroke="#e2e8f0"/>
+    <line x1="94" y1="320" x2="450" y2="320" stroke="#e2e8f0"/>
+    <line x1="94" y1="370" x2="450" y2="370" stroke="#94a3b8" stroke-width="1.4"/>
+    <line x1="94" y1="122" x2="94" y2="370" stroke="#94a3b8" stroke-width="1.4"/>
+
+    <!-- Vertical gridlines (log ticks: 0.005=108, 0.01=153, 0.03=224, 0.10=302, 0.30=372, 1.0=450) -->
+    <line x1="153" y1="122" x2="153" y2="370" stroke="#f1f5f9"/>
+    <line x1="224" y1="122" x2="224" y2="370" stroke="#f1f5f9"/>
+    <line x1="302" y1="122" x2="302" y2="370" stroke="#f1f5f9"/>
+    <line x1="372" y1="122" x2="372" y2="370" stroke="#fee2e2"/>
+
+    <!-- Budget cutoff line at 0.15 (x=328) -->
+    <line x1="328" y1="122" x2="328" y2="370" stroke="#ef4444" stroke-width="1.6" stroke-dasharray="5 4"/>
+
+    <!-- Y ticks -->
+    <text x="86" y="126" class="tick mono" text-anchor="end">90%</text>
+    <text x="86" y="176" class="tick mono" text-anchor="end">80%</text>
+    <text x="86" y="225" class="tick mono" text-anchor="end">70%</text>
+    <text x="86" y="275" class="tick mono" text-anchor="end">60%</text>
+    <text x="86" y="324" class="tick mono" text-anchor="end">50%</text>
+    <text x="86" y="374" class="tick mono" text-anchor="end">40%</text>
+
+    <!-- X ticks -->
+    <text x="108" y="387" class="tick mono" text-anchor="middle">.005</text>
+    <text x="153" y="387" class="tick mono" text-anchor="middle">.01</text>
+    <text x="224" y="387" class="tick mono" text-anchor="middle">.03</text>
+    <text x="302" y="387" class="tick mono" text-anchor="middle">.10</text>
+    <text x="372" y="387" class="tick mono" text-anchor="middle">.30</text>
+    <text x="446" y="387" class="tick mono" text-anchor="middle">1.0</text>
+    <text x="272" y="408" class="ax" text-anchor="middle">单任务综合成本（USD/Task，含思考与重跑，对数尺度）</text>
+
+    <!-- Pareto Frontier Polyline: M1(120,301) -> M2(210,216) -> M3(271,169) -> M4(323,157) -> M5(403,146) -->
+    <polyline points="120,301 210,216 271,169 323,157 403,146" fill="none" stroke="#0284c7" stroke-width="2.4"/>
+
+    <!-- Dominated Points (Hollow Triangles) -->
+    <!-- D1: 70B-BF16 (cost 0.095 -> x=298, acc 68% -> y=231) -->
+    <polygon points="298,225 292,236 304,236" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.8"/>
+    <text x="298" y="251" class="pt-dom" text-anchor="middle">D1 70B-BF16</text>
+    <text x="298" y="264" font-size="9.5" fill="#94a3b8" text-anchor="middle">(被严格支配)</text>
+
+    <!-- D2: 32B Retry x4 (cost 0.180 -> x=339, acc 75% -> y=196) -->
+    <polygon points="339,190 333,201 345,201" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.8"/>
+    <text x="350" y="200" class="pt-dom">D2 32B 重试×4</text>
+
+    <!-- Frontier Points -->
+    <!-- M1: 8B-W4A16 -->
+    <circle cx="120" cy="301" r="5.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="131" y="305" class="pt-lbl">M1 8B-W4A16</text>
+    <text x="131" y="319" font-size="9.5" fill="#64748b">54% · $0.006</text>
+
+    <!-- M2: 32B-FP8 -->
+    <circle cx="210" cy="216" r="5.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="200" y="206" class="pt-lbl" text-anchor="end">M2 32B-FP8</text>
+    <text x="200" y="220" font-size="9.5" fill="#64748b" text-anchor="end">71% · $0.024</text>
+
+    <!-- M3: Cascade Router (Sweet Spot Star) -->
+    <circle cx="271" cy="169" r="9" fill="#d1fae5" stroke="#059669" stroke-width="1.8"/>
+    <circle cx="271" cy="169" r="4.5" fill="#059669"/>
+    <text x="256" y="164" class="pt-lbl" fill="#047857" text-anchor="end">★ M3 级联路由</text>
+    <text x="256" y="177" font-size="9.5" fill="#059669" text-anchor="end">80.5% · $0.062</text>
+
+    <!-- M4: Frontier Med -->
+    <circle cx="323" cy="157" r="5.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="322" y="138" class="pt-lbl" text-anchor="end">M4 旗舰(中思考)</text>
+    <text x="322" y="150" font-size="9.5" fill="#64748b" text-anchor="end">83.0% · $0.140</text>
+
+    <!-- M5: Frontier High (Over Budget) -->
+    <circle cx="403" cy="146" r="5.5" fill="#dc2626" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="403" y="172" class="pt-lbl" fill="#b91c1c" text-anchor="middle">M5 旗舰(高思考)</text>
+    <text x="403" y="185" font-size="9.5" fill="#dc2626" text-anchor="middle">85.2% · $0.480</text>
+  </g>
+
+  <!-- RIGHT PANEL: Accuracy vs E2E P95 Latency -->
+  <g>
+    <rect x="488" y="76" width="436" height="346" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+    <text x="504" y="100" class="panel-t">面板 B：任务通过率 vs 端到端 P95 延迟（秒，含工具等待）</text>
+
+    <!-- Plot area x=546..902 (w=356), y=122..370 (h=248) -->
+    <!-- SLA violation zone: P95 > 30s => x > 724 -->
+    <rect x="724" y="122" width="178" height="248" fill="#fef2f2"/>
+    <text x="813" y="344" class="zone-warn" text-anchor="middle">SLA 禁区（P95 &gt; 30s）</text>
+    <text x="813" y="358" font-size="9.5" fill="#dc2626" text-anchor="middle">交互超时 / 用户高流失</text>
+
+    <!-- Horizontal gridlines -->
+    <line x1="546" y1="122" x2="902" y2="122" stroke="#e2e8f0"/>
+    <line x1="546" y1="172" x2="902" y2="172" stroke="#e2e8f0"/>
+    <line x1="546" y1="221" x2="902" y2="221" stroke="#e2e8f0"/>
+    <line x1="546" y1="271" x2="902" y2="271" stroke="#e2e8f0"/>
+    <line x1="546" y1="320" x2="902" y2="320" stroke="#e2e8f0"/>
+    <line x1="546" y1="370" x2="902" y2="370" stroke="#94a3b8" stroke-width="1.4"/>
+    <line x1="546" y1="122" x2="546" y2="370" stroke="#94a3b8" stroke-width="1.4"/>
+
+    <!-- Vertical gridlines (0, 10=605, 20=665, 30=724, 45=813, 60=902) -->
+    <line x1="605" y1="122" x2="605" y2="370" stroke="#f1f5f9"/>
+    <line x1="665" y1="122" x2="665" y2="370" stroke="#f1f5f9"/>
+    <line x1="813" y1="122" x2="813" y2="370" stroke="#fee2e2"/>
+
+    <!-- SLA cutoff line at 30s (x=724) -->
+    <line x1="724" y1="122" x2="724" y2="370" stroke="#ef4444" stroke-width="1.6" stroke-dasharray="5 4"/>
+
+    <!-- Y ticks -->
+    <text x="538" y="126" class="tick mono" text-anchor="end">90%</text>
+    <text x="538" y="176" class="tick mono" text-anchor="end">80%</text>
+    <text x="538" y="225" class="tick mono" text-anchor="end">70%</text>
+    <text x="538" y="275" class="tick mono" text-anchor="end">60%</text>
+    <text x="538" y="324" class="tick mono" text-anchor="end">50%</text>
+    <text x="538" y="374" class="tick mono" text-anchor="end">40%</text>
+
+    <!-- X ticks -->
+    <text x="546" y="387" class="tick mono" text-anchor="middle">0s</text>
+    <text x="605" y="387" class="tick mono" text-anchor="middle">10s</text>
+    <text x="665" y="387" class="tick mono" text-anchor="middle">20s</text>
+    <text x="724" y="387" class="tick mono" fill="#b91c1c" font-weight="700" text-anchor="middle">30s</text>
+    <text x="813" y="387" class="tick mono" text-anchor="middle">45s</text>
+    <text x="898" y="387" class="tick mono" text-anchor="middle">60s</text>
+    <text x="724" y="408" class="ax" text-anchor="middle">端到端 P95 墙钟耗时（TTFT + 思考/生成 + 多轮工具累计）</text>
+
+    <!-- Pareto Frontier Polyline: M1(571,301) -> M2(614,216) -> M3(655,169) -> M4(711,157) -> M5(878,146) -->
+    <polyline points="571,301 614,216 655,169 711,157 878,146" fill="none" stroke="#0284c7" stroke-width="2.4"/>
+
+    <!-- Dominated Points -->
+    <!-- D1: 24.0s -> x=688, 68% -> y=231 -->
+    <polygon points="688,225 682,236 694,236" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.8"/>
+    <text x="688" y="251" class="pt-dom" text-anchor="middle">D1 70B-BF16</text>
+
+    <!-- D2: 41.0s -> x=789, 75% -> y=196 -->
+    <polygon points="789,190 783,201 795,201" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.8"/>
+    <text x="789" y="216" class="pt-dom" text-anchor="middle">D2 32B 重试×4 (41s)</text>
+
+    <!-- Frontier Points -->
+    <!-- M1: 4.2s -> 571 -->
+    <circle cx="571" cy="301" r="5.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="582" y="305" class="pt-lbl">M1 8B-W4A16</text>
+    <text x="582" y="319" font-size="9.5" fill="#64748b">4.2s</text>
+
+    <!-- M2: 11.5s -> 614 -->
+    <circle cx="614" cy="216" r="5.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="614" y="200" class="pt-lbl" text-anchor="middle">M2 32B-FP8 (11.5s)</text>
+
+    <!-- M3: 18.4s -> 655 -->
+    <circle cx="655" cy="169" r="9" fill="#d1fae5" stroke="#059669" stroke-width="1.8"/>
+    <circle cx="655" cy="169" r="4.5" fill="#059669"/>
+    <text x="642" y="162" class="pt-lbl" fill="#047857" text-anchor="end">★ M3 级联路由</text>
+    <text x="642" y="175" font-size="9.5" fill="#059669" text-anchor="end">18.4s · 双绿灯</text>
+
+    <!-- M4: 27.8s -> 711 -->
+    <circle cx="711" cy="157" r="5.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="718" y="141" class="pt-lbl" text-anchor="end">M4 (27.8s 贴边)</text>
+
+    <!-- M5: 56.0s -> 878 -->
+    <circle cx="878" cy="146" r="5.5" fill="#dc2626" stroke="#ffffff" stroke-width="1.5"/>
+    <text x="866" y="170" class="pt-lbl" fill="#b91c1c" text-anchor="end">M5 旗舰高思考</text>
+    <text x="866" y="183" font-size="9.5" fill="#dc2626" text-anchor="end">56.0s（破 SLA）</text>
+  </g>
+
+  <!-- Bottom Legend & Key Quantitative Conclusion -->
+  <g>
+    <rect x="36" y="434" width="888" height="58" rx="9" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+    <circle cx="60" cy="454" r="5" fill="#0284c7"/>
+    <text x="72" y="458" class="leg-txt">帕累托前沿方案</text>
+
+    <circle cx="186" cy="454" r="6.5" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>
+    <circle cx="186" cy="454" r="3" fill="#059669"/>
+    <text x="200" y="458" class="leg-txt" fill="#047857" font-weight="700">联合最优甜点（满足预算 + SLA）</text>
+
+    <polygon points="396,449 391,458 401,458" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.6"/>
+    <text x="410" y="458" class="leg-txt">被支配劣解（应淘汰）</text>
+
+    <rect x="554" y="447" width="16" height="12" rx="2" fill="#fef2f2" stroke="#ef4444" stroke-dasharray="2 1"/>
+    <text x="578" y="458" class="leg-txt" fill="#b91c1c">超预算 / 超 SLA 禁区</text>
+
+    <text x="52" y="481" font-size="11.2" font-weight="700" fill="#0f172a">算账结论：从 M3（级联路由）盲目追求单轴榜首 M5，通过率仅 +4.7 pp，而单任务成本暴涨 7.7×、P95 延迟从 18.4s 恶化至 56.0s。</text>
+  </g>
+</svg>

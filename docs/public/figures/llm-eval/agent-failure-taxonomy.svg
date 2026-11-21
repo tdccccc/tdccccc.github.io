@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 524" role="img" aria-label="Open Coding 抽样收敛流程与 Agent 七大根因失败谱系帕累托归因图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .sec-h { font-size: 13.5px; font-weight: 700; fill: #0f172a; }
+    .step-t { font-size: 12px; font-weight: 700; fill: #1e293b; text-anchor: middle; }
+    .step-b { font-size: 10.5px; fill: #475569; text-anchor: middle; }
+    .row-lbl { font-size: 12px; font-weight: 700; fill: #1e293b; }
+    .pct-txt { font-size: 11.5px; font-weight: 700; fill: #0f172a; }
+    .cum-txt { font-size: 10.5px; fill: #64748b; }
+    .fix-txt { font-size: 10.8px; fill: #334155; }
+  </style>
+  <defs>
+    <marker id="arr-oc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="524" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">系统化误差分析：Open Coding 抽样收敛与 Agent 七大根因失败谱系</text>
+  <text x="36" y="56" class="sub">总分 68.4% 无法告诉团队该改哪一行代码；只有通读 50–100 条真实失败轨迹并按根因帕累托排序，优化才有的放矢。</text>
+
+  <!-- TOP PANEL: Open Coding -> Axial Coding Pipeline -->
+  <g>
+    <rect x="36" y="74" width="888" height="112" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+    <text x="52" y="96" class="sec-h" fill="#3730a3">阶段一：源自质性研究的自下而上编码法（Open Coding → Axial Coding）</text>
+
+    <!-- Step 1 -->
+    <rect x="52" y="106" width="196" height="68" rx="8" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="150" y="125" class="step-t">1. 随机分层抽样</text>
+    <text x="150" y="143" class="step-b">剔除 infra_error 桶后</text>
+    <text x="150" y="159" class="step-b">随机抽取 50–100 条失败轨迹</text>
+
+    <line x1="248" y1="140" x2="269" y2="140" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#arr-oc)"/>
+
+    <!-- Step 2 -->
+    <rect x="272" y="106" width="196" height="68" rx="8" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="370" y="125" class="step-t">2. Open Coding 开放编码</text>
+    <text x="370" y="143" class="step-b">不预设先验标签，逐条通读</text>
+    <text x="370" y="159" class="step-b">写下「首个致命拐点」笔记</text>
+
+    <line x1="468" y1="140" x2="489" y2="140" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#arr-oc)"/>
+
+    <!-- Step 3 -->
+    <rect x="492" y="106" width="196" height="68" rx="8" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="590" y="125" class="step-t">3. Axial Coding 主轴归类</text>
+    <text x="590" y="143" class="step-b">聚类合并近义现象，收敛为</text>
+    <text x="590" y="159" class="step-b">互斥、无遗漏的根因谱系</text>
+
+    <line x1="688" y1="140" x2="709" y2="140" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#arr-oc)"/>
+
+    <!-- Step 4 -->
+    <rect x="712" y="106" width="196" height="68" rx="8" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="810" y="125" class="step-t">4. 理论饱和与优先排序</text>
+    <text x="810" y="143" class="step-b">连读 20 条无新类目即饱和</text>
+    <text x="810" y="159" class="step-b">按占比锁定 Top-3 修复任务</text>
+  </g>
+
+  <!-- BOTTOM PANEL: 7 Root Causes Pareto Horizontal Bar Chart -->
+  <g>
+    <rect x="36" y="202" width="888" height="306" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+    <text x="52" y="226" class="sec-h">阶段二：Agent 七大根因失败谱系帕累托归因（N = 100 条失败轨迹教学算例）</text>
+
+    <!-- Column headers -->
+    <text x="52" y="248" font-size="11" font-weight="700" fill="#64748b">失败根因类别</text>
+    <text x="272" y="248" font-size="11" font-weight="700" fill="#64748b">失败占比分布（满宽 = 30%）</text>
+    <text x="568" y="248" font-size="11" font-weight="700" fill="#64748b">占比 / 累计</text>
+    <text x="674" y="248" font-size="11" font-weight="700" fill="#64748b">首要工程修复抓手</text>
+    <line x1="52" y1="255" x2="908" y2="255" stroke="#e2e8f0" stroke-width="1.2"/>
+
+    <!-- Top-3 highlight backdrop -->
+    <rect x="46" y="260" width="868" height="101" rx="6" fill="#fff7ed" stroke="#fed7aa" stroke-dasharray="4 3"/>
+
+    <!-- Row 1: 27% (27/30 * 280 = 252px) -->
+    <text x="54" y="282" class="row-lbl">① 工具选择与参数构造错</text>
+    <rect x="272" y="268" width="280" height="18" rx="4" fill="#f1f5f9"/>
+    <rect x="272" y="268" width="252" height="18" rx="4" fill="#dc2626"/>
+    <text x="568" y="282" class="pct-txt mono" fill="#b91c1c">27%</text>
+    <text x="606" y="282" class="cum-txt mono">(累计 27%)</text>
+    <rect x="674" y="266" width="232" height="22" rx="5" fill="#ffffff" stroke="#fecaca"/>
+    <text x="684" y="281" class="fix-txt">精简 Tool Schema · 补充反例与类型校验</text>
+
+    <!-- Row 2: 21% (21/30 * 280 = 196px) -->
+    <text x="54" y="314" class="row-lbl">② 规划跑偏 / 目标拆解错</text>
+    <rect x="272" y="300" width="280" height="18" rx="4" fill="#f1f5f9"/>
+    <rect x="272" y="300" width="196" height="18" rx="4" fill="#ea580c"/>
+    <text x="568" y="314" class="pct-txt mono" fill="#c2410c">21%</text>
+    <text x="606" y="314" class="cum-txt mono">(累计 48%)</text>
+    <rect x="674" y="298" width="232" height="22" rx="5" fill="#ffffff" stroke="#fed7aa"/>
+    <text x="684" y="313" class="fix-txt">前置显式步骤规划 · 难题路由强推理底座</text>
+
+    <!-- Row 3: 16% (16/30 * 280 = 149px) -->
+    <text x="54" y="346" class="row-lbl">③ 环境观测误读 / 报错视而不见</text>
+    <rect x="272" y="332" width="280" height="18" rx="4" fill="#f1f5f9"/>
+    <rect x="272" y="332" width="149" height="18" rx="4" fill="#d97706"/>
+    <text x="568" y="346" class="pct-txt mono" fill="#b45309">16%</text>
+    <text x="606" y="346" class="cum-txt mono">(累计 64%)</text>
+    <rect x="674" y="330" width="232" height="22" rx="5" fill="#ffffff" stroke="#fde68a"/>
+    <text x="684" y="345" class="fix-txt">结构化高亮错误栈 · 强制首步复述报错</text>
+
+    <!-- Top-3 Callout Badge -->
+    <rect x="674" y="363" width="232" height="18" rx="9" fill="#ea580c"/>
+    <text x="790" y="376" font-size="10.2" font-weight="700" fill="#ffffff" text-anchor="middle">▲ Top-3 根因合占 64% · 优先倾注修复带宽</text>
+
+    <!-- Row 4: 13% (13/30 * 280 = 121px) -->
+    <text x="54" y="400" class="row-lbl">④ 长上下文遗忘 / 政策漏遵</text>
+    <rect x="272" y="386" width="280" height="18" rx="4" fill="#f1f5f9"/>
+    <rect x="272" y="386" width="121" height="18" rx="4" fill="#2563eb"/>
+    <text x="568" y="400" class="pct-txt mono">13%</text>
+    <text x="606" y="400" class="cum-txt mono">(累计 77%)</text>
+    <rect x="674" y="384" width="232" height="22" rx="5" fill="#f8fafc" stroke="#cbd5e1"/>
+    <text x="684" y="399" class="fix-txt">关键政策动态置尾 · 历史观测定期折叠</text>
+
+    <!-- Row 5: 10% (10/30 * 280 = 93px) -->
+    <text x="54" y="430" class="row-lbl">⑤ 死循环与无进展重试</text>
+    <rect x="272" y="416" width="280" height="18" rx="4" fill="#f1f5f9"/>
+    <rect x="272" y="416" width="93" height="18" rx="4" fill="#4f46e5"/>
+    <text x="568" y="430" class="pct-txt mono">10%</text>
+    <text x="606" y="430" class="cum-txt mono">(累计 87%)</text>
+    <rect x="674" y="414" width="232" height="22" rx="5" fill="#f8fafc" stroke="#cbd5e1"/>
+    <text x="684" y="429" class="fix-txt">同参连调检测拦截 · 注入强制换思路指令</text>
+
+    <!-- Row 6: 8% (8/30 * 280 = 75px) -->
+    <text x="54" y="460" class="row-lbl">⑥ 过早放弃或虚报成功</text>
+    <rect x="272" y="446" width="280" height="18" rx="4" fill="#f1f5f9"/>
+    <rect x="272" y="446" width="75" height="18" rx="4" fill="#7c3aed"/>
+    <text x="568" y="460" class="pct-txt mono">8%</text>
+    <text x="606" y="460" class="cum-txt mono">(累计 95%)</text>
+    <rect x="674" y="444" width="232" height="22" rx="5" fill="#f8fafc" stroke="#cbd5e1"/>
+    <text x="684" y="459" class="fix-txt">终答前强制附带可核验证据与退出码</text>
+
+    <!-- Row 7: 5% (5/30 * 280 = 47px) -->
+    <text x="54" y="490" class="row-lbl">⑦ 缺乏终态自检与验证</text>
+    <rect x="272" y="476" width="280" height="18" rx="4" fill="#f1f5f9"/>
+    <rect x="272" y="476" width="47" height="18" rx="4" fill="#64748b"/>
+    <text x="568" y="490" class="pct-txt mono">5%</text>
+    <text x="606" y="490" class="cum-txt mono">(累计 100%)</text>
+    <rect x="674" y="474" width="232" height="22" rx="5" fill="#f8fafc" stroke="#cbd5e1"/>
+    <text x="684" y="489" class="fix-txt" font-size="10.2">脚手架末尾挂载自动自检钩子（Lint/Test）</text>
+  </g>
+</svg>

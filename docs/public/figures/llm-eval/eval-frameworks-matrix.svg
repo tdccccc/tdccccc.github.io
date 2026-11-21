@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" role="img" aria-label="六大主流开源评测框架定位象限与适用场景选型图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .axis-lbl { font-size: 12px; font-weight: 700; fill: #334155; }
+    .quad-lbl { font-size: 11px; font-weight: 600; fill: #94a3b8; }
+    .fw-name { font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .fw-desc { font-size: 9.8px; fill: #475569; text-anchor: middle; }
+    .side-h { font-size: 13.5px; font-weight: 700; fill: #0f172a; }
+    .side-q { font-size: 11px; font-weight: 700; fill: #1e293b; }
+    .side-a { font-size: 10.5px; fill: #475569; }
+    .pill-txt { font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+  </style>
+
+  <rect width="960" height="520" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">六大主流开源评测框架定位象限与选型矩阵</text>
+  <text x="36" y="56" class="sub">不存在“通吃一切”的万能框架：底座似然研究、Agent 沙箱交互与企业应用 CI/CD 各自对应最顺手的开源主力。</text>
+
+  <!-- Left Quadrant Plot -->
+  <g>
+    <!-- Quadrant Backgrounds -->
+    <rect x="64" y="80" width="276" height="190" fill="#f8fafc" stroke="#e2e8f0"/>
+    <rect x="340" y="80" width="276" height="190" fill="#f0f9ff" stroke="#e2e8f0"/>
+    <rect x="64" y="270" width="276" height="190" fill="#fffbeb" stroke="#e2e8f0"/>
+    <rect x="340" y="270" width="276" height="190" fill="#eef2ff" stroke="#e2e8f0"/>
+
+    <!-- Outer Border & Axes -->
+    <rect x="64" y="80" width="552" height="380" rx="6" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    <line x1="340" y1="80" x2="340" y2="460" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 4"/>
+    <line x1="64" y1="270" x2="616" y2="270" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 4"/>
+
+    <!-- Quadrant Corner Hints -->
+    <text x="76" y="98" class="quad-lbl">底座静态榜单 · 似然/BPB 指标</text>
+    <text x="604" y="98" class="quad-lbl" text-anchor="end">集群大规模编排 · 综合科研评测</text>
+    <text x="76" y="449" class="quad-lbl">应用 CI/CD · RAG · 红队安全敏捷回归</text>
+    <text x="604" y="449" class="quad-lbl" text-anchor="end">多轮 Agent · Docker 沙箱 · 轨迹审阅</text>
+
+    <!-- Axis Labels -->
+    <text x="26" y="270" class="axis-lbl" text-anchor="middle" transform="rotate(-90 26 270)">生态重心：应用敏捷 CI  ←————→  模型底座科研</text>
+    <text x="340" y="486" class="axis-lbl" text-anchor="middle">任务与隔离复杂度：静态问答 / 似然 / 单轮断言  ————→  多轮工具 / 容器沙箱 / Agent 交互</text>
+
+    <!-- 1. lm-evaluation-harness -->
+    <g>
+      <rect x="82" y="114" width="204" height="58" rx="9" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
+      <circle cx="98" cy="133" r="5" fill="#0284c7"/>
+      <text x="190" y="137" class="fw-name mono" fill="#0369a1">lm-evaluation-harness</text>
+      <text x="184" y="156" class="fw-desc">EleutherAI · 似然/BPB/基座工业标准</text>
+    </g>
+
+    <!-- 2. VLMEvalKit -->
+    <g>
+      <rect x="112" y="194" width="184" height="56" rx="9" fill="#ffffff" stroke="#0d9488" stroke-width="1.8"/>
+      <circle cx="128" cy="213" r="5" fill="#0d9488"/>
+      <text x="208" y="217" class="fw-name mono" fill="#0f766e">VLMEvalKit</text>
+      <text x="204" y="236" class="fw-desc">多模态 VLM / 图表 / OCR 统一基准</text>
+    </g>
+
+    <!-- 3. OpenCompass -->
+    <g>
+      <rect x="378" y="132" width="198" height="58" rx="9" fill="#ffffff" stroke="#2563eb" stroke-width="1.8"/>
+      <circle cx="394" cy="151" r="5" fill="#2563eb"/>
+      <text x="480" y="155" class="fw-name mono" fill="#1d4ed8">OpenCompass</text>
+      <text x="477" y="174" class="fw-desc">中文生态全栈 · Slurm 分布式集群编排</text>
+    </g>
+
+    <!-- 4. Inspect AI (Featured) -->
+    <g>
+      <rect x="394" y="298" width="202" height="70" rx="10" fill="#ffffff" stroke="#4f46e5" stroke-width="2.2"/>
+      <rect x="498" y="287" width="88" height="19" rx="9" fill="#4f46e5"/>
+      <text x="542" y="300" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">Agent 沙箱首选</text>
+      <circle cx="412" cy="322" r="5.5" fill="#4f46e5"/>
+      <text x="496" y="326" class="fw-name mono" fill="#3730a3">Inspect AI</text>
+      <text x="495" y="344" class="fw-desc">UK AISI · 原生 Docker/K8s 沙箱</text>
+      <text x="495" y="359" class="fw-desc">内置交互式轨迹 Log Viewer 审阅</text>
+    </g>
+
+    <!-- 5. Promptfoo -->
+    <g>
+      <rect x="82" y="294" width="206" height="58" rx="9" fill="#ffffff" stroke="#d97706" stroke-width="1.8"/>
+      <circle cx="98" cy="313" r="5" fill="#d97706"/>
+      <text x="188" y="317" class="fw-name mono" fill="#b45309">Promptfoo</text>
+      <text x="185" y="336" class="fw-desc">YAML/CI 闸门 · Prompt 回归与红队安全</text>
+    </g>
+
+    <!-- 6. DeepEval -->
+    <g>
+      <rect x="140" y="374" width="200" height="58" rx="9" fill="#ffffff" stroke="#e11d48" stroke-width="1.8"/>
+      <circle cx="156" cy="393" r="5" fill="#e11d48"/>
+      <text x="244" y="397" class="fw-name mono" fill="#be123c">DeepEval</text>
+      <text x="240" y="416" class="fw-desc">Python pytest 风格 · RAG 与业务断言</text>
+    </g>
+  </g>
+
+  <!-- Right Decision Matrix Panel -->
+  <g>
+    <rect x="636" y="80" width="290" height="414" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+    <rect x="636" y="80" width="290" height="34" rx="10" fill="#f1f5f9"/>
+    <rect x="636" y="102" width="290" height="12" fill="#f1f5f9"/>
+    <text x="652" y="102" class="side-h">按团队核心诉求快速选型</text>
+
+    <!-- Row 1 -->
+    <rect x="648" y="124" width="266" height="48" rx="7" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text x="658" y="142" class="side-q">多轮 Agent / MCP / 容器隔离与人工查错</text>
+    <text x="658" y="160" class="side-a">强推 </text>
+    <rect x="688" y="148" width="76" height="17" rx="8" fill="#4f46e5"/>
+    <text x="726" y="160" class="pill-txt mono" fill="#ffffff">Inspect AI</text>
+    <text x="772" y="160" class="side-a">沙箱与轨迹视图最全</text>
+
+    <!-- Row 2 -->
+    <rect x="648" y="179" width="266" height="48" rx="7" fill="#f0f9ff" stroke="#bae6fd"/>
+    <text x="658" y="197" class="side-q">预训练 Checkpoints / BPB / 学术复现</text>
+    <text x="658" y="215" class="side-a">强推 </text>
+    <rect x="688" y="203" width="66" height="17" rx="8" fill="#0284c7"/>
+    <text x="721" y="215" class="pill-txt mono" fill="#ffffff">lm-eval</text>
+    <text x="762" y="215" class="side-a">对数似然口径对齐</text>
+
+    <!-- Row 3 -->
+    <rect x="648" y="234" width="266" height="48" rx="7" fill="#eff6ff" stroke="#bfdbfe"/>
+    <text x="658" y="252" class="side-q">中文榜单 / 百卡 Slurm 集群大规模并发</text>
+    <text x="658" y="270" class="side-a">强推 </text>
+    <rect x="688" y="258" width="90" height="17" rx="8" fill="#2563eb"/>
+    <text x="733" y="270" class="pill-txt mono" fill="#ffffff">OpenCompass</text>
+    <text x="786" y="270" class="side-a">中文题库与调度成熟</text>
+
+    <!-- Row 4 -->
+    <rect x="648" y="289" width="266" height="48" rx="7" fill="#f0fdfa" stroke="#99f6e4"/>
+    <text x="658" y="307" class="side-q">视觉 VLM / 文档 OCR / 多图视频理解</text>
+    <text x="658" y="325" class="side-a">强推 </text>
+    <rect x="688" y="313" width="78" height="17" rx="8" fill="#0d9488"/>
+    <text x="727" y="325" class="pill-txt mono" fill="#ffffff">VLMEvalKit</text>
+    <text x="774" y="325" class="side-a">百余 VLM 基准开箱用</text>
+
+    <!-- Row 5 -->
+    <rect x="648" y="344" width="266" height="48" rx="7" fill="#fffbeb" stroke="#fde68a"/>
+    <text x="658" y="362" class="side-q">企业 PR CI 门禁 / Prompt 对比 / 红队</text>
+    <text x="658" y="380" class="side-a">强推 </text>
+    <rect x="688" y="368" width="76" height="17" rx="8" fill="#d97706"/>
+    <text x="726" y="380" class="pill-txt mono" fill="#ffffff">Promptfoo</text>
+    <text x="772" y="380" class="side-a">声明式 YAML 极快</text>
+
+    <!-- Row 6 -->
+    <rect x="648" y="399" width="266" height="48" rx="7" fill="#fff1f2" stroke="#fecdd3"/>
+    <text x="658" y="417" class="side-q">Python 业务流水线 / RAG 单测集成</text>
+    <text x="658" y="435" class="side-a">强推 </text>
+    <rect x="688" y="423" width="68" height="17" rx="8" fill="#e11d48"/>
+    <text x="722" y="435" class="pill-txt mono" fill="#ffffff">DeepEval</text>
+    <text x="764" y="435" class="side-a">原生 pytest 断言流</text>
+
+    <!-- Footer tip -->
+    <rect x="648" y="454" width="266" height="30" rx="6" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="781" y="473" font-size="10.5" font-weight="600" fill="#334155" text-anchor="middle">常见生产组合：Inspect AI + Promptfoo</text>
+  </g>
+</svg>

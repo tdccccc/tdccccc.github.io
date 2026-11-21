@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="现代评测 Harness 六层模块化架构与五大分数刺客潜伏地图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .mod-num { font-size: 11px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+    .mod-title { font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .mod-en { font-size: 10.5px; fill: #64748b; }
+    .item { font-size: 11.5px; fill: #334155; }
+    .strip-txt { font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .sec-title { font-size: 13.5px; font-weight: 700; fill: #991b1b; }
+    .bug-h { font-size: 11.5px; font-weight: 700; fill: #b91c1c; text-anchor: middle; }
+    .bug-b { font-size: 10.5px; fill: #334155; text-anchor: middle; }
+    .bug-d { font-size: 10px; font-weight: 600; fill: #991b1b; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-flow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="540" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">现代评测 Harness 六层模块化架构与五大「分数刺客」</text>
+  <text x="36" y="56" class="sub">跨团队复现同模型分数相差 5–15 pp，往往不是模型退化，而是潜伏在模板渲染、采样截断与答案抽取层的工程漂移。</text>
+
+  <!-- Layer 1: Task Registry -->
+  <g>
+    <rect x="36" y="74" width="276" height="134" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+    <rect x="48" y="84" width="22" height="20" rx="5" fill="#0284c7"/>
+    <text x="59" y="98" class="mod-num">1</text>
+    <text x="78" y="98" class="mod-title">任务注册与版本锁定</text>
+    <text x="78" y="113" class="mod-en mono">Task Registry &amp; Version Pinning</text>
+    <text x="48" y="133" class="item">• 数据集快照 SHA-256 与 Split 切分锁定</text>
+    <text x="48" y="150" class="item">• 任务元数据（集群簇 ID / 难度 / 切片标签）</text>
+    <text x="48" y="167" class="item">• Prompt 与测试脚手架 Git Commit 绑定</text>
+    <rect x="46" y="177" width="256" height="23" rx="5" fill="#e0f2fe" stroke="#7dd3fc"/>
+    <text x="174" y="192" class="strip-txt" fill="#075985">防线：冻结题库哈希，阻断静默改题</text>
+  </g>
+
+  <line x1="312" y1="141" x2="338" y2="141" stroke="#475569" stroke-width="1.8" marker-end="url(#arr-flow)"/>
+
+  <!-- Layer 2: Prompt & Template Renderer -->
+  <g>
+    <rect x="342" y="74" width="276" height="134" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+    <rect x="354" y="84" width="22" height="20" rx="5" fill="#4f46e5"/>
+    <text x="365" y="98" class="mod-num">2</text>
+    <text x="384" y="98" class="mod-title">模板渲染与工具注入</text>
+    <text x="384" y="113" class="mod-en mono">Prompt / Chat Template Renderer</text>
+    <text x="354" y="133" class="item">• Jinja Chat Template 与多轮角色拼接</text>
+    <text x="354" y="150" class="item">• BOS / Thinking / Tool Schema 特殊控制符</text>
+    <text x="354" y="167" class="item">• Few-shot 示例拼装与系统指令标准化</text>
+    <rect x="352" y="177" width="256" height="23" rx="5" fill="#fee2e2" stroke="#fca5a5"/>
+    <text x="480" y="192" class="strip-txt" fill="#b91c1c">⚠ 刺客① Chat Template 与控制符漂移</text>
+  </g>
+
+  <line x1="618" y1="141" x2="644" y2="141" stroke="#475569" stroke-width="1.8" marker-end="url(#arr-flow)"/>
+
+  <!-- Layer 3: Inference Adapter -->
+  <g>
+    <rect x="648" y="74" width="276" height="134" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+    <rect x="660" y="84" width="22" height="20" rx="5" fill="#d97706"/>
+    <text x="671" y="98" class="mod-num">3</text>
+    <text x="690" y="98" class="mod-title">推理适配与并发调度</text>
+    <text x="690" y="113" class="mod-en mono">Inference Adapter &amp; Rate Limiter</text>
+    <text x="660" y="133" class="item">• OpenAI / vLLM / SGLang 统一调用协议</text>
+    <text x="660" y="150" class="item">• 令牌桶限流、指数退避与连接池复用</text>
+    <text x="660" y="167" class="item">• 温度 / top_p / stop / 思考预算透传</text>
+    <rect x="658" y="177" width="256" height="23" rx="5" fill="#fee2e2" stroke="#fca5a5"/>
+    <text x="786" y="192" class="strip-txt" fill="#b91c1c">⚠ 刺客② Stop 截断 · ③ 采样/GPU 抖动</text>
+  </g>
+
+  <!-- Stepped Connector Row 1 -> Row 2 -->
+  <path d="M786,208 L786,229 L174,229 L174,246" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arr-flow)"/>
+  <rect x="382" y="218" width="196" height="21" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="480" y="232" font-size="11" font-weight="600" fill="#475569" text-anchor="middle">模型响应 / 工具调用指令流转</text>
+
+  <!-- Layer 4: Agent Runtime & Sandbox -->
+  <g>
+    <rect x="36" y="250" width="276" height="134" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.4"/>
+    <rect x="48" y="260" width="22" height="20" rx="5" fill="#7c3aed"/>
+    <text x="59" y="274" class="mod-num">4</text>
+    <text x="78" y="274" class="mod-title">智能体运行时与沙箱桥接</text>
+    <text x="78" y="289" class="mod-en mono">Agent Runtime &amp; Sandbox Bridge</text>
+    <text x="48" y="309" class="item">• 多轮 ReAct / MCP 工具执行与步数上限</text>
+    <text x="48" y="326" class="item">• Docker / MicroVM 隔离池与录制回放代理</text>
+    <text x="48" y="343" class="item">• 上下文折叠、长观测截断与超时守护</text>
+    <rect x="46" y="353" width="256" height="23" rx="5" fill="#fee2e2" stroke="#fca5a5"/>
+    <text x="174" y="368" class="strip-txt" fill="#b91c1c">⚠ 刺客④ max_tokens / 思考预算截断</text>
+  </g>
+
+  <line x1="312" y1="317" x2="338" y2="317" stroke="#475569" stroke-width="1.8" marker-end="url(#arr-flow)"/>
+
+  <!-- Layer 5: Extractor & Scorer -->
+  <g>
+    <rect x="342" y="250" width="276" height="134" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.4"/>
+    <rect x="354" y="260" width="22" height="20" rx="5" fill="#e11d48"/>
+    <text x="365" y="274" class="mod-num">5</text>
+    <text x="384" y="274" class="mod-title">答案解析与判分器</text>
+    <text x="384" y="289" class="mod-en mono">Extractor &amp; Scorer</text>
+    <text x="354" y="309" class="item">• 多策略抽取（boxed / JSON / 代码块）</text>
+    <text x="354" y="326" class="item">• 确定性验证器（SymPy / 单元测试 / 终态）</text>
+    <text x="354" y="343" class="item">• LLM-as-a-Judge 细则判分与 RG 矫正</text>
+    <rect x="352" y="353" width="256" height="23" rx="5" fill="#fee2e2" stroke="#fca5a5"/>
+    <text x="480" y="368" class="strip-txt" fill="#b91c1c">⚠ 刺客⑤ Extractor 解析正则漂移</text>
+  </g>
+
+  <line x1="618" y1="317" x2="644" y2="317" stroke="#475569" stroke-width="1.8" marker-end="url(#arr-flow)"/>
+
+  <!-- Layer 6: Trace Store & Reporter -->
+  <g>
+    <rect x="648" y="250" width="276" height="134" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+    <rect x="660" y="260" width="22" height="20" rx="5" fill="#059669"/>
+    <text x="671" y="274" class="mod-num">6</text>
+    <text x="690" y="274" class="mod-title">轨迹归档与统计报表</text>
+    <text x="690" y="289" class="mod-en mono">Trace Store &amp; Statistical Reporter</text>
+    <text x="660" y="309" class="item">• 完整渲染后 Prompt / 原始响应 / 耗时落盘</text>
+    <text x="660" y="326" class="item">• 配对检验 CI、Clustered SE 与 pass^k 计算</text>
+    <text x="660" y="343" class="item">• infra_error 分桶隔离与 Evaluation Card</text>
+    <rect x="658" y="353" width="256" height="23" rx="5" fill="#d1fae5" stroke="#6ee7b7"/>
+    <text x="786" y="368" class="strip-txt" fill="#065f46">防线：留存全量轨迹，支持离线重判</text>
+  </g>
+
+  <!-- Bottom Assassin Summary Panel -->
+  <g>
+    <rect x="36" y="402" width="888" height="122" rx="10" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.4"/>
+    <text x="52" y="424" class="sec-title">五大「分数刺客」工程排雷速查（发布跨模型对比报告前逐项核验）</text>
+
+    <!-- Card 1 -->
+    <rect x="48" y="434" width="166" height="78" rx="7" fill="#ffffff" stroke="#fecaca"/>
+    <text x="131" y="452" class="bug-h">① 模板与控制符漂移</text>
+    <text x="131" y="470" class="bug-b">重复 BOS / 错丢 system</text>
+    <text x="131" y="486" class="bug-b">换行或 &lt;think&gt; 前缀</text>
+    <text x="131" y="503" class="bug-d">典型偏差：-4 ~ -15 pp</text>
+
+    <!-- Card 2 -->
+    <rect x="223" y="434" width="166" height="78" rx="7" fill="#ffffff" stroke="#fecaca"/>
+    <text x="306" y="452" class="bug-h">② Stop / EOS 错配</text>
+    <text x="306" y="470" class="bug-b">误把 "\n\n" 或旧版 EOS</text>
+    <text x="306" y="486" class="bug-b">当停机符提前腰斩回答</text>
+    <text x="306" y="503" class="bug-d">典型偏差：-5 ~ -20 pp</text>
+
+    <!-- Card 3 -->
+    <rect x="398" y="434" width="166" height="78" rx="7" fill="#ffffff" stroke="#fecaca"/>
+    <text x="481" y="452" class="bug-h">③ 采样与 GPU 非确定</text>
+    <text x="481" y="470" class="bug-b">T=0 仍因批大小与浮点</text>
+    <text x="481" y="486" class="bug-b">归约序产生 1–3 pp 抖动</text>
+    <text x="481" y="503" class="bug-d">对策：多次采样报均值 CI</text>
+
+    <!-- Card 4 -->
+    <rect x="573" y="434" width="166" height="78" rx="7" fill="#ffffff" stroke="#fecaca"/>
+    <text x="656" y="452" class="bug-h">④ 思考预算隐式截断</text>
+    <text x="656" y="470" class="bug-b">max_tokens 含思考段</text>
+    <text x="656" y="486" class="bug-b">导致尚未吐出终答即停</text>
+    <text x="656" y="503" class="bug-d">监控 finish_reason=length</text>
+
+    <!-- Card 5 -->
+    <rect x="748" y="434" width="166" height="78" rx="7" fill="#ffffff" stroke="#fecaca"/>
+    <text x="831" y="452" class="bug-h">⑤ 抽取正则漂移</text>
+    <text x="831" y="470" class="bug-b">漏匹配 LaTeX/全角括号</text>
+    <text x="831" y="486" class="bug-b">把正确答案错判为 0 分</text>
+    <text x="831" y="503" class="bug-d">对策：原样存盘 + 抽检解析</text>
+  </g>
+</svg>
