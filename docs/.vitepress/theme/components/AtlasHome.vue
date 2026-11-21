@@ -89,7 +89,7 @@ const filteredPosts = computed(() => {
           <div class="book-card__body">
             <div class="book-card__badges">
               <span class="badge badge--cat">{{ book.category }}</span>
-              <span class="badge badge--status">{{ book.status }}</span>
+              <span class="book-card__status">{{ book.status }}</span>
             </div>
 
             <h3 class="book-card__title">
@@ -101,15 +101,10 @@ const filteredPosts = computed(() => {
                 {{ book.title }}
               </a>
             </h3>
-            <p class="book-card__subtitle">{{ book.subtitle }}</p>
             <p class="book-card__desc">{{ book.description }}</p>
 
-            <div class="book-card__stats">
-              <span v-for="st in book.stats" :key="st" class="book-stat">{{ st }}</span>
-            </div>
-
-            <div class="book-card__tags">
-              <span v-for="tag in book.tags" :key="tag" class="book-tag"># {{ tag }}</span>
+            <div class="book-card__meta">
+              {{ book.stats.join(' · ') }}
             </div>
 
             <div class="book-card__actions">
@@ -174,9 +169,9 @@ const filteredPosts = computed(() => {
 
 <style scoped>
 .atlas-page {
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 3.2rem 1.5rem 5rem;
+  padding: 3rem 1.5rem 5rem;
 }
 
 .atlas-hero {
@@ -283,23 +278,23 @@ const filteredPosts = computed(() => {
   text-decoration: underline;
 }
 
-/* Book grid & flagship single-book layout */
+/* Book grid & compact editorial two-column cards */
 .atlas-books-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  gap: 1.35rem;
 }
 
 .atlas-books-grid.is-single {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 680px);
 }
 
 .book-card {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 1.8rem;
-  padding: 1.65rem;
-  border-radius: 16px;
+  grid-template-columns: 152px minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border-radius: 14px;
   border: 1px solid var(--atlas-border);
   background: var(--atlas-surface);
   box-shadow: var(--atlas-shadow-sm);
@@ -307,9 +302,9 @@ const filteredPosts = computed(() => {
 }
 
 .atlas-books-grid.is-single .book-card {
-  grid-template-columns: 250px minmax(0, 1fr);
-  gap: 2.2rem;
-  padding: 2rem;
+  grid-template-columns: 164px minmax(0, 1fr);
+  gap: 1.5rem;
+  padding: 1.45rem;
 }
 
 .book-card:hover {
@@ -321,14 +316,14 @@ const filteredPosts = computed(() => {
 .book-card__cover-wrap {
   display: block;
   align-self: start;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 12px 26px -10px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 10px 22px -10px rgba(15, 23, 42, 0.35);
   transition: transform 0.22s ease;
 }
 
 .book-card:hover .book-card__cover-wrap {
-  transform: translateY(-3px) scale(1.01);
+  transform: translateY(-2px) scale(1.01);
 }
 
 .book-card__cover {
@@ -347,17 +342,18 @@ const filteredPosts = computed(() => {
 
 .book-card__badges {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-bottom: 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.18rem 0.62rem;
+  padding: 0.15rem 0.56rem;
   border-radius: 999px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -367,22 +363,23 @@ const filteredPosts = computed(() => {
   color: var(--vp-c-brand-1);
 }
 
-.badge--status {
-  background: rgba(16, 185, 129, 0.12);
+.book-card__status {
+  font-size: 0.74rem;
+  font-weight: 500;
   color: #059669;
+  white-space: nowrap;
 }
 
-.dark .badge--status {
-  background: rgba(52, 211, 153, 0.14);
+.dark .book-card__status {
   color: #6ee7b7;
 }
 
 .book-card__title {
-  margin: 0 0 0.35rem;
-  font-size: 1.45rem;
+  margin: 0 0 0.45rem;
+  font-size: 1.12rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
 }
 
 .book-card__title a {
@@ -394,63 +391,35 @@ const filteredPosts = computed(() => {
   color: var(--vp-c-brand-1);
 }
 
-.book-card__subtitle {
-  margin: 0 0 0.85rem;
-  font-size: 0.94rem;
-  font-weight: 500;
-  color: var(--vp-c-brand-1);
-  line-height: 1.5;
-}
-
 .book-card__desc {
-  margin: 0 0 1.15rem;
-  font-size: 0.92rem;
-  line-height: 1.78;
+  margin: 0 0 0.65rem;
+  font-size: 0.855rem;
+  line-height: 1.65;
   color: var(--atlas-text-muted);
 }
 
-.book-card__stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.9rem;
-}
-
-.book-stat {
-  padding: 0.24rem 0.62rem;
-  border-radius: 6px;
-  background: var(--atlas-surface-subtle);
+.book-card__meta {
+  margin: 0 0 0.9rem;
   font-family: var(--vp-font-family-mono);
-  font-size: 0.76rem;
-  color: var(--vp-c-text-1);
-}
-
-.book-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-bottom: 1.35rem;
-}
-
-.book-tag {
-  font-size: 0.78rem;
-  color: var(--atlas-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--vp-c-text-2);
 }
 
 .book-card__actions {
   margin-top: auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 
 .atlas-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.58rem 1.2rem;
-  border-radius: 9px;
-  font-size: 0.88rem;
+  padding: 0.44rem 0.96rem;
+  border-radius: 8px;
+  font-size: 0.83rem;
   font-weight: 600;
   text-decoration: none;
   transition: all 0.16s ease;
@@ -565,7 +534,7 @@ const filteredPosts = computed(() => {
   box-shadow: 0 0 0 4px var(--vp-c-brand-soft);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 960px) {
   .atlas-books-grid,
   .atlas-books-grid.is-single {
     grid-template-columns: 1fr;
@@ -573,13 +542,21 @@ const filteredPosts = computed(() => {
 
   .book-card,
   .atlas-books-grid.is-single .book-card {
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 1.2rem;
+    padding: 1.2rem;
+  }
+}
+
+@media (max-width: 540px) {
+  .book-card,
+  .atlas-books-grid.is-single .book-card {
     grid-template-columns: 1fr;
-    gap: 1.35rem;
-    padding: 1.35rem;
+    gap: 1rem;
   }
 
   .book-card__cover-wrap {
-    max-width: 220px;
+    max-width: 168px;
   }
 }
 </style>
