@@ -45,8 +45,8 @@ Prometheus 生态和 vLLM `/metrics` 端点暴露的指标分为三种基本类�
     - **Prefill 时间**（`vllm:request_prefill_time_seconds`）：首次被调度到产出首 token（`NEW_TOKENS`）。
     - 例如排队 $0.5\text{ s}$、Prefill $0.3\text{ s}$，两者合占 $0.8\text{ s}$，与总 TTFT 的差值则落在前端分词与进程间通信开销上。
 2. **解码阶段（TPOT 与 ITL）**：从第 1 个 token 到最后 1 个 token。
-    - **TPOT（Time Per Output Token）**按**每条完成请求记一个样本**，反映单条请求解码阶段摊到每个后续 token 的平均耗时；
-    - **ITL（Inter-Token Latency）**按**每次流式输出事件记一个样本**，直接刻画用户屏幕上相邻两次吐字的卡顿间隔。
+    - <strong>TPOT（Time Per Output Token）</strong>按<strong>每条完成请求记一个样本</strong>，反映单条请求解码阶段摊到每个后续 token 的平均耗时；
+    - <strong>ITL（Inter-Token Latency）</strong>按<strong>每次流式输出事件记一个样本</strong>，直接刻画用户屏幕上相邻两次吐字的卡顿间隔。
 
 $$
 \text{TPOT} = \frac{\text{E2E} - \text{TTFT}}{N_{\text{out}} - 1}
@@ -58,7 +58,7 @@ $$
 即便每步只吐 1 个 token，ITL（按事件加权，长输出贡献样本多）与 TPOT（按请求加权，每条请求权重相等）的统计均值和分位数也可能不同；开启<a class="term-ref" href="/books/llm-inference/glossary#speculative_decoding" title="speculative decoding：先由低成本草稿模型预测多步候选 token，再由目标大模型单次并行验证的无损加速方法">投机解码</a>一次吐出多个 token 时，两者更会明显分叉。此外，对于只输出 1 个 token 的请求，分母 $N_{\text{out}} - 1 = 0$ 在数学上未定义——部分引擎直方图记作 0，而 `vllm bench serve` 会将其从统计中剔除。比对面板与压测工具读数时，务必先对齐口径。
 :::
 
-同样需要明确区分的是**吞吐双单位**：**请求吞吐（req/s）**回答“系统每秒能服务多少并发用户”，**Token 吞吐（tok/s）**回答“GPU 每秒产出多少解码文本”。输出长度固定时两者只差一个常数倍，但切忌拿不同长度分布的业务直接比较 tok/s。
+同样需要明确区分的是<strong>吞吐双单位</strong>：<strong>请求吞吐（req/s）</strong>回答“系统每秒能服务多少并发用户”，<strong>Token 吞吐（tok/s）</strong>回答“GPU 每秒产出多少解码文本”。输出长度固定时两者只差一个常数倍，但切忌拿不同长度分布的业务直接比较 tok/s。
 
 综合用户体验层与引擎状态层，一套干净、无废话的 vLLM 监控看板只需牢牢盯住以下 **9 个核心指标**：
 
@@ -80,7 +80,7 @@ $$
 
 ### Pull 拉取架构与三段排障法
 
-Prometheus 采用**拉取（Pull）**而非推送（Push）架构：vLLM 进程不主动向外部发送任何监控包，只是在本地 HTTP 端口的 `/metrics` 路径持续维护最新指标快照；Prometheus 按配置的 `scrape_interval` 定期发起 `GET /metrics` 拉取并落盘为时间序列；Grafana 本身不存数据，只在打开面板时把 PromQL 发给 Prometheus 渲染曲线。
+Prometheus 采用<strong>拉取（Pull）</strong>而非推送（Push）架构：vLLM 进程不主动向外部发送任何监控包，只是在本地 HTTP 端口的 `/metrics` 路径持续维护最新指标快照；Prometheus 按配置的 `scrape_interval` 定期发起 `GET /metrics` 拉取并落盘为时间序列；Grafana 本身不存数据，只在打开面板时把 PromQL 发给 Prometheus 渲染曲线。
 
 <figure class="book-figure">
   <img src="/figures/llm-inference/prometheus-pipeline.svg" alt="Prometheus Pull 监控采集链路：vLLM 暴露 /metrics 端点，Prometheus 定时拉取存储时间序列，Grafana 发起 PromQL 查询并渲染看板" loading="lazy">

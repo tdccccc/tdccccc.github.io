@@ -41,7 +41,7 @@ $$
 y = \operatorname{SiLU}(x_{[:d]}) \odot x_{[d:]}, \qquad \operatorname{SiLU}(u) = u \cdot \sigma(u)
 $$
 
-它严格落在 `CustomOp` 的**“无状态、单 `forward`”边界**内——不需要管理 Paged <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>，也不需要离线重排权重。
+它严格落在 `CustomOp` 的<strong>“无状态、单 `forward`”边界</strong>内——不需要管理 Paged <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>，也不需要离线重排权重。
 
 先算清它的访存账（FP16，每元素 2 字节）：
 

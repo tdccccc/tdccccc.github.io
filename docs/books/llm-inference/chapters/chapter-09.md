@@ -2,7 +2,7 @@
 
 <p class="chapter-summary">投机解码借 Decode 带宽受限时的空闲算力“批量验牌”，用数学上严格无损的拒绝采样换取低并发 2–3× 加速；长上下文 KV 淘汰则借 Attention Sink 稳住 Softmax 概率质量，以有损遗忘远端信息为代价锁死显存与单步读量。</p>
 
-自回归解码慢在“步步串行”，长上下文解码重在“KV 越滚越大”。第 1 章的 [Roofline 分析](chapter-01.md)已经指出：单请求解码绝大多数时间都在等 HBM 搬运权重与 <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>，Tensor Core 算力几乎完全空转。本章从两个正交方向切入这一瓶颈——**投机解码（Speculative Decoding）**把空闲算力变现为单轮多 token 产出，**KV 淘汰（KV Eviction）**把随序列线性膨胀的 KV 缓存压回常数级——同时划清两者的数学保证与工程边界。
+自回归解码慢在“步步串行”，长上下文解码重在“KV 越滚越大”。第 1 章的 [Roofline 分析](chapter-01.md)已经指出：单请求解码绝大多数时间都在等 HBM 搬运权重与 <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>，Tensor Core 算力几乎完全空转。本章从两个正交方向切入这一瓶颈——<strong>投机解码（Speculative Decoding）</strong>把空闲算力变现为单轮多 token 产出，<strong>KV 淘汰（KV Eviction）</strong>把随序列线性膨胀的 KV 缓存压回常数级——同时划清两者的数学保证与工程边界。
 
 ## 9.1 投机解码的核心直觉：借空闲算力“一次验多张牌”
 
@@ -37,7 +37,7 @@
 
 直觉听起来很美，但一个严肃的问题立刻浮现：草稿模型能力远弱于目标模型，用它的输出当候选，会不会悄悄拉低生成质量、改变大模型的概率分布？
 
-答案是**不会**。Leviathan 等人与 Chen 等人在 2023 年独立提出的**修改拒绝采样（Modified Rejection Sampling）**机制证明：只要按特定规则接收与修补，投机解码最终吐出的每一个 token，其概率分布**在数学上严格等于**目标模型独立采样的分布 $p(x)$（工程实现中仅存在微小的浮点舍入差异，不存在统计分布偏移）。
+答案是<strong>不会</strong>。Leviathan 等人与 Chen 等人在 2023 年独立提出的<strong>修改拒绝采样（Modified Rejection Sampling）</strong>机制证明：只要按特定规则接收与修补，投机解码最终吐出的每一个 token，其概率分布<strong>在数学上严格等于</strong>目标模型独立采样的分布 $p(x)$（工程实现中仅存在微小的浮点舍入差异，不存在统计分布偏移）。
 
 ### 两条规则与一个彩蛋：严格无损的判定律
 
@@ -191,12 +191,12 @@ $$\text{Speedup}(\alpha, \gamma, c) = \frac{E(\alpha, \gamma)}{1 + \gamma c} = \
 
 - 权重读取地板恒为 $8.03\text{ ms}$（仅看权重搬运），脊点为 $156\text{ FLOP/B}$；
 - `batch = 1`、$\gamma = 4$：验证每步算 $1 \times 5 = 5$ 个 token，计算耗时仅 $0.257\text{ ms} \ll 8.03\text{ ms}$，多算的 4 个草稿位置完全藏在空闲算力里，近乎免费；
-- 当 QPS 上升、并发 `batch = 32` 且 $\gamma = 4$：每轮验证的等效 token 数瞬间膨胀到 $32 \times 5 = 160$，**直接越过 A100 156 FLOP/B 的脊点**！此时仅计算耗时就达 $160 \times 0.0515\text{ ms} = \mathbf{8.24\text{ ms}} > 8.03\text{ ms}$，GPU 从带宽受限区翻入**<a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>区**！
+- 当 QPS 上升、并发 `batch = 32` 且 $\gamma = 4$：每轮验证的等效 token 数瞬间膨胀到 $32 \times 5 = 160$，<strong>直接越过 A100 156 FLOP/B 的脊点</strong>！此时仅计算耗时就达 $160 \times 0.0515\text{ ms} = \mathbf{8.24\text{ ms}} > 8.03\text{ ms}$，GPU 从带宽受限区翻入<strong><a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>区</strong>！
 
 一旦越过脊点，验证多出来的 $\gamma$ 个位置不再免费，而是与正常并发请求真刀真枪地抢夺 Tensor Core 算力——更糟的是，**每一个被拒绝的草稿 token 消耗的算力都彻底打了水漂**。除此之外，高并发下的草稿前向排队、草稿 KV 挤占显存（缩小可用最大 batch）也会进一步拉低<a class="term-ref" href="/books/llm-inference/glossary#goodput" title="goodput：同时满足延迟（TTFT/ITL）SLO 与正确性约束的有效请求吞吐">有效吞吐</a>。
 
 ::: info 工程取舍：围绕交叉点做动态决策
-不要被“最高 2.8×”的离线单并发头条数字迷惑。投机解码的真正定位是**低/中并发下的延迟加速器（压低 TPOT）**，而非高满载集群的吞吐万能药。生产部署中，若集群昼夜流量峰谷悬殊，应启用引擎的**动态投机（Dynamic Speculative Decoding）**或按实时并发深度阈值自动缩减 $\gamma$ 乃至关闭投机：低谷期开足 $\gamma$ 压榨极速响应，高峰期自动退回标准<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>保护吞吐。同时注意，调节 `temperature` 与 `top_p` 时，接受率取决于目标与草稿分布的重叠度，未必随温度单调下降，上线前应按固定采样参数实测自身负载的 QPS 交叉区间。
+不要被“最高 2.8×”的离线单并发头条数字迷惑。投机解码的真正定位是<strong>低/中并发下的延迟加速器（压低 TPOT）</strong>，而非高满载集群的吞吐万能药。生产部署中，若集群昼夜流量峰谷悬殊，应启用引擎的<strong>动态投机（Dynamic Speculative Decoding）</strong>或按实时并发深度阈值自动缩减 $\gamma$ 乃至关闭投机：低谷期开足 $\gamma$ 压榨极速响应，高峰期自动退回标准<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>保护吞吐。同时注意，调节 `temperature` 与 `top_p` 时，接受率取决于目标与草稿分布的重叠度，未必随温度单调下降，上线前应按固定采样参数实测自身负载的 QPS 交叉区间。
 :::
 
 ## 9.4 长上下文 KV 淘汰与 Attention Sink

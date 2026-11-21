@@ -6,7 +6,9 @@ import html
 import importlib.util
 import re
 import shutil
+import string
 import sys
+import unicodedata
 from pathlib import Path
 
 SRC_ROOT = Path("/home/tiandc/Documents/code/time-to-first-token")
@@ -160,6 +162,110 @@ def convert_admonitions(lines: list[str]) -> list[str]:
     return out
 
 
+
+# --- CommonMark emphasis compatibility -------------------------------------
+# MkDocs (Python-Markdown) 与 VitePress (markdown-it/CommonMark) 对强调分隔符
+# 的配对规则不同：当 **…** 贴着中文标点时（如「**投机解码（Speculative
+# Decoding）**把…」），CommonMark 的 left/right-flanking 规则会拒绝配对，
+# 渲染出字面量星号而不是加粗。这里把这类段落里的 **…** 改写成语义等价的
+# <strong>…</strong>，只改标记不改文字，渲染结果与 MkDocs 一致。
+_ASCII_PUNCT = set(string.punctuation)
+_BACKTICK = chr(96)
+
+
+def _is_punct(ch: str) -> bool:
+    return ch in _ASCII_PUNCT or (bool(ch) and unicodedata.category(ch)[0] == "P")
+
+
+def _is_ws(ch: str) -> bool:
+    return (not ch) or ch.isspace()
+
+
+def _open_fails(prev: str, nxt: str) -> bool:
+    """左分隔符不满足 left-flanking。"""
+    return (not _is_ws(prev)) and (not _is_punct(prev)) and _is_punct(nxt)
+
+
+def _close_fails(prev: str, nxt: str) -> bool:
+    """右分隔符不满足 right-flanking。"""
+    return (not _is_ws(nxt)) and (not _is_punct(nxt)) and _is_punct(prev)
+
+
+def _protect_inline(line: str) -> list[tuple[int, int]]:
+    """行内代码与 LaTeX 公式的区间，其内部的星号不参与强调解析。"""
+    protected: list[tuple[int, int]] = []
+    i, n = 0, len(line)
+    while i < n:
+        if line[i] == _BACKTICK:
+            j = line.find(_BACKTICK, i + 1)
+            if j != -1:
+                protected.append((i, j + 1))
+                i = j + 1
+                continue
+        if line[i] == "$":
+            if line.startswith("$$", i):
+                j = line.find("$$", i + 2)
+                if j != -1:
+                    protected.append((i, j + 2))
+                    i = j + 2
+                    continue
+            else:
+                j = line.find("$", i + 1)
+                if j != -1:
+                    protected.append((i, j + 1))
+                    i = j + 1
+                    continue
+        i += 1
+    return protected
+
+
+def _fix_emphasis_line(line: str) -> str:
+    protected = _protect_inline(line)
+
+    def is_protected(pos: int) -> bool:
+        return any(a <= pos < b for a, b in protected)
+
+    n = len(line)
+    stars = [
+        k
+        for k in range(n - 1)
+        if line[k] == "*" and line[k + 1] == "*" and not is_protected(k)
+    ]
+    if not stars or len(stars) % 2:
+        return line
+
+    broken = any(
+        _open_fails(line[a - 1] if a else "", line[a + 2] if a + 2 < n else "")
+        or _close_fails(line[b - 1] if b else "", line[b + 2] if b + 2 < n else "")
+        for a, b in zip(stars[0::2], stars[1::2])
+    )
+    if not broken:
+        return line
+
+    out: list[str] = []
+    last = 0
+    for index, pos in enumerate(stars):
+        out.append(line[last:pos])
+        out.append("<strong>" if index % 2 == 0 else "</strong>")
+        last = pos + 2
+    out.append(line[last:])
+    return "".join(out)
+
+
+def fix_emphasis(text: str) -> str:
+    """把 CommonMark 无法配对的 **…** 改写为 <strong>…</strong>（文字不变）。"""
+    out: list[str] = []
+    in_fence = False
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith(_BACKTICK * 3) or stripped.startswith("~~~"):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        out.append(line if in_fence else _fix_emphasis_line(line))
+    return "\n".join(out)
+
+
 def convert_markdown(text: str, *, is_book_index: bool = False, annotate: bool = True) -> str:
     # 1. Strip MkDocs heading class attributes
     text = re.sub(r"\s*\{\s*\.(?:chapter-title|home-title|part-title)\s*\}", "", text)
@@ -247,7 +353,8 @@ def convert_markdown(text: str, *, is_book_index: bool = False, annotate: bool =
             line = "".join(parts)
         out_lines.append(line)
 
-    return "\n".join(out_lines).rstrip() + "\n"
+    # 9. 让 **…** 在 CommonMark 下也能正确加粗（贴中文标点时会失效）
+    return fix_emphasis("\n".join(out_lines)).rstrip() + "\n"
 
 
 def build_book_index() -> str:

@@ -71,7 +71,7 @@ $$
 r = (n - 1) \cdot q, \qquad \hat{x}_q = x_{\lfloor r \rfloor} + \bigl(r - \lfloor r \rfloor\bigr)\bigl(x_{\lceil r \rceil} - x_{\lfloor r \rfloor}\bigr)
 $$
 
-工程中还存在另一种 **nearest-rank（最近秩）**算法，取第 $\lceil n q \rceil$ 个样本。小样本下两种算法算出的 p99 可能直接差出一个极端值，因此压测报告务必标明所用分位数定义。
+工程中还存在另一种 <strong>nearest-rank（最近秩）</strong>算法，取第 $\lceil n q \rceil$ 个样本。小样本下两种算法算出的 p99 可能直接差出一个极端值，因此压测报告务必标明所用分位数定义。
 
 ### 两个直击痛点的算例
 
@@ -177,7 +177,7 @@ def measure_stream(url: str, model: str, prompt: str, max_tokens: int = 128) -> 
 
 ## 3.4 如何读懂一份基线并发曲线
 
-掌握了指标和测量工具，最后一步是把并发从低到高扫一遍，从表格里亲手读出系统的**性能拐点（Knee）**与 **<a class="term-ref" href="/books/llm-inference/glossary#slo" title="Service Level Objective，服务等级目标：对服务延迟分位数（如 TTFT/ITL p95）与可用性设定的可度量目标">SLO</a>有效容量（Goodput）**。
+掌握了指标和测量工具，最后一步是把并发从低到高扫一遍，从表格里亲手读出系统的<strong>性能拐点（Knee）</strong>与 <strong><a class="term-ref" href="/books/llm-inference/glossary#slo" title="Service Level Objective，服务等级目标：对服务延迟分位数（如 TTFT/ITL p95）与可用性设定的可度量目标">SLO</a>有效容量（Goodput）</strong>。
 
 ### A100 80GB + Llama-3.1-8B 并发扫描范例
 

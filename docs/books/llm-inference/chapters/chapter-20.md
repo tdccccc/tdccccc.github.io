@@ -19,7 +19,7 @@
 | **计算基础层** | 共享虚拟内存（SVM）、设备虚拟化、主机-设备通信 | SDK / 运行时（内核交互面） | 内存映射失败、设备句柄异常；核对设备节点与容器共享内存 |
 | *驱动与固件（五层之下）* | HDK（Driver / Firmware） | 驱动 / 固件 | `npu-smi info` 不可见或 Health 非 OK；排查宿主机驱动安装 |
 
-把两张架构图对齐，就能明白为什么**“写一个算子”绝不只是单层操作**：算子源码在**计算编译层**被编译成 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>二进制；产物作为算子包安装进**计算服务层**的 OPP（Operator Package）检索目录；运行时由框架通过**计算语言层**的 `aclnn` C 接口调用，再经 `torch_npu` 与 `vllm-ascend` 接入模型。只写完 kernel 源码却漏掉安装注册，在推理引擎眼里这个算子就跟不存在一样。
+把两张架构图对齐，就能明白为什么<strong>“写一个算子”绝不只是单层操作</strong>：算子源码在<strong>计算编译层</strong>被编译成 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>二进制；产物作为算子包安装进<strong>计算服务层</strong>的 OPP（Operator Package）检索目录；运行时由框架通过<strong>计算语言层</strong>的 `aclnn` C 接口调用，再经 `torch_npu` 与 `vllm-ascend` 接入模型。只写完 kernel 源码却漏掉安装注册，在推理引擎眼里这个算子就跟不存在一样。
 
 ::: info 工程取舍：把五层当排查地图，而非严格 OSI 调用栈
 CANN 的五层划分是按功能职责切分的**定位地图**，不是“每层只能调紧邻下一层”的严格协议栈。例如 AscendCL 作为统一对外接口被多方直接调用，图引擎 GE 也可以被单算子直调绕过。拿到报错时，先看关键词（`aclnn`、UB overflow、HCCL、SVM）落入哪一层的职责域，排查方向立刻清晰。
@@ -146,8 +146,8 @@ extern "C" __global__ __aicore__ void add_custom(
 
 逐一拆解这段代码里的五个核心对象与入口约定：
 
-- **入口五参数与核类型**：`x`、`y`、`z` 是输入输出在全局内存（GM，即 HBM）的裸地址；`workspace` 是跨核交换或暂存用的显存工作区；`tiling` 承载 host 侧预计算的切分结构体，kernel 通过 `GET_TILING_DATA` 直接读取而不必在片上重算。`KERNEL_TYPE_AIV_ONLY` 在编译期声明仅启用**向量核（AIV，AI Vector Core）**；若为矩阵乘算子则需声明使用**矩阵核（AIC，AI Cube Core）**或 CV 混合模式——核类型直接决定了该算子的硬件算力天花板。
-- **`GlobalTensor<T>` 与 `LocalTensor<T>`**：前者封装全局显存 HBM 上的张量视图，后者封装片上**统一缓冲区（UB，Unified Buffer）**上的局部张量视图。NPU 的向量计算指令不能直接读写 HBM，数据必须先搬进 UB 才能算。
+- <strong>入口五参数与核类型</strong>：`x`、`y`、`z` 是输入输出在全局内存（GM，即 HBM）的裸地址；`workspace` 是跨核交换或暂存用的显存工作区；`tiling` 承载 host 侧预计算的切分结构体，kernel 通过 `GET_TILING_DATA` 直接读取而不必在片上重算。`KERNEL_TYPE_AIV_ONLY` 在编译期声明仅启用<strong>向量核（AIV，AI Vector Core）</strong>；若为矩阵乘算子则需声明使用<strong>矩阵核（AIC，AI Cube Core）</strong>或 CV 混合模式——核类型直接决定了该算子的硬件算力天花板。
+- <strong>`GlobalTensor<T>` 与 `LocalTensor<T>`</strong>：前者封装全局显存 HBM 上的张量视图，后者封装片上<strong>统一缓冲区（UB，Unified Buffer）</strong>上的局部张量视图。NPU 的向量计算指令不能直接读写 HBM，数据必须先搬进 UB 才能算。
 - **`TPipe`、`TQue<..., N>` 与 `TBuf`**：`TPipe` 是算子内部的片上资源大管家，统一分配 UB 内存与硬件同步事件；`TQue` 是连接上下游硬件单元的队列，既承载 `LocalTensor` 内存块，又用 `EnQue` / `DeQue` 表达严格的生产者-消费者硬件事件同步；若需要纯临时片上暂存区（不跨流水交接），则用 `TBuf` 申请。
 
 ### 三级独立硬件流水与双缓冲的数学账
@@ -174,7 +174,7 @@ $$
 \text{AI} = \frac{1{,}048{,}576\;\text{FLOP}}{12{,}582{,}912\;\text{B}} \approx 0.083\;\text{FLOP/B}
 $$
 
-这是一个极其典型的**<a class="term-ref" href="/books/llm-inference/glossary#memory_bound" title="memory-bound：运行时间主要受显存数据搬运速度限制的状态">显存带宽受限</a>**算子——实际中 `Compute` 的时间远小于 `CopyIn` 与 `CopyOut`。双缓冲真正消除的是阶段之间的“干等空泡”，让搬运尽量贴近 HBM 带宽上限，**它绝不会让 12 MiB 的总搬运量变少**；同时，双缓冲会让三个队列的片上 **UB 占用直接翻倍**（本例中 $3 \times 2 \times 1024 \times 4\,\text{B} = 24\,\text{KiB}$）。当中间张量很多、UB 告急时，只能在“缩小单块 `TILE_LENGTH`”与“降为单缓冲”之间做工程取舍。
+这是一个极其典型的<strong><a class="term-ref" href="/books/llm-inference/glossary#memory_bound" title="memory-bound：运行时间主要受显存数据搬运速度限制的状态">显存带宽受限</a></strong>算子——实际中 `Compute` 的时间远小于 `CopyIn` 与 `CopyOut`。双缓冲真正消除的是阶段之间的“干等空泡”，让搬运尽量贴近 HBM 带宽上限，<strong>它绝不会让 12 MiB 的总搬运量变少</strong>；同时，双缓冲会让三个队列的片上 <strong>UB 占用直接翻倍</strong>（本例中 $3 \times 2 \times 1024 \times 4\,\text{B} = 24\,\text{KiB}$）。当中间张量很多、UB 告急时，只能在“缩小单块 `TILE_LENGTH`”与“降为单缓冲”之间做工程取舍。
 
 ### 分块粒度与 32 字节对齐尾巴
 

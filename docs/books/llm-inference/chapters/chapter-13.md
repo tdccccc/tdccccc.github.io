@@ -13,7 +13,7 @@
 CUDA 和 Triton 的本质差异，在于你写的那段代码究竟代表谁在干活：
 
 - **CUDA（SIMT 单线程视角）**：你写的代码描述**单个线程**如何计算标量坐标、搬运 1 个或 4 个元素、并在块内显式同步。你亲手操控 Shared Memory、Bank Padding 和每条向量 Load 指令。
-- **Triton（SPMD Block 级张量视角）**：你写的代码描述**一整个 Program（等价于一个 CUDA Block / CTA）**如何加载一整块 Tile（如 $64 \times 32$ 的子矩阵）、执行块级张量运算并写回显存。至于这块数据具体切给哪几个 <a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>、怎么合并访存、何时借 Shared Memory 做转置、如何做多级软件流水线（Software Pipelining），全部交由 Triton 编译器在编译期自动完成。
+- <strong>Triton（SPMD Block 级张量视角）</strong>：你写的代码描述<strong>一整个 Program（等价于一个 CUDA Block / CTA）</strong>如何加载一整块 Tile（如 $64 \times 32$ 的子矩阵）、执行块级张量运算并写回显存。至于这块数据具体切给哪几个 <a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>、怎么合并访存、何时借 Shared Memory 做转置、如何做多级软件流水线（Software Pipelining），全部交由 Triton 编译器在编译期自动完成。
 
 ::: tip 核心直觉：Triton 的“Python”不在 GPU 上跑
 很多初学者担心“用 Python 写 Kernel 会不会很慢？”这是一个经典误解。`@triton.jit` 装饰的函数在首次调用时会被编译成 LLVM IR 再降至原生 **PTX / SASS 机器码**，执行时完全运行在 GPU SM 上，Python 解释器只出现在启动前的编译与参数分发路径上。

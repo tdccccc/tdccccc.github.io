@@ -56,7 +56,7 @@ $$\text{IO}_{S,P} = 2 \times 2 \times (2 N^2) = 8 N^2 = 8 \times 1024^2 = 8{,}38
 
 $$m = \max_{j} S_j, \qquad l = \sum_{j} e^{S_j - m}, \qquad O = \frac{1}{l} \sum_{j} e^{S_j - m} V_j$$
 
-分块处理 $K, V$ 时，算完第 1 块根本不知道后面块里藏着多大的分数，全局 $m$ 和 $l$ 都是未知数。如果等扫完所有块再回头算 Softmax，就又得把整个 $S$ 写回 HBM。**Online Softmax** 用极其优雅的**换底重缩放（Rescaling）**恒等式彻底解开了这个死结。
+分块处理 $K, V$ 时，算完第 1 块根本不知道后面块里藏着多大的分数，全局 $m$ 和 $l$ 都是未知数。如果等扫完所有块再回头算 Softmax，就又得把整个 $S$ 写回 HBM。<strong>Online Softmax</strong> 用极其优雅的<strong>换底重缩放（Rescaling）</strong>恒等式彻底解开了这个死结。
 
 ### 运行状态不变式与精确更新推导
 

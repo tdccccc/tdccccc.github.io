@@ -4,7 +4,7 @@
 
 第 5 章的 vLLM 已经通过分页和<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>把单次请求内的显存浪费压到极低，但如果在每条请求结束时直接把 KV 全部销毁，另一笔巨大的浪费就会浮现出来：真实业务里，成百上千条请求往往顶着同一段冗长的 System Prompt、同一篇 RAG 检索文档，或在同一场多轮对话里不断把前几轮历史重复发给模型。如果每次都从头 <a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>、各自存一份私有 KV，GPU 的大部分算力与显存都会耗在重复劳动上。
 
-本章先算清重复前缀这笔隐形账本，再沿着**“整段哈希 → Block 哈希 → 基数树”**的粒度演进路线拆解 <a class="term-ref" href="/books/llm-inference/glossary#radix_attention" title="Radix Attention，基数树注意力：用压缩前缀树（Radix Tree）按 token 粒度管理、共享与 LRU 淘汰 KV 缓存的机制">RadixAttention</a>的数据结构与调度生命周期，最后把<a class="term-ref" href="/books/llm-inference/glossary#chunked_prefill" title="chunked prefill，分块预填充：将长 prompt 的 prefill 切为定长小块，与 decode 请求混批以消除解码卡顿">分块 Prefill</a>与 SGLang 的前后端协同设计拼成完整图景。
+本章先算清重复前缀这笔隐形账本，再沿着<strong>“整段哈希 → Block 哈希 → 基数树”</strong>的粒度演进路线拆解 <a class="term-ref" href="/books/llm-inference/glossary#radix_attention" title="Radix Attention，基数树注意力：用压缩前缀树（Radix Tree）按 token 粒度管理、共享与 LRU 淘汰 KV 缓存的机制">RadixAttention</a>的数据结构与调度生命周期，最后把<a class="term-ref" href="/books/llm-inference/glossary#chunked_prefill" title="chunked prefill，分块预填充：将长 prompt 的 prefill 切为定长小块，与 decode 请求混批以消除解码卡顿">分块 Prefill</a>与 SGLang 的前后端协同设计拼成完整图景。
 
 ---
 
@@ -248,7 +248,7 @@ SGLang 为此引入了**缓存感知调度（Cache-Aware Scheduling / Longest Pr
 
 前缀复用再强，也救不了那些首次出现、完全未命中的长 Prompt。一条 8K 或 32K 的新文档进来，算力密集型的 Prefill 仍然必须完整算完；如果任由它独占 GPU 几十上百毫秒，正在流式输出的 Decode 请求就会集体卡顿。
 
-来自 SARATHI 与 Sarathi-Serve 的**分块 Prefill（Chunked Prefill）**配合 **Decode-Maximal 批处理**补上了这另一半拼图：
+来自 SARATHI 与 Sarathi-Serve 的<strong>分块 Prefill（Chunked Prefill）</strong>配合 <strong>Decode-Maximal 批处理</strong>补上了这另一半拼图：
 
 - **机制**：把一个大 Prefill 切分成近似等大的 Chunk，每个 Chunk 搭上尽可能多的活跃 Decode 请求拼进同一个 Batch。以一条 **2,048 token** 的未命中 Prompt 为例：
   - `chunk_size = 2048`（不分块）：Decode 必须原地干等整段 2,048 token 算完。

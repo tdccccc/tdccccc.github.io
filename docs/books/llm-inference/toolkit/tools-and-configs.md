@@ -8,7 +8,7 @@
 
 ## 一、流式压测与本地模拟参考源码
 
-对应 [第 3 章（推理度量与压测方法）](../chapters/chapter-03.md) 与 [测量口径与对比分析方法](methodology.md)，仓库提供了一对**零外部依赖（纯 Python 标准库）**的流式测量与回环模拟参考实现：
+对应 [第 3 章（推理度量与压测方法）](../chapters/chapter-03.md) 与 [测量口径与对比分析方法](methodology.md)，仓库提供了一对<strong>零外部依赖（纯 Python 标准库）</strong>的流式测量与回环模拟参考实现：
 
 - **压测客户端**：[`bench_openai.py`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part1-foundations/scripts/bench_openai.py)
 - **回环模拟流服务端**：[`mock_sse.py`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part1-foundations/scripts/mock_sse.py)

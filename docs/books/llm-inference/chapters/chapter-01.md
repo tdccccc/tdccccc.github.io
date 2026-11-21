@@ -44,8 +44,8 @@ $$
 
 把工作负载的 $I$ 和硬件的 $I_{\text{ridge}}$ 放在一起比大小，结果立判：
 
-- 当 $I < I_{\text{ridge}}$ 时，$T_{\text{memory}} > T_{\text{compute}}$，机床大部分时间在干等传送带送原料，系统处于**显存带宽受限（Memory-bound）**区间；
-- 当 $I > I_{\text{ridge}}$ 时，$T_{\text{compute}} > T_{\text{memory}}$，传送带足够快，机床满负荷运转，系统处于**计算受限（Compute-bound）**区间；
+- 当 $I < I_{\text{ridge}}$ 时，$T_{\text{memory}} > T_{\text{compute}}$，机床大部分时间在干等传送带送原料，系统处于<strong>显存带宽受限（Memory-bound）</strong>区间；
+- 当 $I > I_{\text{ridge}}$ 时，$T_{\text{compute}} > T_{\text{memory}}$，传送带足够快，机床满负荷运转，系统处于<strong>计算受限（Compute-bound）</strong>区间；
 - 当 kernel 非常小（例如只处理几百 KB 数据的归一化或激活算子），$T_{\text{compute}}$ 和 $T_{\text{memory}}$ 都只有零点几微秒，远小于微秒级的 CPU 发射与同步耗时，此时系统落在 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>两根线之外的第三区间——**启动开销受限（Overhead-bound）**。
 
 <figure class="book-figure">
@@ -156,7 +156,7 @@ $$
 
 ### 算子融合：省的是 HBM 往返与启动，不是 FLOPs
 
-除了权重和 KV，未优化的模型前向里还充斥着大量“读出来、算一下、写回去、下个算子再读出来”的中间张量。**算子融合（Operator Fusion）**就是把相邻算子拼进同一个 kernel，让中间结果留在高速的片上寄存器或 <a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="共享内存：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">shared memory</a>里直接消费，彻底绕开慢速 HBM。
+除了权重和 KV，未优化的模型前向里还充斥着大量“读出来、算一下、写回去、下个算子再读出来”的中间张量。<strong>算子融合（Operator Fusion）</strong>就是把相邻算子拼进同一个 kernel，让中间结果留在高速的片上寄存器或 <a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="共享内存：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">shared memory</a>里直接消费，彻底绕开慢速 HBM。
 
 用两个具体算例建立直觉（均按 A100 2 TB/s 带宽计算）：
 

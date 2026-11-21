@@ -50,7 +50,7 @@ $$\text{row} = \text{blockIdx.y} \cdot \text{blockDim.y} + \text{threadIdx.y}, \
 1. **合并访存（Memory Coalescing）**：硬件从显存搬运数据的最小粒度不是 4 字节的 `float`，而是 32 字节扇区（Sector）组成的 128 字节缓存行。
     - **理想连续访问**：同一 Warp 的 32 个线程读取 32 个相邻的 FP32 元素，总计 128 字节，硬件合并为 **1 次 128 字节事务**即可取完，有效带宽利用率 100%。
     - **跨步非连续访问**：若 32 个线程读取的地址彼此相隔 32 个 `float`（例如按列遍历行优先矩阵），每个线程落在不同的 32 字节扇区，硬件被迫发出 32 个扇区读取，实际搬运 $32 \times 32 = 1024$ 字节，而算子真正用到的只有 128 字节——整整 **8 倍显存带宽白白浪费在无用字节上**。
-2. **Warp 延迟隐藏与占用率（Occupancy）**：读一次 HBM 需要数百个周期，SM 并不靠大缓存硬扛，而是靠**零开销上下文切换**掩盖延迟。当 Warp A 发出全局内存读取并陷入等待时，SM 的 Warp 调度器在下一个周期直接切换给就绪的 Warp B 发射算术指令。**占用率（Occupancy）**即单个 SM 上同时驻留的活跃 Warp 数占硬件上限（A100 为 64 Warp / 2048 线程，共 108 个 SM；H100 为 64 Warp / SM，共 132 个 SM）的比例。驻留 Warp 是调度器手里的“牌”：牌太少，所有 Warp 都在等访存时 SM 只能空转；但牌也不是越多越好，一旦为了追求高占用率而强行压低单线程寄存器配额，导致变量溢出（Spill）到片外 Local Memory，性能反而雪崩。
+2. <strong>Warp 延迟隐藏与占用率（Occupancy）</strong>：读一次 HBM 需要数百个周期，SM 并不靠大缓存硬扛，而是靠<strong>零开销上下文切换</strong>掩盖延迟。当 Warp A 发出全局内存读取并陷入等待时，SM 的 Warp 调度器在下一个周期直接切换给就绪的 Warp B 发射算术指令。<strong>占用率（Occupancy）</strong>即单个 SM 上同时驻留的活跃 Warp 数占硬件上限（A100 为 64 Warp / 2048 线程，共 108 个 SM；H100 为 64 Warp / SM，共 132 个 SM）的比例。驻留 Warp 是调度器手里的“牌”：牌太少，所有 Warp 都在等访存时 SM 只能空转；但牌也不是越多越好，一旦为了追求高占用率而强行压低单线程寄存器配额，导致变量溢出（Spill）到片外 Local Memory，性能反而雪崩。
 
 ---
 
@@ -90,7 +90,7 @@ $$I_{\text{ridge, FP32}} = \frac{19.5\text{ TFLOPS}}{2\text{ TB/s}} = 9.75\text{
 
 定位“为什么慢”则依赖第 4 章介绍的 Nsight Compute（`ncu`）。查看 `SpeedOfLight`、`Occupancy` 与 `MemoryWorkloadAnalysis` 时需遵循两条铁律：
 
-1. **SM% 与 DRAM% 只做初筛，不作唯一判决**：`sm__throughput` 汇总了 SM 内多条子流水（FP32、LSU、SFU 等）的最高值，访存单元（LSU）指令拥堵同样会推高 SM%。因此必须结合**实际 DRAM 读写字节数、L1/L2 命中率、生成指令数（`LDG` / `LDS`）**与 **SchedulerStats 中的活跃/就绪/停顿 Warp（Active / Eligible / Stall Reasons）**交叉印证。
+1. <strong>SM% 与 DRAM% 只做初筛，不作唯一判决</strong>：`sm__throughput` 汇总了 SM 内多条子流水（FP32、LSU、SFU 等）的最高值，访存单元（LSU）指令拥堵同样会推高 SM%。因此必须结合<strong>实际 DRAM 读写字节数、L1/L2 命中率、生成指令数（`LDG` / `LDS`）</strong>与 <strong>SchedulerStats 中的活跃/就绪/停顿 Warp（Active / Eligible / Stall Reasons）</strong>交叉印证。
 2. **计时与 Profile 分开采**：`ncu` 为读取硬件计数器会多次重放（Replay）Kernel，其报告内的时间不可当作真实性能数字；真实耗时永远看独立的 CUDA Events 计时。
 
 ```bash
@@ -195,8 +195,8 @@ $$I_{\text{tiled}} = \frac{2 B^3}{2 \times 4 B^2} = \frac{B}{4}\text{ FLOP/B}$$
 
 先分清两个常被混为一谈的概念：
 
-- **合并访存（Coalescing）**解决的是“**跨线程**地址是否连续”——第 2 版的标量读已经满足合并（同 Warp 内 `tx` 连续，32 线程正好读 128 字节）。
-- **向量化访存（Vectorization）**解决的是“**单线程单条指令**搬多少字节”。SM 每个周期的指令发射槽位有限，1 条 32-bit `LDG.E`（搬 4 字节）和 1 条 128-bit `LDG.E.128`（借助 `float4` 一次搬 16 字节）同样消耗 1 个发射槽。
+- <strong>合并访存（Coalescing）</strong>解决的是“<strong>跨线程</strong>地址是否连续”——第 2 版的标量读已经满足合并（同 Warp 内 `tx` 连续，32 线程正好读 128 字节）。
+- <strong>向量化访存（Vectorization）</strong>解决的是“<strong>单线程单条指令</strong>搬多少字节”。SM 每个周期的指令发射槽位有限，1 条 32-bit `LDG.E`（搬 4 字节）和 1 条 128-bit `LDG.E.128`（借助 `float4` 一次搬 16 字节）同样消耗 1 个发射槽。
 
 改用 `float4` 搬运每个 $32 \times 32$ Tile 时，1024 个元素只需 **256 条** `float4` 加载指令（而非 1024 条标量加载），指令数直降为 **1/4**。对全矩阵 $16{,}384$ 个 Block × 128 轮 × 2 块 Tile 而言，总计直接省掉约 **32.2 亿条**全局 Load 指令！向量化不改变 17.18 GB 的总搬运字节数，也不改变算术强度，但显著释放了指令发射队列与 LSU 压力。
 
@@ -238,7 +238,7 @@ $$\text{bank}(33 \cdot tx + k) = (32 \cdot tx + tx + k) \bmod 32 = (tx + k) \bmo
 1. **Occupancy 断崖**：$32 \times 32 = 1024$ 线程的 Block 粒度过粗。A100 每 SM 上限 2048 线程（最多 2 个 Block）和 65,536 个寄存器。一旦编译器为每个线程分配超过 32 个寄存器（如 40 个），单 SM 驻留 Block 数便从 2 个腰斩到 1 个，理论占用率瞬间从 **100% 跌至 50%**；且第 3 版搬运 `float4` 时，1024 个线程里只有前 256 个干活，其余 768 个线程空等。
 2. **算术/Shared 读取比偏低**：每个线程只算 1 个输出元素，内层每执行 1 次 FMA 需要从 Shared Memory 读 2 次数据（`As[ty][k]` 与 `Bs[k][tx]`），Shared 带宽与 `LDS` 指令极易成为新的天花板。
 
-**线程粗化（Thread Coarsening）**一石二鸟：维持 $32 \times 32$ 的 Tile 与 8 KiB Shared Memory 不变，将 Block 缩小为 $16 \times 16 = 256$ 线程（8 个 Warp），让**每个线程在寄存器中维护一个 $2 \times 2$ 累加器阵列** `acc[2][2]`，一次性算出 4 个相邻输出元素。以下是仓库完整基准 [gemm_bench.cu](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/gemm_bench.cu) 中的第四版核心实现：
+<strong>线程粗化（Thread Coarsening）</strong>一石二鸟：维持 $32 \times 32$ 的 Tile 与 8 KiB Shared Memory 不变，将 Block 缩小为 $16 \times 16 = 256$ 线程（8 个 Warp），让<strong>每个线程在寄存器中维护一个 $2 \times 2$ 累加器阵列</strong> `acc[2][2]`，一次性算出 4 个相邻输出元素。以下是仓库完整基准 [gemm_bench.cu](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/gemm_bench.cu) 中的第四版核心实现：
 
 ```cpp
 // Tile 维持 32x32，Block 改为 16x16=256 线程，每线程负责 2x2 共 4 个输出

@@ -16,7 +16,7 @@
 
 1. **剥离冷启动，只采稳态**：前几次前向混杂着 JIT 编译、算子库 autotune、显存池初始化与芯片时钟爬升。必须用相同输入形状连续预热若干轮，再采集稳态单步。
 2. **<a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>与 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>严格分采**：两个阶段的算子画像截然不同——Prefill 以大矩阵乘和长序列注意力为主，Decode 则是瘦矩阵乘加上高频的逐元素算子、<a class="term-ref" href="/books/llm-inference/glossary#rope" title="Rotary Position Embedding，旋转位置编码：通过旋转 query/key 向量注入相对位置信息的经典位置编码方法">RoPE</a>与 <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>读取。把整次 `generate()` 混在一张表里，Decode 阶段致命的小算子回退会被 Prefill 的海量矩阵乘彻底淹没。
-3. **按设备自耗时排序，导出全表**：排序键选**设备自耗时（`self_device_time_total`）**而非总耗时（总耗时会把子算子时间重复计入父算子），也不按 CPU 时间排序；导出全表（`row_limit=-1`），不可拿截断后的 Top 20 当覆盖率分母。
+3. <strong>按设备自耗时排序，导出全表</strong>：排序键选<strong>设备自耗时（`self_device_time_total`）</strong>而非总耗时（总耗时会把子算子时间重复计入父算子），也不按 CPU 时间排序；导出全表（`row_limit=-1`），不可拿截断后的 Top 20 当覆盖率分母。
 
 下面是采集单步稳态前向清单的标准脚本骨架（以 `torch.profiler` 为例；昇腾侧将 `torch.profiler` 替换为 `torch_npu.profiler`、将 `ProfilerActivity.CUDA` 换为 `ProfilerActivity.NPU`，并配合离线解析工具 `torch_npu.profiler.profiler.analyse` 或 `msprof` 导出）：
 

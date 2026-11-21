@@ -4,7 +4,7 @@
 
 通过[第 21 章](chapter-21.md)的覆盖分析揪出“热点且缺失”的算子后，下一步自然就是把它搬到目标芯片上。很多团队会优先选择把第三篇在 GPU 上已经调通的 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>Kernel 直接搬到 `triton-ascend` 上运行，期望做到“源码零改动跨平台”。然而真实迁移往往会迎面撞上三种尴尬结局：**编译直接报 `ub overflow`；编过了但数值误差超容限；结果全对却慢了一个数量级**。
 
-原因并不是 Triton 跨平台理念失灵，而是原本为 GPU 编写的 Kernel 里，悄悄埋着一批**“默认这里是 NVIDIA SIMT 硬件”的隐式假设**。本章把这些隐式假设逐一翻到台面上，给出工程化的迁移改造路径。
+原因并不是 Triton 跨平台理念失灵，而是原本为 GPU 编写的 Kernel 里，悄悄埋着一批<strong>“默认这里是 NVIDIA SIMT 硬件”的隐式假设</strong>。本章把这些隐式假设逐一翻到台面上，给出工程化的迁移改造路径。
 
 ## 22.1 为什么 GPU 上跑通的 Triton Kernel 搬到 Ascend 会“算错或变慢”
 
@@ -19,7 +19,7 @@ Triton 屏蔽了底层的汇编指令，却**无法抹平两种芯片微架构�
 
 对比图 22-1 左右两侧，四个结构性差异直接决定了迁移成败：
 
-- **计算单元组织不同**：NVIDIA A100（108 个 SM）/ H100（132 个 SM）以 SIMT 方式调度海量 32 线程 <a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>，Tensor Core 与 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>Core 驻留在同一个 SM 内共享寄存器和 <a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="共享内存：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">Shared Memory</a>；昇腾 AI Core 则明确区分为**向量核（AIV）**与**矩阵核（AIC）**，单核以超宽 SIMD 向量或大块矩阵指令吞吐数据，物理核数在几十量级而非上百 SM。
+- <strong>计算单元组织不同</strong>：NVIDIA A100（108 个 SM）/ H100（132 个 SM）以 SIMT 方式调度海量 32 线程 <a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>，Tensor Core 与 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>Core 驻留在同一个 SM 内共享寄存器和 <a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="共享内存：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">Shared Memory</a>；昇腾 AI Core 则明确区分为<strong>向量核（AIV）</strong>与<strong>矩阵核（AIC）</strong>，单核以超宽 SIMD 向量或大块矩阵指令吞吐数据，物理核数在几十量级而非上百 SM。
 - **片上缓存语义不同**：GPU 的 Shared Memory 是一块通用的软件可控暂存器（A100 每 SM 164 KB，H100 每 SM 228 KB），且配合庞大的寄存器文件吸收临时变量；昇腾的向量指令只能读写**统一缓冲区（UB）**，矩阵乘则必须把输入 tile 先经 **L1** 搬进 **L0A / L0B**、累加结果驻留在 **L0C**，每一级缓存都有独立的容量天花板与路径约束。
 - **隐式硬件调度 vs 显式 DMA 流水**：GPU 靠高并发 Warp 切换掩盖全局显存延迟；昇腾靠 **MTE2 / MTE3 搬运单元**与计算单元之间的多缓冲流水掩盖延迟（正如[第 20 章](chapter-20.md)剖析的 `CopyIn → Compute → CopyOut`）。
 
@@ -46,7 +46,7 @@ GPU 开发者在写逐元素算子时，常随手设 `BLOCK = 8192` 来吃满带
 
 在纯 Vector 路径下，尾轴要求 32 字节对齐。以 FP16（2 字节/元素）为例：隐藏维 $D = 1024$ 占 $2048\,\text{B}$，完美对齐 32B；而 $D = 1000$ 占 $2000\,\text{B}$，若编译路径按 32B 向上 padding 到 $2016\,\text{B}$，每行多搬运 16 字节，带宽增量仅 $16 / 2000 = 0.8\%$，看似温和。
 
-真正致命的不是这 $0.8\%$ 的 padding，而是**当不对齐或混用 `int64` 偏移/`fp64` 累加导致编译器无法向量化、被迫降级为标量循环（标量化退化）**时，宽向量单元瞬间退化成单元素逐个搬算，性能直接雪崩一个数量级。因此，在昇腾 Triton Kernel 中，偏移计算能用 `int32` 绝不顺手写 `int64`，遇到非对齐尾块务必检查编译产物确认仍走向量指令。
+真正致命的不是这 $0.8\%$ 的 padding，而是<strong>当不对齐或混用 `int64` 偏移/`fp64` 累加导致编译器无法向量化、被迫降级为标量循环（标量化退化）</strong>时，宽向量单元瞬间退化成单元素逐个搬算，性能直接雪崩一个数量级。因此，在昇腾 Triton Kernel 中，偏移计算能用 `int32` 绝不顺手写 `int64`，遇到非对齐尾块务必检查编译产物确认仍走向量指令。
 
 ### 细节三：理性看待 2D Grid 折叠与 1D 核内循环
 
@@ -73,7 +73,7 @@ GPU 开发者在写逐元素算子时，常随手设 `BLOCK = 8192` 来吃满带
 
 ### 微观视角：把 `SiluAndMul` 从 GPU 迁到 Ascend
 
-下面聚焦[第 17 章](chapter-17.md)写过的核心融合激活算子 **`SiluAndMul`**（对应 SwiGLU 的门控激活）：给定形状为 $[M, 2D]$ 的连续输入 `hidden_states`，前一半 $x_1$ 在 FP32 精度下计算 $\text{SiLU}(x_1) = x_1 \cdot \sigma(x_1)$，再 **cast 回原始输入精度（FP16/BF16）**后与后一半 $x_2$ 逐元素相乘，输出 $[M, D]$。
+下面聚焦[第 17 章](chapter-17.md)写过的核心融合激活算子 <strong>`SiluAndMul`</strong>（对应 SwiGLU 的门控激活）：给定形状为 $[M, 2D]$ 的连续输入 `hidden_states`，前一半 $x_1$ 在 FP32 精度下计算 $\text{SiLU}(x_1) = x_1 \cdot \sigma(x_1)$，再 <strong>cast 回原始输入精度（FP16/BF16）</strong>后与后一半 $x_2$ 逐元素相乘，输出 $[M, D]$。
 
 先算一笔访存账：取 $M = 512, D = 1024$ 的 FP16 张量，输入 $[512, 2048]$ 占 $2\,\text{MiB}$，输出 $[512, 1024]$ 占 $1\,\text{MiB}$。融合写法总读写量为 $2 + 1 = 3\,\text{MiB}$；若拆成独立的 `silu` 与 `mul`，中间张量需多写 $1\,\text{MiB}$ 再多读 $1\,\text{MiB}$，总访存升至 $5\,\text{MiB}$——融合直接砍掉 **$40\%$ 的显存往返**。
 
@@ -201,7 +201,7 @@ def npu_triton_impl(inputs: dict) -> dict:
 - **[FlagGems](https://github.com/flagos-ai/FlagGems) 是算子库**：维护面向十余家芯片后端的通用 Triton 算子源码（同时也允许针对特定硬件加入后端专用特化与调参），并注册进 PyTorch 的 ATen 分发层。模型代码零改动即可走通三级分发链（FlagGems 统一实现 → 厂商实现 → PyTorch 兜底）。
 - **[FlagTree](https://github.com/flagos-ai/FlagTree) 是多后端编译器项目**：衍生自 Triton 的统一编译基础设施，通过各芯片后端分支把同一套 Triton IR 降维成不同硬件的底层二进制。
 
-两者是**“算子源码与分发库”**和**“底层多后端编译器”**的协作关系，而非简单的“生成器与自动产物”。这意味着跨芯片维护收益来自**通用算子逻辑与 bug 修复的共享**，绝不是神奇的“12 份工作量自动变 1 份”——各后端的编译器升级、特定 shape/dtype 回归以及热点调参依然需要持续投入。
+两者是<strong>“算子源码与分发库”</strong>和<strong>“底层多后端编译器”</strong>的协作关系，而非简单的“生成器与自动产物”。这意味着跨芯片维护收益来自<strong>通用算子逻辑与 bug 修复的共享</strong>，绝不是神奇的“12 份工作量自动变 1 份”——各后端的编译器升级、特定 shape/dtype 回归以及热点调参依然需要持续投入。
 
 ### 统一算子库不能解决的四件事
 

@@ -102,11 +102,11 @@ $$
 1. **内部浪费（过度预留）**：生成长度事先未知，旧系统只能在请求到达时，按模型最大长度 $L_{\max}$ 一次性划走一整段连续显存。若 $L_{\max}=2048$，实际长度只有 512 token，就有 $(2048 - 512)/2048 = 75\%$ 的显存从分配到释放从未写入过任何数据；实际长度 400 token 时浪费高达 $80.5\%$。真实在线负载上，这类静态预留往往导致 **60%–80%** 的 KV 显存被白白闲置。
 2. **外部碎片**：不同请求到达和结束的时间错落不一，反复分配与释放后，空闲显存被切成大量互不相连的小空洞。即使剩余空闲总量超过 20 GB，只要找不到一整块连续的 4 GiB 区域，一条新的 32K 请求依然无法准入。
 
-简言之，过度预留是**“占着不用”**，外部碎片是**“有空用不上”**。
+简言之，过度预留是<strong>“占着不用”</strong>，外部碎片是<strong>“有空用不上”</strong>。
 
 ### PagedAttention：逻辑块、块表与非连续物理页
 
-vLLM 借用操作系统虚拟内存的分页思想提出了 **PagedAttention**：把每个序列的 KV 缓存切分成固定大小的**逻辑块（logical block）**，默认每块容纳 $B = 16$ 个 token；逻辑上连续的块，通过该请求专属的**块表（block table）**映射到显存中任意位置的**物理页（physical block）**。最关键的变化是**按需分配**：请求到达时只为当前 Prompt 分配必需的物理块，Decode 阶段每写满一块才向空闲池申请下一块，彻底消除预先划地。
+vLLM 借用操作系统虚拟内存的分页思想提出了 <strong>PagedAttention</strong>：把每个序列的 KV 缓存切分成固定大小的<strong>逻辑块（logical block）</strong>，默认每块容纳 $B = 16$ 个 token；逻辑上连续的块，通过该请求专属的<strong>块表（block table）</strong>映射到显存中任意位置的<strong>物理页（physical block）</strong>。最关键的变化是<strong>按需分配</strong>：请求到达时只为当前 Prompt 分配必需的物理块，Decode 阶段每写满一块才向空闲池申请下一块，彻底消除预先划地。
 
 <figure class="book-figure">
   <img src="/figures/llm-inference/kv-pages.svg" alt="PagedAttention 映射链：连续逻辑块 L0 至 L5 经每请求一份的块表翻译为显存中分散的物理页 P7、P2、P5、P0、P1、P4" loading="lazy">
@@ -167,7 +167,7 @@ PagedAttention 只借用了操作系统虚拟内存的**非连续分页映射**�
 
 ### 迭代级连续批处理：解耦延迟与吞吐
 
-受 Orca 提出的**迭代级调度（iteration-level scheduling）**启发，vLLM 采用**连续批处理（continuous batching）**：把调度粒度从“一整批请求”缩小到**单次前向迭代（one step）**。每跑完一步，遇到停止条件的请求立刻退出并返回，空出的槽位在下一步马上补入等待队列中的新请求。
+受 Orca 提出的<strong>迭代级调度（iteration-level scheduling）</strong>启发，vLLM 采用<strong>连续批处理（continuous batching）</strong>：把调度粒度从“一整批请求”缩小到<strong>单次前向迭代（one step）</strong>。每跑完一步，遇到停止条件的请求立刻退出并返回，空出的槽位在下一步马上补入等待队列中的新请求。
 
 <figure class="book-figure">
   <img src="/figures/llm-inference/batching.svg" alt="静态批处理与连续批处理时间线对比：静态批处理中 A、B 结束后留下大量空槽等待 C；连续批处理在 A、B、C 结束瞬间分别换入 D、G、E、F" loading="lazy">
@@ -196,7 +196,7 @@ vLLM V1 做了一项极其优雅的抽象统一：调度器不再区分“这一
 { req_id: num_scheduled_tokens }
 ```
 
-无论是 Prompt 里的输入 token 还是 Decode 生成的新 token，在调度器眼里都只是“本步要为该请求推进多少个 token”。在这一统一表示之上，**分块 Prefill（Chunked Prefill）**成为默认开启的自然能力：
+无论是 Prompt 里的输入 token 还是 Decode 生成的新 token，在调度器眼里都只是“本步要为该请求推进多少个 token”。在这一统一表示之上，<strong>分块 Prefill（Chunked Prefill）</strong>成为默认开启的自然能力：
 
 - 设单步总预算 $B = 2048$ tokens，当前有 64 条活跃 Decode 请求。
 - 调度器**优先保障 `RUNNING` 队列的 Decode**，为 64 条请求各分配 1 个 token（合计 64 token，仅占预算的 $3.125\%$）。
@@ -212,7 +212,7 @@ vLLM V1 做了一项极其优雅的抽象统一：调度器不再区分“这一
 
 ### 调度器主循环与准入算术
 
-下面这段精简伪代码勾勒出 vLLM V1 一次 `step()` 中**“先 `RUNNING`、后 `WAITING`，先算预算、再要物理块”**的核心决策流：
+下面这段精简伪代码勾勒出 vLLM V1 一次 `step()` 中<strong>“先 `RUNNING`、后 `WAITING`，先算预算、再要物理块”</strong>的核心决策流：
 
 ```python
 def schedule_step(running, waiting, kv_manager, max_num_batched_tokens, max_num_seqs):
@@ -339,7 +339,7 @@ PCIe Gen4 ×16 的双向有效带宽仅约 25–30 GB/s，把一条 8K 上下文
 
 1. **启动阶段拦截（Profiling OOM / 架构不匹配）**：
    - vLLM 启动时会先跑一次假前向（memory profiling），测出峰值激活显存，再把剩余预算一次性划为 KV 块池（所以 `nvidia-smi` 启动即占满 90% 显存是正常现象，不是内存泄漏）。
-   - 若启动报 KV 缓存空间不足，按**“先降 `--max-model-len` → 再微调 `--gpu-memory-utilization` → 最后降 `--max-num-seqs`”**的顺序收缩配置。
+   - 若启动报 KV 缓存空间不足，按<strong>“先降 `--max-model-len` → 再微调 `--gpu-memory-utilization` → 最后降 `--max-num-seqs`”</strong>的顺序收缩配置。
    - 若报模型架构未注册，核对 vLLM 版本与模型 `config.json` 中的 `architectures` 字段；端口冲突直接更换 `--port`；离线部署把模型名替换为本地权重目录路径即可。
 2. **请求阶段拦截（HTTP 400）**：
    - 单条请求的 `prompt_tokens + max_tokens` 超过 `--max-model-len` 时，API 进程会直接拒绝请求，避免无效计算穿透到 EngineCore。

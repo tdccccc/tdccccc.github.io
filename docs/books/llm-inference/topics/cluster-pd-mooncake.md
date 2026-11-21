@@ -108,7 +108,7 @@ $$
 - **向下修正——有效带宽低于线速**：协议栈开销、小消息碎片与多租户争用会让实际吞吐低于标称值。例如 Mooncake Transfer Engine 公开测试显示，4×200 Gb/s RoCE（标称 100 GB/s）实测有效聚合约 **87 GB/s（87%）**，8×400 Gb/s（标称 400 GB/s）实测约 **190 GB/s（47.5%）**。
 - **向上修正——逐层流水传输（Layer-wise Streaming）**：不必等全部 32 层 Prefill 算完才发送整块 512 MiB！第 0 层刚算完，Transfer Engine 就通过 RDMA 把第 0 层 KV 异步推往 D 节点，与第 1 层的 GPU 计算完全重叠。落入 TTFT 关键路径的，从整段串行耗时缩减为**最后一两层未能被掩盖的尾部传输时长**。
 
-此外，当单条超长 Prompt（如 128K）远超单节点 Prefill 算力时，集群还会采用**分块流水线并行（Chunked Pipeline Parallelism）**把长输入切块跨节点接力计算，仅在块边界同步传递较小的激活值而非每层搬运 KV，代价是切块过细会引入流水线气泡。
+此外，当单条超长 Prompt（如 128K）远超单节点 Prefill 算力时，集群还会采用<strong>分块流水线并行（Chunked Pipeline Parallelism）</strong>把长输入切块跨节点接力计算，仅在块边界同步传递较小的激活值而非每层搬运 KV，代价是切块过细会引入流水线气泡。
 
 ---
 

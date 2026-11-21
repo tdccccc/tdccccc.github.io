@@ -50,12 +50,12 @@
 
 ### Orca（OSDI 2022 → 第 5 章）
 
-- **机制核心**：打破传统请求级批处理（等待整批最慢请求结束才释放），提出**迭代级调度（Iteration-level Scheduling）**与针对注意力/线性层的**选择性批处理**，是今天全部连续批处理引擎的鼻祖。
+- <strong>机制核心</strong>：打破传统请求级批处理（等待整批最慢请求结束才释放），提出<strong>迭代级调度（Iteration-level Scheduling）</strong>与针对注意力/线性层的<strong>选择性批处理</strong>，是今天全部连续批处理引擎的鼻祖。
 - **数字口径与边界**：在 GPT-3 175B 上，对比 NVIDIA FasterTransformer，在归一化中位延迟相同时测得 **36.9×** 吞吐提升。这一数字建立在**非均匀合成长度分布**（输入 $U(32, 512)$、最大生成 $U(1, 128)$、泊松到达）之上；当所有请求长度完全一致（Homogeneous Trace）时，不存在早完成请求被阻塞的现象，优势会显著收窄。
 
 ### SGLang / RadixAttention（NeurIPS 2024 → 第 6 章）
 
-- **机制核心**：前后端协同设计，后端用**基数树（Radix Tree）**组织跨请求的任意长度共享前缀 KV，配合 LRU 淘汰与缓存感知调度，以及基于压缩有限状态机的零开销结构化输出解码。
+- <strong>机制核心</strong>：前后端协同设计，后端用<strong>基数树（Radix Tree）</strong>组织跨请求的任意长度共享前缀 KV，配合 LRU 淘汰与缓存感知调度，以及基于压缩有限状态机的零开销结构化输出解码。
 - **博客 vs 论文口径区分**：
   - [LMSYS 发布博客](https://lmsys.org/blog/2024-01-17-sglang/)在 Llama-7B（单张 A10G，TP=1）与 Mixtral-8×7B（8×A10G，TP=8）的前缀重任务（5-shot MMLU、ReAct Agent、JSON 解码、多轮对话、DSPy RAG）上，对照 Guidance 与早期 vLLM 测得最高 **5×** 吞吐；
   - NeurIPS 2024 正式论文扩展至 Llama-70B 与 LLaVA 多模态任务，对照 Guidance、vLLM、LMQL 测得最高 **6.4×** 吞吐、延迟最高降 **3.7×**。
