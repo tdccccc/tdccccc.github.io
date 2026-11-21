@@ -100,176 +100,172 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="showLeft || showRight" class="atlas-focus-controls">
-    <!-- Left sidebar toggle (desktop >= 960px) -->
-    <button
-      v-if="showLeft"
-      type="button"
-      class="atlas-rail-btn atlas-rail-btn--left"
-      :class="{ 'is-collapsed': hideSidebar }"
-      :aria-pressed="hideSidebar"
-      :aria-label="hideSidebar ? '显示左侧目录' : '隐藏左侧目录'"
-      :title="hideSidebar ? '显示左侧目录 (快捷键 [)' : '隐藏左侧目录 (快捷键 [)'"
-      @click="toggleSidebar"
-    >
-      <svg
-        v-if="!hideSidebar"
-        class="atlas-rail-btn__icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
+  <div
+    v-if="showLeft || showRight"
+    class="atlas-focus-nav"
+    :class="{ 'has-left': showLeft, 'has-right': showRight }"
+  >
+    <div class="atlas-focus-group" role="group" aria-label="目录显示切换">
+      <!-- Left sidebar toggle (desktop >= 960px) -->
+      <button
+        v-if="showLeft"
+        type="button"
+        class="atlas-focus-btn atlas-focus-btn--left"
+        :class="{ 'is-active': !hideSidebar }"
+        :aria-pressed="!hideSidebar"
+        :aria-label="hideSidebar ? '显示左侧目录' : '隐藏左侧目录'"
+        :title="hideSidebar ? '显示左侧目录 (快捷键 [)' : '隐藏左侧目录 (快捷键 [)'"
+        @click="toggleSidebar"
       >
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="9" y1="3" x2="9" y2="21" />
-        <path d="m16 15-3-3 3-3" />
-      </svg>
-      <svg
-        v-else
-        class="atlas-rail-btn__icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="9" y1="3" x2="9" y2="21" />
-        <path d="m14 9 3 3-3 3" />
-      </svg>
-      <span v-if="hideSidebar" class="atlas-rail-btn__label">目录</span>
-    </button>
+        <svg
+          class="atlas-focus-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect
+            v-if="!hideSidebar"
+            x="3"
+            y="4"
+            width="6"
+            height="16"
+            rx="1"
+            fill="currentColor"
+            fill-opacity="0.28"
+            stroke="none"
+          />
+          <rect x="3" y="4" width="18" height="16" rx="2.2" />
+          <line x1="9" y1="4" x2="9" y2="20" />
+        </svg>
+      </button>
 
-    <!-- Right outline toggle (desktop >= 1280px) -->
-    <button
-      v-if="showRight"
-      type="button"
-      class="atlas-rail-btn atlas-rail-btn--right"
-      :class="{ 'is-collapsed': hideAside }"
-      :aria-pressed="hideAside"
-      :aria-label="hideAside ? '显示本页目录' : '隐藏本页目录'"
-      :title="hideAside ? '显示本页目录 (快捷键 ])' : '隐藏本页目录 (快捷键 ])'"
-      @click="toggleAside"
-    >
-      <svg
-        v-if="!hideAside"
-        class="atlas-rail-btn__icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
+      <!-- Right outline toggle (desktop >= 1280px) -->
+      <button
+        v-if="showRight"
+        type="button"
+        class="atlas-focus-btn atlas-focus-btn--right"
+        :class="{ 'is-active': !hideAside }"
+        :aria-pressed="!hideAside"
+        :aria-label="hideAside ? '显示本页目录' : '隐藏本页目录'"
+        :title="hideAside ? '显示本页目录 (快捷键 ])' : '隐藏本页目录 (快捷键 ])'"
+        @click="toggleAside"
       >
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="15" y1="3" x2="15" y2="21" />
-        <path d="m8 9 3 3-3 3" />
-      </svg>
-      <svg
-        v-else
-        class="atlas-rail-btn__icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="15" y1="3" x2="15" y2="21" />
-        <path d="m11 15-3-3 3-3" />
-      </svg>
-      <span class="atlas-rail-btn__label">{{ hideAside ? '本页目录' : '收起大纲' }}</span>
-    </button>
+        <svg
+          class="atlas-focus-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect
+            v-if="!hideAside"
+            x="15"
+            y="4"
+            width="6"
+            height="16"
+            rx="1"
+            fill="currentColor"
+            fill-opacity="0.28"
+            stroke="none"
+          />
+          <rect x="3" y="4" width="18" height="16" rx="2.2" />
+          <line x1="15" y1="4" x2="15" y2="20" />
+        </svg>
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.atlas-rail-btn {
-  position: fixed;
-  top: calc(var(--vp-nav-height) + 12px);
-  z-index: 28;
+.atlas-focus-nav {
+  display: none;
+  align-items: center;
+}
+
+.atlas-focus-nav::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 24px;
+  margin-left: 16px;
+  margin-right: 12px;
+  background-color: var(--vp-c-divider);
+}
+
+.atlas-focus-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+}
+
+.atlas-focus-btn {
   display: none;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  height: 30px;
-  padding: 0 0.52rem;
-  border: 1px solid var(--atlas-border-strong);
-  border-radius: 8px;
-  background: var(--atlas-surface);
-  color: var(--atlas-text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1;
-  box-shadow: var(--atlas-shadow-sm);
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vp-c-text-3);
   cursor: pointer;
   transition:
-    left 0.22s ease,
     color 0.16s ease,
-    border-color 0.16s ease,
     background-color 0.16s ease,
-    box-shadow 0.16s ease;
+    border-color 0.16s ease;
 }
 
-.atlas-rail-btn:hover,
-.atlas-rail-btn:focus-visible {
+.atlas-focus-btn.is-active {
+  background: var(--vp-c-bg);
+  border-color: var(--atlas-border);
+  color: var(--vp-c-text-1);
+}
+
+.atlas-focus-btn:hover,
+.atlas-focus-btn:focus-visible {
   color: var(--vp-c-brand-1);
   border-color: var(--vp-c-brand-1);
   background: var(--vp-c-bg);
-  box-shadow: var(--atlas-shadow-md);
   outline: none;
 }
 
-.atlas-rail-btn__icon {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
+.atlas-focus-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
-.atlas-rail-btn__label {
-  white-space: nowrap;
-}
-
-/* Left sidebar toggle: desktop >= 960px */
+/* 960px..1279px: show only when page has left sidebar */
 @media (min-width: 960px) {
-  .atlas-rail-btn--left {
+  .atlas-focus-nav.has-left {
     display: inline-flex;
-    width: 30px;
-    padding: 0;
-    left: calc(var(--vp-sidebar-width) - 15px);
   }
 
-  .atlas-rail-btn--left.is-collapsed {
-    width: auto;
-    padding: 0 0.62rem;
-    left: 16px;
+  .atlas-focus-btn--left {
+    display: inline-flex;
   }
 }
 
-@media (min-width: 1440px) {
-  .atlas-rail-btn--left {
-    left: calc((100% - var(--vp-layout-max-width)) / 2 + var(--vp-sidebar-width) - 15px);
-  }
-
-  .atlas-rail-btn--left.is-collapsed {
-    left: 16px;
-  }
-}
-
-/* Right outline toggle: desktop >= 1280px (matches VitePress aside breakpoint) */
+/* >= 1280px: show right outline toggle as well (covers all books & blog posts) */
 @media (min-width: 1280px) {
-  .atlas-rail-btn--right {
+  .atlas-focus-nav.has-right {
     display: inline-flex;
-    right: 16px;
-    padding: 0 0.62rem;
+  }
+
+  .atlas-focus-btn--right {
+    display: inline-flex;
   }
 }
 </style>

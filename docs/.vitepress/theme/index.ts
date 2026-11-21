@@ -17,7 +17,8 @@ export default {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
-      'layout-bottom': () => [h(ImageLightbox), h(ReadingFocusControls)],
+      'nav-bar-content-after': () => h(ReadingFocusControls),
+      'layout-bottom': () => h(ImageLightbox),
     })
   },
   enhanceApp({ app }) {

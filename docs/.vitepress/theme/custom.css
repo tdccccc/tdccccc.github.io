@@ -470,6 +470,10 @@ html.img-lightbox-open {
     background-color: var(--vp-c-gutter) !important;
   }
 
+  html.atlas-hide-sidebar .VPLocalNav.has-sidebar {
+    padding-left: 0 !important;
+  }
+
   html.atlas-hide-sidebar .VPDoc.has-sidebar .container {
     display: flex;
     justify-content: center;
