@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 430" role="img" aria-label="CUDA 优化阶梯：朴素版、shared 分块、向量化访存、占用率调优">
+<style>
+text{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+.title{font-size:25px;font-weight:700;fill:#1f2937}
+.sub{font-size:15px;fill:#64748b}
+.label{font-size:19px;font-weight:700;fill:#1f2937}
+.small{font-size:14px;fill:#64748b}
+.tick{font-size:13px;fill:#64748b}
+</style>
+<rect width="900" height="430" fill="#fbfcfe"/>
+<text x="40" y="40" class="title">四版 GEMM：优化与验证</text>
+<text x="40" y="64" class="sub">每版只引入一类改动，用实际流量、计时和指令验证，不保证每一步都更快。</text>
+
+<line x1="80" y1="330" x2="840" y2="330" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="80" y1="330" x2="80" y2="100" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="80" y1="110" x2="840" y2="110" stroke="#3f51b5" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text x="838" y="102" class="small" text-anchor="end" fill="#3f51b5">Roofline 上限</text>
+
+<g>
+<rect x="110" y="275" width="160" height="55" rx="6" fill="#e2e8f0"/>
+<text x="190" y="300" class="label" text-anchor="middle">基线</text>
+
+<rect x="300" y="220" width="160" height="110" rx="6" fill="#c7d2fe"/>
+<text x="380" y="270" class="tick" text-anchor="middle" fill="#1f2937" style="font-size:15px">模型 AI：0.25 → 8</text>
+
+<rect x="490" y="165" width="160" height="165" rx="6" fill="#a5b4fc"/>
+<text x="570" y="235" class="tick" text-anchor="middle" fill="#1f2937" style="font-size:15px">核对 load 指令数</text>
+
+<rect x="680" y="120" width="160" height="210" rx="6" fill="#818cf8"/>
+<text x="760" y="200" class="tick" text-anchor="middle" fill="#ffffff" style="font-size:15px">驻留与就绪 warp</text>
+</g>
+<text x="190" y="352" class="small" text-anchor="middle">朴素版</text>
+<text x="380" y="352" class="small" text-anchor="middle">shared 分块</text>
+<text x="570" y="352" class="small" text-anchor="middle">向量化访存</text>
+<text x="760" y="352" class="small" text-anchor="middle">占用率调优</text>
+
+<text x="80" y="384" class="small">横轴：四版实现；柱高只是示意，不代表实测或保证提升。AI 按正文逻辑模型计算。</text>
+<text x="80" y="408" class="small">验证：分块核对字节与缓存，向量化核对指令，占用率区分驻留与就绪；最终都看耗时。</text>
+</svg>
