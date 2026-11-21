@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 416" role="img" aria-label="Chatbot Arena Bradley-Terry 拟合与 Style Control 协变量剥离长度和 Markdown 排版偏见机制图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 19.5px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.8px; fill: #64748b; }
+    .panel-t { font-size: 14px; font-weight: 700; fill: #1e293b; }
+    .lbl { font-size: 12px; font-weight: 700; }
+    .sm { font-size: 11.2px; fill: #475569; }
+    .pill { font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="bt-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+    <marker id="bt-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+    <marker id="bt-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="416" rx="8" fill="#fbfcfe"/>
+
+  <!-- Header -->
+  <text x="34" y="35" class="title">Chatbot Arena 排名引擎：Bradley-Terry 拟合与 Style Control 剥离</text>
+  <text x="34" y="57" class="sub">盲测对战存在强烈的“话多排版美红利”；将风格特征作为回归协变量剥离后，才可看清不含水分的纯内容实力。</text>
+
+  <!-- LEFT: Bradley-Terry + Style Control Pipeline -->
+  <rect x="34" y="76" width="496" height="320" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="52" y="101" class="panel-t">① 联合逻辑回归分解：内容实力 vs 风格协变量</text>
+
+  <!-- Step 1: Blind Battles -->
+  <rect x="52" y="114" width="460" height="52" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="64" y="128" width="96" height="24" rx="12" fill="#475569"/>
+  <text x="112" y="144" class="pill" fill="#ffffff">双盲人类投票</text>
+  <text x="174" y="136" class="lbl" fill="#1e293b">同提示匿名展示 Model A vs Model B 回复</text>
+  <text x="174" y="154" class="sm">收集百万级 (A 胜 / B 胜 / 平局) + 双方回复结构特征 f_A, f_B</text>
+
+  <line x1="282" y1="166" x2="282" y2="186" stroke="#64748b" stroke-width="1.8" marker-end="url(#bt-arr)"/>
+
+  <!-- Step 2: Core Equation Card -->
+  <rect x="52" y="190" width="460" height="52" rx="8" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.5"/>
+  <text x="282" y="212" text-anchor="middle" class="mono" font-size="13.5" font-weight="700" fill="#312e81">P(A ≻ B | x_AB) = σ(  (S_A − S_B)  +  wᵀ (f_A − f_B)  )</text>
+  <text x="282" y="232" text-anchor="middle" font-size="11" fill="#4338ca">静态极大似然（MLE）拟合：彻底消除在线顺序 Elo 的对战次序依赖</text>
+
+  <!-- Split Connectors -->
+  <line x1="165" y1="242" x2="165" y2="264" stroke="#059669" stroke-width="1.8" marker-end="url(#bt-up)"/>
+  <line x1="398" y1="242" x2="398" y2="264" stroke="#e11d48" stroke-width="1.8" marker-end="url(#bt-dn)"/>
+
+  <!-- Left Branch: Pure Content -->
+  <rect x="52" y="268" width="222" height="112" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="66" y="290" class="lbl" fill="#065f46">保留项：纯内容潜实力 S_A</text>
+  <text x="66" y="310" class="sm">令 f_A = f_B（等长等排版）</text>
+  <text x="66" y="328" class="mono" font-size="11" fill="#047857">R_A = (400 / ln 10)·S_A + R₀</text>
+  <text x="66" y="348" class="sm">• 1000 次对战 Bootstrap 95% CI</text>
+  <text x="66" y="366" class="sm">• ΔElo=20 仅 52.9% 胜率，易并列</text>
+
+  <!-- Right Branch: Style Confounder -->
+  <rect x="290" y="268" width="222" height="112" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+  <text x="304" y="290" class="lbl" fill="#92400e">剥离项：风格协变量 wᵀΔf</text>
+  <text x="304" y="311" class="sm">• 回复 Token 长度差（权重 &gt; 0）</text>
+  <text x="304" y="329" class="sm">• Markdown 标题 / 加粗数量差</text>
+  <text x="304" y="347" class="sm">• 编号与项目符号列表密度差</text>
+  <text x="304" y="366" font-size="11" font-weight="700" fill="#b45309">→ 剥离“话多排版美”的虚高红利</text>
+
+  <!-- RIGHT: Slopegraph Rank Shift Demo -->
+  <rect x="550" y="76" width="336" height="320" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="568" y="101" class="panel-t">② 开启 Style Control 后的排位重排（示意）</text>
+
+  <!-- Column headers -->
+  <rect x="568" y="114" width="122" height="24" rx="6" fill="#f1f5f9"/>
+  <text x="629" y="130" text-anchor="middle" font-size="11.5" font-weight="700" fill="#334155">原始 Arena Elo</text>
+  <rect x="746" y="114" width="122" height="24" rx="6" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="807" y="130" text-anchor="middle" font-size="11.5" font-weight="700" fill="#065f46">Style Control 后</text>
+
+  <!-- Vertical axis guides -->
+  <line x1="658" y1="146" x2="658" y2="344" stroke="#cbd5e1" stroke-width="1.2"/>
+  <line x1="778" y1="146" x2="778" y2="344" stroke="#cbd5e1" stroke-width="1.2"/>
+
+  <!-- Model X: Verbose Markdown (#1 1295 -> #3 1258, -37) -->
+  <line x1="658" y1="168" x2="778" y2="274" stroke="#e11d48" stroke-width="2.6"/>
+  <circle cx="658" cy="168" r="5" fill="#e11d48"/>
+  <circle cx="778" cy="274" r="5" fill="#e11d48"/>
+  <text x="648" y="164" text-anchor="end" class="lbl" fill="#9f1239">话多排版型 X</text>
+  <text x="648" y="179" text-anchor="end" class="mono" font-size="10.8" fill="#64748b">#1 · 1295</text>
+  <text x="788" y="271" class="lbl" fill="#9f1239">#3 · 1258</text>
+  <text x="788" y="285" class="mono" font-size="10.8" fill="#e11d48">−37 Elo ↓</text>
+
+  <!-- Model Z: Balanced (#2 1280 -> #2 1282, +2) -->
+  <line x1="658" y1="214" x2="778" y2="210" stroke="#64748b" stroke-width="2" stroke-dasharray="4 3"/>
+  <circle cx="658" cy="214" r="4.5" fill="#64748b"/>
+  <circle cx="778" cy="210" r="4.5" fill="#64748b"/>
+  <text x="648" y="210" text-anchor="end" class="lbl" fill="#334155">均衡稳健型 Z</text>
+  <text x="648" y="225" text-anchor="end" class="mono" font-size="10.8" fill="#64748b">#2 · 1280</text>
+  <text x="788" y="207" class="lbl" fill="#334155">#2 · 1282</text>
+  <text x="788" y="221" class="mono" font-size="10.8" fill="#64748b">+2 Elo ≈</text>
+
+  <!-- Model Y: Concise High Substance (#3 1272 -> #1 1298, +26) -->
+  <line x1="658" y1="262" x2="778" y2="164" stroke="#059669" stroke-width="2.8"/>
+  <circle cx="658" cy="262" r="5" fill="#059669"/>
+  <circle cx="778" cy="164" r="5" fill="#059669"/>
+  <text x="648" y="258" text-anchor="end" class="lbl" fill="#065f46">凝练硬核型 Y</text>
+  <text x="648" y="273" text-anchor="end" class="mono" font-size="10.8" fill="#64748b">#3 · 1272</text>
+  <text x="788" y="161" class="lbl" fill="#065f46">#1 · 1298</text>
+  <text x="788" y="175" class="mono" font-size="10.8" fill="#059669">+26 Elo ↑</text>
+
+  <!-- Model W: Terse (#4 1235 -> #4 1252, +17) -->
+  <line x1="658" y1="326" x2="778" y2="306" stroke="#0284c7" stroke-width="2.2"/>
+  <circle cx="658" cy="326" r="4.5" fill="#0284c7"/>
+  <circle cx="778" cy="306" r="4.5" fill="#0284c7"/>
+  <text x="648" y="322" text-anchor="end" class="lbl" fill="#075985">简短直给型 W</text>
+  <text x="648" y="337" text-anchor="end" class="mono" font-size="10.8" fill="#64748b">#4 · 1235</text>
+  <text x="788" y="303" class="lbl" fill="#075985">#4 · 1252</text>
+  <text x="788" y="317" class="mono" font-size="10.8" fill="#0284c7">+17 Elo ↑</text>
+
+  <!-- Disclaimer note -->
+  <rect x="568" y="356" width="300" height="26" rx="6" fill="#f8fafc"/>
+  <text x="718" y="373" text-anchor="middle" font-size="10.6" fill="#64748b">教学示意：展示协变量控制如何逆转“刷长度”排位</text>
+</svg>

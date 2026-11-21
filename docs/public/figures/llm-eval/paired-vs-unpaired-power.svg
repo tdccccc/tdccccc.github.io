@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 420" role="img" aria-label="配对检验降方差、最小可检测效应 MDE 随题量 N 曲线与聚类标准误膨胀对比图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 19.5px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.8px; fill: #64748b; }
+    .panel-t { font-size: 14px; font-weight: 700; fill: #1e293b; }
+    .ax { font-size: 11px; fill: #64748b; }
+    .lbl { font-size: 11.5px; font-weight: 700; }
+    .sm { font-size: 11px; fill: #475569; }
+  </style>
+
+  <rect width="920" height="420" rx="8" fill="#fbfcfe"/>
+
+  <!-- Header -->
+  <text x="34" y="35" class="title">统计功效三大杠杆：同题配对降方差、MDE 样本量与聚类 SE 膨胀</text>
+  <text x="34" y="57" class="sub">双侧 α = 0.05、功效 80%（基准 p ≈ 0.50）：同题配对大幅压缩 MDE，而忽略共享文档/仓库聚类会严重低估真实误差棒。</text>
+
+  <!-- LEFT PANEL: MDE Curves vs N -->
+  <rect x="34" y="74" width="430" height="324" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="52" y="99" class="panel-t">① MDE 随题量 N 与配对相关性 ρ 的衰减</text>
+
+  <!-- Plot coordinates: x in [88, 438], y in [120, 324] (Y=0% at 324, Y=40% at 120 => 5.1 px per 1 pp) -->
+  <!-- X log positions: N=30->96, N=100->181, N=300->266, N=1000->351, N=3000->432 -->
+  <!-- Horizontal Grid -->
+  <line x1="88" y1="324" x2="442" y2="324" stroke="#475569" stroke-width="1.4"/>
+  <line x1="88" y1="273" x2="442" y2="273" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="88" y1="222" x2="442" y2="222" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="88" y1="171" x2="442" y2="171" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="88" y1="120" x2="442" y2="120" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="88" y1="120" x2="88" y2="324" stroke="#475569" stroke-width="1.4"/>
+
+  <!-- Vertical reference at N=300 -->
+  <line x1="266" y1="120" x2="266" y2="324" stroke="#cbd5e1" stroke-width="1.1" stroke-dasharray="4 3"/>
+
+  <!-- Y axis labels -->
+  <text x="80" y="328" text-anchor="end" class="ax mono">0%</text>
+  <text x="80" y="277" text-anchor="end" class="ax mono">10%</text>
+  <text x="80" y="226" text-anchor="end" class="ax mono">20%</text>
+  <text x="80" y="175" text-anchor="end" class="ax mono">30%</text>
+  <text x="80" y="124" text-anchor="end" class="ax mono">40%</text>
+
+  <!-- X axis labels -->
+  <text x="96" y="342" text-anchor="middle" class="ax mono">30</text>
+  <text x="181" y="342" text-anchor="middle" class="ax mono">100</text>
+  <text x="266" y="342" text-anchor="middle" class="ax mono">300</text>
+  <text x="351" y="342" text-anchor="middle" class="ax mono">1000</text>
+  <text x="432" y="342" text-anchor="middle" class="ax mono">3000</text>
+  <text x="264" y="362" text-anchor="middle" class="sm">评测集独立题量 N（对数刻度）</text>
+
+  <!-- Curve 1: Unpaired rho=0 (36.1->140, 19.8->223, 11.4->266, 6.3->292, 3.6->306) -->
+  <path d="M 96 140 Q 138 188, 181 223 T 266 266 T 351 292 L 432 306" fill="none" stroke="#e11d48" stroke-width="2.4" stroke-dasharray="6 4"/>
+  <circle cx="96" cy="140" r="3.5" fill="#e11d48"/>
+  <circle cx="181" cy="223" r="3.5" fill="#e11d48"/>
+  <circle cx="266" cy="266" r="4" fill="#e11d48"/>
+  <circle cx="351" cy="292" r="3.5" fill="#e11d48"/>
+  <circle cx="432" cy="306" r="3.5" fill="#e11d48"/>
+
+  <!-- Curve 2: Moderate paired rho=0.5 (25.6->193, 14.0->253, 8.1->283, 4.4->302, 2.6->311) -->
+  <path d="M 96 193 Q 138 228, 181 253 T 266 283 T 351 302 L 432 311" fill="none" stroke="#d97706" stroke-width="2.4"/>
+  <circle cx="96" cy="193" r="3.5" fill="#d97706"/>
+  <circle cx="181" cy="253" r="3.5" fill="#d97706"/>
+  <circle cx="266" cy="283" r="3.5" fill="#d97706"/>
+  <circle cx="351" cy="302" r="3.5" fill="#d97706"/>
+  <circle cx="432" cy="311" r="3.5" fill="#d97706"/>
+
+  <!-- Curve 3: Strong paired rho=0.8 (16.2->241, 8.9->279, 5.1->298, 2.8->310, 1.6->316) -->
+  <path d="M 96 241 Q 138 263, 181 279 T 266 298 T 351 310 L 432 316" fill="none" stroke="#059669" stroke-width="2.8"/>
+  <circle cx="96" cy="241" r="3.5" fill="#059669"/>
+  <circle cx="181" cy="279" r="3.5" fill="#059669"/>
+  <circle cx="266" cy="298" r="4" fill="#059669"/>
+  <circle cx="351" cy="310" r="3.5" fill="#059669"/>
+  <circle cx="432" cy="316" r="3.5" fill="#059669"/>
+
+  <!-- Callout at N=300 -->
+  <rect x="270" y="198" width="184" height="54" rx="7" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="278" y="216" class="lbl" fill="#065f46">N = 300 题时：</text>
+  <text x="278" y="232" class="sm" font-size="10.5">非配对 MDE = 11.4 pp</text>
+  <text x="278" y="246" class="sm" font-size="10.5" fill="#047857">强配对 MDE = 5.1 pp (5× 省题)</text>
+
+  <!-- Legend inside Left Panel -->
+  <rect x="195" y="122" width="248" height="64" rx="7" fill="#f8fafc" stroke="#e2e8f0"/>
+  <line x1="207" y1="138" x2="231" y2="138" stroke="#e11d48" stroke-width="2.4" stroke-dasharray="5 3"/>
+  <text x="238" y="142" class="sm">非配对独立样本 (ρ = 0)</text>
+  <line x1="207" y1="156" x2="231" y2="156" stroke="#d97706" stroke-width="2.4"/>
+  <text x="238" y="160" class="sm">跨家族同题配对 (ρ = 0.50)</text>
+  <line x1="207" y1="174" x2="231" y2="174" stroke="#059669" stroke-width="2.8"/>
+  <text x="238" y="178" class="sm">同底座迭代配对 (ρ = 0.80)</text>
+
+  <text x="52" y="384" font-size="11" fill="#64748b">提示：单年 AIME 仅 30 题，即使 ρ=0.80 仍需 ≥ 16 pp 差值才具 80% 功效。</text>
+
+  <!-- RIGHT TOP PANEL: Paired vs Unpaired Forest Plot -->
+  <rect x="484" y="74" width="402" height="154" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="502" y="98" class="panel-t">② 实证算例：N = 300 题、Δ = +5.0 pp（95% CI）</text>
+
+  <!-- Zero line at x=592 (scale: 1 pp = 11.5 px, range -4 pp to +14 pp) -->
+  <line x1="592" y1="112" x2="592" y2="198" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="592" y="214" text-anchor="middle" class="ax mono">0 pp</text>
+  <text x="650" y="214" text-anchor="middle" class="ax mono">+5.0 pp</text>
+  <text x="707" y="214" text-anchor="middle" class="ax mono">+10.0 pp</text>
+
+  <!-- Row 1: Unpaired: -2.1 to +12.1 => x = 592 - 24 = 568 to 592 + 139 = 731 -->
+  <text x="500" y="138" class="lbl" fill="#9f1239">非配对</text>
+  <line x1="568" y1="134" x2="731" y2="134" stroke="#e11d48" stroke-width="3"/>
+  <line x1="568" y1="127" x2="568" y2="141" stroke="#e11d48" stroke-width="2"/>
+  <line x1="731" y1="127" x2="731" y2="141" stroke="#e11d48" stroke-width="2"/>
+  <circle cx="650" cy="134" r="5" fill="#e11d48"/>
+  <text x="742" y="131" font-size="11" font-weight="700" fill="#be123c">跨过 0 线（漏检）</text>
+  <text x="742" y="146" font-size="10.4" fill="#64748b">SE=3.64 pp, p=0.17</text>
+
+  <!-- Row 2: Paired: +0.65 to +9.35 => x = 592 + 7 = 599 to 592 + 108 = 700 -->
+  <text x="500" y="178" class="lbl" fill="#065f46">同题配对</text>
+  <line x1="599" y1="174" x2="700" y2="174" stroke="#059669" stroke-width="3.2"/>
+  <line x1="599" y1="167" x2="599" y2="181" stroke="#059669" stroke-width="2"/>
+  <line x1="700" y1="167" x2="700" y2="181" stroke="#059669" stroke-width="2"/>
+  <circle cx="650" cy="174" r="5" fill="#059669"/>
+  <text x="712" y="171" font-size="11" font-weight="700" fill="#047857">显著 &gt; 0（方差降 2.7×）</text>
+  <text x="712" y="186" font-size="10.4" fill="#64748b">p=0.024 · McNemar 0.037</text>
+
+  <!-- RIGHT BOTTOM PANEL: Clustered SE Inflation -->
+  <rect x="484" y="242" width="402" height="156" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="502" y="266" class="panel-t" font-size="13">③ 聚类 SE 膨胀：500 题 / 25 文档（m̄=20, ICC=0.3）</text>
+
+  <!-- Bar 1: Naive iid -->
+  <text x="502" y="298" class="lbl" fill="#075985">朴素 i.i.d.</text>
+  <text x="502" y="313" font-size="10.5" fill="#64748b">假定 500 题独立</text>
+  <rect x="604" y="286" width="84" height="24" rx="5" fill="#fee2e2" stroke="#fca5a5" stroke-dasharray="4 2"/>
+  <text x="646" y="302" text-anchor="middle" class="mono" font-size="11.5" font-weight="700" fill="#be123c">±2.0 pp</text>
+  <text x="698" y="302" font-size="11" fill="#be123c">虚假过窄 → 大量假阳性！</text>
+
+  <!-- Bar 2: Clustered SE -->
+  <text x="502" y="346" class="lbl" fill="#3730a3">Clustered SE</text>
+  <text x="502" y="361" font-size="10.5" fill="#64748b">按文档簇重采样</text>
+  <rect x="604" y="334" width="218" height="24" rx="5" fill="#e0e7ff" stroke="#818cf8" stroke-width="1.4"/>
+  <text x="713" y="350" text-anchor="middle" class="mono" font-size="11.5" font-weight="700" fill="#3730a3">±5.2 pp（真实宽度 2.59×）</text>
+
+  <!-- Formula Strip -->
+  <rect x="502" y="370" width="366" height="20" rx="5" fill="#f8fafc"/>
+  <text x="685" y="384" text-anchor="middle" class="mono" font-size="9.8" fill="#334155">DEFF = 1+(20−1)×0.30 = 6.70 ⇒ N_eff = 500/6.70 ≈ 75 题</text>
+</svg>

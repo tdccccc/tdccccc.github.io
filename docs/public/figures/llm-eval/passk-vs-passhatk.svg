@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 416" role="img" aria-label="探索上限 pass@k 与生产可靠性 pass^k 随尝试次数 k 分岔的剪刀差曲线及工程适用场景对比">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 19.5px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.8px; fill: #64748b; }
+    .panel-t { font-size: 14px; font-weight: 700; fill: #1e293b; }
+    .ax { font-size: 11px; fill: #64748b; }
+    .lbl { font-size: 12px; font-weight: 700; }
+    .sm { font-size: 11.2px; fill: #475569; }
+  </style>
+  <defs>
+    <marker id="arr-both-up" viewBox="0 0 10 10" refX="5" refY="2" markerWidth="6" markerHeight="6" orient="0">
+      <path d="M1,9 L5,1 L9,9 Z" fill="#d97706"/>
+    </marker>
+    <marker id="arr-both-dn" viewBox="0 0 10 10" refX="5" refY="8" markerWidth="6" markerHeight="6" orient="0">
+      <path d="M1,1 L5,9 L9,1 Z" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="416" rx="8" fill="#fbfcfe"/>
+
+  <!-- Header -->
+  <text x="34" y="35" class="title">探索上限 pass@k 与生产可靠性 pass^k 的分岔剪刀差</text>
+  <text x="34" y="57" class="sub">单次成功率 p = 0.75 在演示里看似够用：重试 5 次几乎必中（pass@5 = 99.9%），但连续 5 次无故障仅剩 23.7%（pass^5）。</text>
+
+  <!-- LEFT CHART PANEL -->
+  <rect x="34" y="76" width="516" height="320" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="52" y="101" class="panel-t">随采样 / 连续执行次数 k 演化的概率分岔</text>
+
+  <!-- Plot coordinates: X: k=1..8 -> x = 96 + (k-1)*60 (96, 156, 216, 276, 336, 396, 456, 516) -->
+  <!-- Y: 0% at 336, 100% at 126 => 2.1 px per 1% -->
+  <!-- Gridlines -->
+  <line x1="84" y1="336" x2="526" y2="336" stroke="#475569" stroke-width="1.4"/>
+  <line x1="84" y1="283.5" x2="526" y2="283.5" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="84" y1="231" x2="526" y2="231" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="84" y1="178.5" x2="526" y2="178.5" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="84" y1="126" x2="526" y2="126" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="84" y1="126" x2="84" y2="336" stroke="#475569" stroke-width="1.4"/>
+
+  <!-- Y ticks -->
+  <text x="76" y="340" text-anchor="end" class="ax mono">0%</text>
+  <text x="76" y="287" text-anchor="end" class="ax mono">25%</text>
+  <text x="76" y="235" text-anchor="end" class="ax mono">50%</text>
+  <text x="76" y="182" text-anchor="end" class="ax mono">75%</text>
+  <text x="76" y="130" text-anchor="end" class="ax mono">100%</text>
+
+  <!-- X ticks -->
+  <text x="96" y="354" text-anchor="middle" class="ax mono">1</text>
+  <text x="156" y="354" text-anchor="middle" class="ax mono">2</text>
+  <text x="216" y="354" text-anchor="middle" class="ax mono">3</text>
+  <text x="276" y="354" text-anchor="middle" class="ax mono">4</text>
+  <text x="336" y="354" text-anchor="middle" class="ax mono">5</text>
+  <text x="396" y="354" text-anchor="middle" class="ax mono">6</text>
+  <text x="456" y="354" text-anchor="middle" class="ax mono">7</text>
+  <text x="516" y="354" text-anchor="middle" class="ax mono">8</text>
+  <text x="306" y="376" text-anchor="middle" class="sm">尝试 / 连续独立执行次数 k</text>
+
+  <!-- Shaded scissor polygon between pass@k (0.75) and pass^k (0.75) -->
+  <!-- pass@k(0.75): (96,178.5)(156,139.1)(216,129.3)(276,126.8)(336,126.2)(396,126.1)(456,126.0)(516,126.0) -->
+  <!-- pass^k(0.75): (96,178.5)(156,217.9)(216,247.4)(276,269.6)(336,286.2)(396,298.6)(456,308.0)(516,315.0) -->
+  <polygon points="96,178.5 156,139.1 216,129.3 276,126.8 336,126.2 396,126.1 456,126 516,126 516,315 456,308 396,298.6 336,286.2 276,269.6 216,247.4 156,217.9" fill="#fef3c7" fill-opacity="0.48"/>
+
+  <!-- pass^k (p=0.90) reference dashed curve -->
+  <!-- (96,147)(156,165.9)(216,182.9)(276,198.2)(336,212.0)(396,224.4)(456,235.6)(516,245.6) -->
+  <polyline points="96,147 156,165.9 216,182.9 276,198.2 336,212 396,224.4 456,235.6 516,245.6" fill="none" stroke="#4f46e5" stroke-width="2" stroke-dasharray="6 4"/>
+  <circle cx="516" cy="245.6" r="3.5" fill="#4f46e5"/>
+  <text x="514" y="216" text-anchor="end" class="lbl" fill="#3730a3">pass^k (p=0.90) → 43.0%</text>
+
+  <!-- pass@k (p=0.75) curve -->
+  <polyline points="96,178.5 156,139.1 216,129.3 276,126.8 336,126.2 396,126.1 456,126 516,126" fill="none" stroke="#059669" stroke-width="3"/>
+  <circle cx="96" cy="178.5" r="4.5" fill="#0f172a"/>
+  <circle cx="156" cy="139.1" r="3.5" fill="#059669"/>
+  <circle cx="336" cy="126.2" r="4.5" fill="#059669"/>
+  <circle cx="516" cy="126" r="3.5" fill="#059669"/>
+  <text x="348" y="144" class="lbl" fill="#065f46">pass@5 = 99.9%（有验证器重试）</text>
+
+  <!-- pass^k (p=0.75) curve -->
+  <polyline points="96,178.5 156,217.9 216,247.4 276,269.6 336,286.2 396,298.6 456,308 516,315" fill="none" stroke="#e11d48" stroke-width="3"/>
+  <circle cx="156" cy="217.9" r="3.5" fill="#e11d48"/>
+  <circle cx="336" cy="286.2" r="4.5" fill="#e11d48"/>
+  <circle cx="516" cy="315" r="4" fill="#e11d48"/>
+  <text x="346" y="295" class="lbl" fill="#9f1239">pass^5 = 23.7%</text>
+  <text x="512" y="330" text-anchor="end" class="lbl" fill="#9f1239">pass^8 = 10.0%</text>
+
+  <!-- Scissor Gap Marker at k=5 -->
+  <line x1="336" y1="134" x2="336" y2="278" stroke="#d97706" stroke-width="2" stroke-dasharray="4 3" marker-start="url(#arr-both-up)" marker-end="url(#arr-both-dn)"/>
+  <rect x="200" y="190" width="128" height="36" rx="6" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="264" y="206" text-anchor="middle" class="lbl" fill="#92400e">k = 5 剪刀差</text>
+  <text x="264" y="221" text-anchor="middle" class="mono" font-size="11.5" font-weight="700" fill="#b45309">76.2 pp！</text>
+
+  <!-- Origin label -->
+  <text x="104" y="182" class="mono" font-size="11" font-weight="700" fill="#0f172a">k=1: 75%</text>
+
+  <!-- RIGHT CARDS PANEL -->
+  <!-- Card 1: pass@k -->
+  <rect x="570" y="76" width="316" height="100" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="586" y="99" font-size="13.5" font-weight="700" fill="#065f46">pass@k：探索上限与带验证器重试</text>
+  <text x="586" y="120" class="sm">• 适用：代码生成、数学证明、RLVR 采样潜力</text>
+  <text x="586" y="138" class="sm">• 前提：存在廉价确定的验证器挑出正确解</text>
+  <rect x="586" y="147" width="284" height="21" rx="5" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="728" y="161" text-anchor="middle" class="mono" font-size="10.8" fill="#065f46">无偏估计：1 − C(n−c, k) / C(n, k)</text>
+
+  <!-- Card 2: pass^k -->
+  <rect x="570" y="188" width="316" height="100" rx="10" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.4"/>
+  <text x="586" y="211" font-size="13.5" font-weight="700" fill="#9f1239">pass^k：无兜底生产 Agent 可靠性</text>
+  <text x="586" y="232" class="sm">• 适用：客服退款、工单审批、线上数据库操作</text>
+  <text x="586" y="250" class="sm">• 特征：单次失败即事故，p=0.90 仍难稳过 8 连测</text>
+  <rect x="586" y="259" width="284" height="21" rx="5" fill="#ffffff" stroke="#fecdd3"/>
+  <text x="728" y="273" text-anchor="middle" class="mono" font-size="10.8" fill="#9f1239">无偏估计：C(c, k) / C(n, k)</text>
+
+  <!-- Card 3: Diagnostic Rule -->
+  <rect x="570" y="300" width="316" height="96" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+  <text x="586" y="323" font-size="13.5" font-weight="700" fill="#3730a3">诊断技巧：对比 pass^k 与 (pass^1)^k</text>
+  <text x="586" y="344" class="sm" font-size="10.4">• pass^k ≫ (pass^1)^k：两极分化（会恒对/不会恒错）</text>
+  <text x="586" y="362" class="sm" font-size="10.4">  → 优先补齐知识/工具能力短板</text>
+  <text x="586" y="381" class="sm" font-size="10.4">• pass^k ≈ (pass^1)^k：全题随机抖动 → 先加固脚手架</text>
+</svg>

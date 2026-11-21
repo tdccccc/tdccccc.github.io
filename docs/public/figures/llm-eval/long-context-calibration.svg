@@ -1,0 +1,190 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 470" role="img" aria-label="长上下文有效衰减曲线与事实置信度校准图：左侧展示 NIAH 假绿表象与 RULER、MRCR、NoLiMa 随窗口拉长的有效准确率衰减；右侧展示可靠性图中的过度自信盲区与拒答区间">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.8px; fill: #64748b; }
+    .panel-t { font-size: 14.5px; font-weight: 700; fill: #1e293b; }
+    .panel-s { font-size: 11px; fill: #64748b; }
+    .axis-t { font-size: 11px; font-weight: 600; fill: #475569; text-anchor: middle; }
+    .tick { font-size: 10.2px; fill: #64748b; }
+    .curve-lbl { font-size: 10.6px; font-weight: 700; }
+    .note-t { font-size: 10.5px; fill: #334155; }
+    .badge { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-rose" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="470" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="34" y="36" class="title">长上下文有效衰减规律与事实置信度校准</text>
+  <text x="34" y="58" class="sub">左：标称窗口与真实有效窗口的剪刀差（教学示意曲线）；右：可靠性图揭示过度自信盲区与诚实拒答收益。</text>
+
+  <!-- ==================== LEFT PANEL: Long Context Decay ==================== -->
+  <g>
+    <rect x="34" y="76" width="424" height="366" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+    <rect x="42" y="86" width="4" height="28" rx="2" fill="#2563eb"/>
+    <text x="54" y="100" class="panel-t">面板 A · 标称上下文 vs 有效上下文衰减</text>
+    <text x="54" y="116" class="panel-s">越脱离字面复制、越需要状态追踪与语义关联，有效窗口缩水越剧烈</text>
+
+    <!-- Plot Box: x=86..436 (width=350), y=136..336 (height=200) -->
+    <!-- Horizontal Grid Lines: 100%=136, 75%=186, 50%=236, 25%=286, 0%=336 -->
+    <line x1="86" y1="136" x2="436" y2="136" stroke="#f1f5f9" stroke-width="1"/>
+    <line x1="86" y1="186" x2="436" y2="186" stroke="#f1f5f9" stroke-width="1"/>
+    <line x1="86" y1="236" x2="436" y2="236" stroke="#f1f5f9" stroke-width="1"/>
+    <line x1="86" y1="286" x2="436" y2="286" stroke="#f1f5f9" stroke-width="1"/>
+
+    <!-- 80% Usability Threshold Line: y = 136 + 0.2*200 = 176 -->
+    <line x1="86" y1="176" x2="436" y2="176" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,4"/>
+    <text x="434" y="171" font-size="9.6" fill="#64748b" text-anchor="end">可用门槛 80%</text>
+
+    <!-- Effective Context Highlight Band (around 32K -> x=226) -->
+    <line x1="226" y1="136" x2="226" y2="336" stroke="#6366f1" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <rect x="172" y="308" width="108" height="20" rx="4" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text x="226" y="322" class="badge" fill="#3730a3">真实有效拐点 ≈ 32K</text>
+
+    <!-- Claimed 128K marker (x=366) -->
+    <line x1="366" y1="136" x2="366" y2="336" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="2,3"/>
+
+    <!-- Axes -->
+    <line x1="86" y1="132" x2="86" y2="336" stroke="#475569" stroke-width="1.4"/>
+    <line x1="86" y1="336" x2="438" y2="336" stroke="#475569" stroke-width="1.4"/>
+
+    <!-- Y-axis ticks -->
+    <text x="79" y="140" class="tick" text-anchor="end">100%</text>
+    <text x="79" y="190" class="tick" text-anchor="end">75%</text>
+    <text x="79" y="240" class="tick" text-anchor="end">50%</text>
+    <text x="79" y="290" class="tick" text-anchor="end">25%</text>
+    <text x="79" y="340" class="tick" text-anchor="end">0%</text>
+    <text x="52" y="236" class="axis-t" transform="rotate(-90 52 236)">任务准确率</text>
+
+    <!-- X-axis ticks: 4K=86, 16K=156, 32K=226, 64K=296, 128K=366, 256K=436 -->
+    <text x="86" y="352" class="tick mono" text-anchor="middle">4K</text>
+    <text x="156" y="352" class="tick mono" text-anchor="middle">16K</text>
+    <text x="226" y="352" class="tick mono" text-anchor="middle">32K</text>
+    <text x="296" y="352" class="tick mono" text-anchor="middle">64K</text>
+    <text x="366" y="352" class="tick mono" text-anchor="middle">128K</text>
+    <text x="430" y="352" class="tick mono" text-anchor="middle">256K</text>
+    <text x="261" y="370" class="axis-t">上下文长度（对数刻度 · 标称常达 128K–1M）</text>
+
+    <!-- Curve 1: NIAH (Green #059669): 99, 98, 97, 96, 94, 91 -> y: 138, 140, 142, 144, 148, 154 -->
+    <path d="M86,138 C130,139 180,141 226,142 C275,143 325,145 366,148 C395,150 416,152 436,154" fill="none" stroke="#059669" stroke-width="2.6"/>
+    <circle cx="86" cy="138" r="3" fill="#059669"/>
+    <circle cx="226" cy="142" r="3" fill="#059669"/>
+    <circle cx="366" cy="148" r="3" fill="#059669"/>
+    <text x="436" y="133" class="curve-lbl" fill="#047857" text-anchor="end">NIAH 单针（表象全绿）</text>
+
+    <!-- Curve 2: RULER (Blue #2563eb): 96, 91, 82, 68, 52, 36 -> y: 144, 154, 172, 200, 232, 264 -->
+    <path d="M86,144 C122,149 144,152 156,154 C190,161 208,167 226,172 C258,184 278,192 296,200 C330,216 348,224 366,232 C398,246 418,255 436,264" fill="none" stroke="#2563eb" stroke-width="2.5"/>
+    <circle cx="156" cy="154" r="3" fill="#2563eb"/>
+    <circle cx="226" cy="172" r="3" fill="#2563eb"/>
+    <circle cx="366" cy="232" r="3" fill="#2563eb"/>
+    <text x="372" y="226" class="curve-lbl" fill="#1d4ed8">RULER</text>
+
+    <!-- Curve 3: MRCR (Amber #d97706): 93, 83, 70, 54, 38, 24 -> y: 150, 170, 196, 228, 260, 288 -->
+    <path d="M86,150 C120,159 140,165 156,170 C190,182 208,189 226,196 C260,211 278,220 296,228 C330,244 348,252 366,260 C398,274 418,282 436,288" fill="none" stroke="#d97706" stroke-width="2.4" stroke-dasharray="6,3"/>
+    <circle cx="226" cy="196" r="3" fill="#d97706"/>
+    <circle cx="366" cy="260" r="3" fill="#d97706"/>
+    <text x="372" y="269" class="curve-lbl" fill="#b45309">MRCR</text>
+
+    <!-- Curve 4: NoLiMa (Rose #e11d48): 89, 71, 52, 33, 18, 10 -> y: 158, 194, 232, 270, 300, 316 -->
+    <path d="M86,158 C118,175 138,185 156,194 C188,212 208,222 226,232 C258,250 278,261 296,270 C328,286 348,294 366,300 C398,309 418,313 436,316" fill="none" stroke="#e11d48" stroke-width="2.6"/>
+    <circle cx="156" cy="194" r="3" fill="#e11d48"/>
+    <circle cx="226" cy="232" r="3" fill="#e11d48"/>
+    <circle cx="366" cy="300" r="3" fill="#e11d48"/>
+    <text x="372" y="297" class="curve-lbl" fill="#be123c">NoLiMa</text>
+
+    <!-- Bottom Legend Box -->
+    <rect x="52" y="384" width="388" height="44" rx="7" fill="#f8fafc" stroke="#e2e8f0"/>
+    <line x1="64" y1="400" x2="82" y2="400" stroke="#059669" stroke-width="2.5"/>
+    <text x="88" y="404" class="note-t">NIAH 浅层字面复制</text>
+    <line x1="212" y1="400" x2="230" y2="400" stroke="#2563eb" stroke-width="2.5"/>
+    <text x="236" y="404" class="note-t">RULER 聚合/多跳追踪</text>
+    <line x1="64" y1="418" x2="82" y2="418" stroke="#d97706" stroke-width="2.4" stroke-dasharray="5,2"/>
+    <text x="88" y="422" class="note-t">MRCR 多针精准区分</text>
+    <line x1="212" y1="418" x2="230" y2="418" stroke="#e11d48" stroke-width="2.5"/>
+    <text x="236" y="422" class="note-t">NoLiMa 无词面重叠关联</text>
+  </g>
+
+  <!-- ==================== RIGHT PANEL: Calibration & Abstention ==================== -->
+  <g>
+    <rect x="472" y="76" width="414" height="366" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.3"/>
+    <rect x="480" y="86" width="4" height="28" rx="2" fill="#e11d48"/>
+    <text x="492" y="100" class="panel-t">面板 B · 事实校准可靠性图与拒答边界</text>
+    <text x="492" y="116" class="panel-s">高置信度答错是生产幻觉重灾区；低置信度区需引入诚实拒答</text>
+
+    <!-- Plot Box: x=532..852 (width=320), y=136..336 (height=200) -->
+    <!-- Abstention Shaded Region: conf in [0, 0.45] -> x in [532, 676] -->
+    <rect x="532" y="136" width="144" height="200" fill="#fefce8" opacity="0.72"/>
+    <line x1="676" y1="136" x2="676" y2="336" stroke="#d97706" stroke-width="1.3" stroke-dasharray="4,3"/>
+    <rect x="544" y="146" width="120" height="34" rx="5" fill="#fffbeb" stroke="#fcd34d"/>
+    <text x="604" y="160" class="badge" fill="#92400e">拒答保护区 (Abstain)</text>
+    <text x="604" y="174" font-size="9.5" fill="#b45309" text-anchor="middle">p̂ &lt; c_err / (1 + c_err)</text>
+
+    <!-- Grid Lines -->
+    <line x1="532" y1="136" x2="852" y2="136" stroke="#f1f5f9" stroke-width="1"/>
+    <line x1="532" y1="186" x2="852" y2="186" stroke="#f1f5f9" stroke-width="1"/>
+    <line x1="532" y1="236" x2="852" y2="236" stroke="#f1f5f9" stroke-width="1"/>
+    <line x1="532" y1="286" x2="852" y2="286" stroke="#f1f5f9" stroke-width="1"/>
+
+    <!-- Overconfidence Gap Shaded Polygon between perfect diagonal and uncalibrated curve -->
+    <!-- Diagonal points: (0.2,0.2)->(596,296), (0.5,0.5)->(692,236), (0.7,0.7)->(756,196), (0.9,0.9)->(820,156), (1.0,1.0)->(852,136) -->
+    <!-- Uncalibrated points: (0.2,0.14)->(596,308), (0.5,0.34)->(692,268), (0.7,0.47)->(756,242), (0.9,0.62)->(820,212), (0.98,0.72)->(846,192) -->
+    <polygon points="676,246 756,196 820,156 846,140 846,192 820,212 756,242 676,274" fill="#ffe4e6" opacity="0.72"/>
+
+    <!-- Axes -->
+    <line x1="532" y1="132" x2="532" y2="336" stroke="#475569" stroke-width="1.4"/>
+    <line x1="532" y1="336" x2="854" y2="336" stroke="#475569" stroke-width="1.4"/>
+
+    <!-- Y-axis ticks -->
+    <text x="525" y="140" class="tick" text-anchor="end">1.0</text>
+    <text x="525" y="190" class="tick" text-anchor="end">0.75</text>
+    <text x="525" y="240" class="tick" text-anchor="end">0.50</text>
+    <text x="525" y="290" class="tick" text-anchor="end">0.25</text>
+    <text x="525" y="340" class="tick" text-anchor="end">0.0</text>
+    <text x="492" y="236" class="axis-t" transform="rotate(-90 492 236)">真实准确率 acc(I_b)</text>
+
+    <!-- X-axis ticks: 0.0=532, 0.2=596, 0.4=660, 0.6=724, 0.8=788, 1.0=852 -->
+    <text x="532" y="352" class="tick mono" text-anchor="middle">0.0</text>
+    <text x="596" y="352" class="tick mono" text-anchor="middle">0.2</text>
+    <text x="660" y="352" class="tick mono" text-anchor="middle">0.4</text>
+    <text x="724" y="352" class="tick mono" text-anchor="middle">0.6</text>
+    <text x="788" y="352" class="tick mono" text-anchor="middle">0.8</text>
+    <text x="852" y="352" class="tick mono" text-anchor="middle">1.0</text>
+    <text x="692" y="370" class="axis-t">模型声称置信度 conf(I_b)</text>
+
+    <!-- Perfect Calibration Diagonal -->
+    <line x1="532" y1="336" x2="852" y2="136" stroke="#64748b" stroke-width="1.6" stroke-dasharray="5,4"/>
+    <text x="684" y="152" font-size="10.2" font-weight="600" fill="#475569">完美校准 (ECE = 0)</text>
+
+    <!-- Calibrated + Abstention Model (Emerald #059669): active mainly above threshold -->
+    <path d="M676,248 C710,227 738,210 756,199 C786,181 804,169 820,160 C834,151 842,146 848,142" fill="none" stroke="#059669" stroke-width="2.6"/>
+    <circle cx="676" cy="248" r="3.2" fill="#059669"/>
+    <circle cx="756" cy="199" r="3.2" fill="#059669"/>
+    <circle cx="820" cy="160" r="3.2" fill="#059669"/>
+
+    <!-- Uncalibrated Overconfident Model (Rose #e11d48) -->
+    <path d="M564,322 C600,307 640,290 676,274 C716,257 738,249 756,242 C788,228 806,220 820,212 C834,203 842,197 846,192" fill="none" stroke="#e11d48" stroke-width="2.6"/>
+    <circle cx="596" cy="308" r="3.2" fill="#e11d48"/>
+    <circle cx="676" cy="274" r="3.2" fill="#e11d48"/>
+    <circle cx="756" cy="242" r="3.2" fill="#e11d48"/>
+    <circle cx="820" cy="212" r="3.2" fill="#e11d48"/>
+
+    <!-- Overconfidence Gap Annotation -->
+    <line x1="820" y1="162" x2="820" y2="206" stroke="#be123c" stroke-width="1.3" marker-end="url(#arr-rose)"/>
+    <rect x="708" y="272" width="136" height="36" rx="5" fill="#fff1f2" stroke="#fda4af"/>
+    <text x="776" y="287" class="badge" fill="#9f1239">过度自信缺口 (高 ECE)</text>
+    <text x="776" y="301" font-size="9.5" fill="#be123c" text-anchor="middle">自称 90% 把握 · 实对 62%</text>
+
+    <!-- Bottom Legend / Key Rule Box -->
+    <rect x="490" y="384" width="378" height="44" rx="7" fill="#f8fafc" stroke="#e2e8f0"/>
+    <line x1="504" y1="400" x2="522" y2="400" stroke="#059669" stroke-width="2.6"/>
+    <text x="528" y="404" class="note-t">校准 + 拒答模型（低 ECE / 低错答）</text>
+    <line x1="504" y1="418" x2="522" y2="418" stroke="#e11d48" stroke-width="2.6"/>
+    <text x="528" y="422" class="note-t">典型过自信模型（0/1 刷分鼓励盲猜，高 Brier）</text>
+  </g>
+</svg>

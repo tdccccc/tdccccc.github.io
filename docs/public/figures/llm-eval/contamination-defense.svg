@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 436" role="img" aria-label="三类数据污染形态、GSM-Symbolic 扰动敏感性检测与动态活基准和企业三层私有留存集防线图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 19.5px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.8px; fill: #64748b; }
+    .col-t { font-size: 14px; font-weight: 700; }
+    .card-t { font-size: 12.5px; font-weight: 700; }
+    .sm { font-size: 11px; fill: #475569; }
+    .pill { font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="cnt-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="436" rx="8" fill="#fbfcfe"/>
+
+  <!-- Header -->
+  <text x="34" y="35" class="title">数据污染全链路防御：三类泄漏形态、扰动检测与活基准治理</text>
+  <text x="34" y="57" class="sub">单纯字面查重无法阻断改写泄漏与调参过拟合；必须以行为扰动探针、时间截断活基准与企业三层留存集构成纵深防线。</text>
+
+  <!-- COLUMN 1: Three Contamination Modes -->
+  <rect x="34" y="76" width="268" height="338" rx="10" fill="#ffffff" stroke="#fca5a5" stroke-width="1.4"/>
+  <rect x="34" y="76" width="268" height="34" rx="10" fill="#fef2f2"/>
+  <text x="50" y="98" class="col-t" fill="#9f1239">① 三类数据污染形态</text>
+
+  <!-- Mode 1 -->
+  <rect x="48" y="122" width="240" height="84" rx="8" fill="#fff5f5" stroke="#fecdd3"/>
+  <rect x="58" y="131" width="96" height="20" rx="10" fill="#e11d48"/>
+  <text x="106" y="145" class="pill" fill="#ffffff">Ⅰ 原题直泄</text>
+  <text x="58" y="168" class="sm">公开题面与答案直接混入预训练</text>
+  <text x="58" y="185" class="sm">或 SFT 语料（GitHub / 网页抓取）。</text>
+  <text x="58" y="200" font-size="10.2" fill="#be123c">隐蔽度：低（N-gram 可拦截）</text>
+
+  <!-- Mode 2 -->
+  <rect x="48" y="216" width="240" height="88" rx="8" fill="#fffbeb" stroke="#fde68a"/>
+  <rect x="58" y="225" width="126" height="20" rx="10" fill="#d97706"/>
+  <text x="121" y="239" class="pill" fill="#ffffff">Ⅱ 改写 / 翻译泄漏</text>
+  <text x="58" y="262" class="sm">用强模型同义改写、换语言翻译或</text>
+  <text x="58" y="279" class="sm">合成同构题，彻底绕过 13-gram 查重。</text>
+  <text x="58" y="296" font-size="10.2" fill="#b45309">隐蔽度：高（分数虚高 +20 pp 以上）</text>
+
+  <!-- Mode 3 -->
+  <rect x="48" y="314" width="240" height="88" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+  <rect x="58" y="323" width="134" height="20" rx="10" fill="#4f46e5"/>
+  <text x="125" y="337" class="pill" fill="#ffffff">Ⅲ 评测反馈过拟合</text>
+  <text x="58" y="360" class="sm">题目从未入训练库，但反复盯同一</text>
+  <text x="58" y="377" class="sm">固定测试集挑检查点、调 Prompt。</text>
+  <text x="58" y="394" font-size="10.2" fill="#4338ca">隐蔽度：极高（自适应 Goodhart）</text>
+
+  <!-- Arrow Col 1 -> Col 2 -->
+  <line x1="302" y1="245" x2="322" y2="245" stroke="#64748b" stroke-width="1.8" marker-end="url(#cnt-arr)"/>
+
+  <!-- COLUMN 2: Detection Probes -->
+  <rect x="326" y="76" width="270" height="338" rx="10" fill="#ffffff" stroke="#7dd3fc" stroke-width="1.4"/>
+  <rect x="326" y="76" width="270" height="34" rx="10" fill="#f0f9ff"/>
+  <text x="342" y="98" class="col-t" fill="#075985">② 多层污染检测探针</text>
+
+  <!-- Probe A: Corpus + Likelihood -->
+  <rect x="340" y="122" width="242" height="106" rx="8" fill="#f8fafc" stroke="#bae6fd"/>
+  <text x="352" y="142" class="card-t" fill="#0369a1">静态查重与对数似然探针</text>
+  <text x="352" y="162" class="sm">• 13-gram / MinHash-LSH 语料去重</text>
+  <text x="352" y="180" class="sm">• Min-K% Prob：检出罕见词异常高概率</text>
+  <text x="352" y="198" class="sm">• 选项乱序退化：测位置背诵痕迹</text>
+  <text x="352" y="218" font-size="10.3" fill="#64748b">局限：闭源无语料，且 RLHF 后似然漂移</text>
+
+  <!-- Probe B: GSM-Symbolic Perturbation Chart -->
+  <rect x="340" y="238" width="242" height="164" rx="8" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.3"/>
+  <text x="352" y="258" class="card-t" fill="#065f46">行为探针：GSM-Symbolic 扰动</text>
+  <text x="352" y="275" font-size="10.4" fill="#64748b">同题模板变换下的准确率跳水（示意）</text>
+
+  <!-- Horizontal Bars -->
+  <text x="352" y="298" font-size="10.8" font-weight="600" fill="#1e293b">原题基准</text>
+  <rect x="438" y="286" width="108" height="16" rx="4" fill="#10b981"/>
+  <text x="552" y="298" class="mono" font-size="10.5" font-weight="700" fill="#065f46">92%</text>
+
+  <text x="352" y="324" font-size="10.8" font-weight="600" fill="#1e293b">数值/实体替换</text>
+  <rect x="438" y="312" width="98" height="16" rx="4" fill="#f59e0b"/>
+  <text x="542" y="324" class="mono" font-size="10.5" font-weight="700" fill="#92400e">84%</text>
+
+  <text x="352" y="350" font-size="10.8" font-weight="600" fill="#9f1239">+1 句无关干扰</text>
+  <rect x="438" y="338" width="66" height="16" rx="4" fill="#e11d48"/>
+  <text x="510" y="350" class="mono" font-size="10.5" font-weight="700" fill="#9f1239">58% ↓</text>
+
+  <rect x="352" y="366" width="218" height="26" rx="5" fill="#fef2f2"/>
+  <text x="461" y="383" text-anchor="middle" font-size="10.4" font-weight="700" fill="#be123c">NoOp 暴跌 → 暴露表面模式记忆！</text>
+
+  <!-- Arrow Col 2 -> Col 3 -->
+  <line x1="596" y1="245" x2="616" y2="245" stroke="#64748b" stroke-width="1.8" marker-end="url(#cnt-arr)"/>
+
+  <!-- COLUMN 3: Live Benchmark & Enterprise Holdout -->
+  <rect x="620" y="76" width="266" height="338" rx="10" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.4"/>
+  <rect x="620" y="76" width="266" height="34" rx="10" fill="#ecfdf5"/>
+  <text x="636" y="98" class="col-t" fill="#065f46">③ 动态活基准与三层留存防线</text>
+
+  <!-- Live Benchmark -->
+  <rect x="634" y="122" width="238" height="106" rx="8" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="646" y="142" class="card-t" fill="#065f46">外部动态活基准（时间切片）</text>
+  <text x="646" y="162" class="sm">• LiveCodeBench / SWE-bench Live</text>
+  <text x="646" y="180" class="sm">• 每道题绑定发布时间戳</text>
+  <rect x="646" y="191" width="214" height="26" rx="5" fill="#ffffff" stroke="#6ee7b7"/>
+  <text x="753" y="208" text-anchor="middle" font-size="10.5" font-weight="700" fill="#047857">截止日前 vs 截止日后断崖对比</text>
+
+  <!-- Enterprise 3-tier Holdout -->
+  <rect x="634" y="238" width="238" height="164" rx="8" fill="#f8fafc" stroke="#c7d2fe" stroke-width="1.3"/>
+  <text x="646" y="258" class="card-t" fill="#3730a3">企业三层私有留存轮换治理</text>
+
+  <rect x="646" y="270" width="214" height="36" rx="6" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="656" y="285" font-size="11" font-weight="700" fill="#3730a3">Tier 1 · 开发/CI 快测集</text>
+  <text x="656" y="300" font-size="10" fill="#475569">研发可见，允许日常迭代磨损</text>
+
+  <rect x="646" y="313" width="214" height="36" rx="6" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="656" y="328" font-size="11" font-weight="700" fill="#92400e">Tier 2 · 密封留存上线闸门</text>
+  <text x="656" y="343" font-size="10" fill="#475569">权限隔离只读，严禁回流调参/训练</text>
+
+  <rect x="646" y="356" width="214" height="36" rx="6" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="656" y="371" font-size="11" font-weight="700" fill="#065f46">Tier 3 · 季度轮换 + Canary 标记</text>
+  <text x="656" y="386" font-size="10" fill="#475569">按月注入线上新单 + UUID 禁入库指纹</text>
+</svg>
