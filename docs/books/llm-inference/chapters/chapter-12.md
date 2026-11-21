@@ -238,7 +238,7 @@ $$\text{bank}(33 \cdot tx + k) = (32 \cdot tx + tx + k) \bmod 32 = (tx + k) \bmo
 1. **Occupancy 断崖**：$32 \times 32 = 1024$ 线程的 Block 粒度过粗。A100 每 SM 上限 2048 线程（最多 2 个 Block）和 65,536 个寄存器。一旦编译器为每个线程分配超过 32 个寄存器（如 40 个），单 SM 驻留 Block 数便从 2 个腰斩到 1 个，理论占用率瞬间从 **100% 跌至 50%**；且第 3 版搬运 `float4` 时，1024 个线程里只有前 256 个干活，其余 768 个线程空等。
 2. **算术/Shared 读取比偏低**：每个线程只算 1 个输出元素，内层每执行 1 次 FMA 需要从 Shared Memory 读 2 次数据（`As[ty][k]` 与 `Bs[k][tx]`），Shared 带宽与 `LDS` 指令极易成为新的天花板。
 
-<strong>线程粗化（Thread Coarsening）</strong>一石二鸟：维持 $32 \times 32$ 的 Tile 与 8 KiB Shared Memory 不变，将 Block 缩小为 $16 \times 16 = 256$ 线程（8 个 Warp），让<strong>每个线程在寄存器中维护一个 $2 \times 2$ 累加器阵列</strong> `acc[2][2]`，一次性算出 4 个相邻输出元素。以下是仓库完整基准 [gemm_bench.cu](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/gemm_bench.cu) 中的第四版核心实现：
+<strong>线程粗化（Thread Coarsening）</strong>一石二鸟：维持 $32 \times 32$ 的 Tile 与 8 KiB Shared Memory 不变，将 Block 缩小为 $16 \times 16 = 256$ 线程（8 个 Warp），让<strong>每个线程在寄存器中维护一个 $2 \times 2$ 累加器阵列</strong> `acc[2][2]`，一次性算出 4 个相邻输出元素。以下是第四版粗化 Kernel（`gemm_tiled_2x2`）的核心实现：
 
 ```cpp
 // Tile 维持 32x32，Block 改为 16x16=256 线程，每线程负责 2x2 共 4 个输出
@@ -297,7 +297,7 @@ __global__ __launch_bounds__(256) void gemm_tiled_2x2(
 | **V3 向量化版** (`gemm_vectorized`) | $32 \times 32$ (1024) / $32 \times 32$ | 17.18 GB | $8.0\text{ FLOP/B}$ | 16.0 TFLOPS (8.59 ms) | `float4` 128-bit 读压 4× Load 指令；Shared 布局防 Bank 冲突 | `LDG.E.128` 替代 4× `LDG.E`、Shared Bank Conflict 计数归零 |
 | **V4 粗化版** (`gemm_tiled_2x2`) | $16 \times 16$ (256) / $32 \times 32$ | 17.18 GB | $8.0\text{ FLOP/B}$ | 16.0 TFLOPS (8.59 ms) | 每线程 $2\times 2$ 寄存器微块，Shared 读减半 + 消除 Occupancy 悬崖 | `LDS` 指令数减半、Active/Eligible Warps 提升、无 Local Spill |
 
-完整可编译运行的四版源码（含固定种子初始化、全量/抽样 CPU 参考校验与 CUDA Events 计时框架）位于 [gemm_bench.cu](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/gemm_bench.cu)。
+将上述四版 Kernel 配合固定种子初始化、全量/抽样 CPU 参考校验与 CUDA Events 计时框架组装，即可在本地复现完整的阶梯加速测量（编译命令与校验要点见 [工程脚本与配置参考](../toolkit/tools-and-configs.md)）。
 
 回望这四级阶梯，每一步改动的物理机制都清晰可见：分块减少**显存搬运总量**，向量化与 Padding 扫清**访存指令与片上冲突**，线程粗化平衡**寄存器复用与 SM 延迟隐藏**。但你也一定感受到了手写 CUDA 的繁琐——每调一次 Tile 尺寸，线程映射、共享内存布局与同步边界就要全盘重写。下一章，我们引入 **<a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>**，看看把这些繁琐细节交给编译器之后，算子开发会变成什么模样。
 
@@ -307,4 +307,4 @@ __global__ __launch_bounds__(256) void gemm_tiled_2x2(
 
 1. NVIDIA, *CUDA C++ Programming Guide* & *Nsight Compute Profiling Guide*（硬件存储层级、Coalescing、Shared Memory Bank 与 `ncu` 指标定义权威文档）。
 2. Simon Boehm, *How to Optimize a CUDA Matmul Kernel for cuBLAS-like Performance: a Worklog*（2022），从朴素版到逼近 cuBLAS 的 10 级工程拆解。
-3. 本书配套四版完整参考实现：[gemm_bench.cu](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/gemm_bench.cu) 与[硬件规格与模型账本速查](../toolkit/hardware-models.md)。
+3. 本书配套规格与参考骨架：[工程脚本与配置参考](../toolkit/tools-and-configs.md) 与 [硬件规格与模型账本速查](../toolkit/hardware-models.md)。

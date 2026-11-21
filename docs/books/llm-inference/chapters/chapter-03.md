@@ -171,7 +171,7 @@ def measure_stream(url: str, model: str, prompt: str, max_tokens: int = 128) -> 
     return {"ttft_s": ttft_s, "itl_s": itl_s, "tpot_s": tpot_s, "total_s": total_s, "tokens": tokens}
 ```
 
-仓库中附带了仅依赖标准库、支持多档并发扫描、多行 SSE 事件、严格错误分类与逐请求 JSON 落盘的完整工具脚本，参见 [bench_openai.py](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part1-foundations/scripts/bench_openai.py)。
+若需在此骨架上扩展为支持多档并发扫描、多行 SSE 事件、严格错误分类与逐请求 JSON 落盘的完整压测客户端，可对照 [工程脚本与配置参考](../toolkit/tools-and-configs.md) 中的 `bench_openai.py` 设计契约与回环验证方法自行组装。
 
 ---
 

@@ -1,17 +1,14 @@
 # 工程脚本与配置参考
 
-<p class="chapter-summary">集中索引本仓库保留的参考源码、最小监控配置模板与跨芯片评估核心维度，供对照正文原理随时查阅。</p>
+<p class="chapter-summary">集中索引流式压测设计契约、最小监控配置模板、GPU 算子优化实践清单与跨芯片评估核心维度，供对照正文原理随时查阅。</p>
 
-全书正文侧重讲清原理直觉、公式推导与工程权衡，不让冗长的脚手架代码打断阅读节奏。本页集中整理仓库内保留的完整可执行参考脚本、可观测性最小 YAML / PromQL 模板、GPU 算子优化源码入口以及跨芯片对比的核心评估框架，方便你在深入实践或搭建内部工具链时直接翻阅。
+全书正文侧重讲清原理直觉、公式推导与工程权衡，不让冗长的脚手架代码打断阅读节奏。本页集中整理流式压测客户端的设计契约、可观测性最小 YAML / PromQL 模板、GPU 算子优化与插件打包编译命令以及跨芯片对比的核心评估框架，方便你在深入实践或搭建内部工具链时直接翻阅。
 
 ---
 
-## 一、流式压测与本地模拟参考源码
+## 一、流式压测与本地模拟参考设计
 
-对应 [第 3 章（推理度量与压测方法）](../chapters/chapter-03.md) 与 [测量口径与对比分析方法](methodology.md)，仓库提供了一对<strong>零外部依赖（纯 Python 标准库）</strong>的流式测量与回环模拟参考实现：
-
-- **压测客户端**：[`bench_openai.py`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part1-foundations/scripts/bench_openai.py)
-- **回环模拟流服务端**：[`mock_sse.py`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part1-foundations/scripts/mock_sse.py)
+对应 [第 3 章（推理度量与压测方法）](../chapters/chapter-03.md) 与 [测量口径与对比分析方法](methodology.md)，自建零外部依赖（纯 Python 标准库）的流式测量与回环模拟工具时，建议拆分为**压测客户端**（`bench_openai.py`）与**回环模拟流服务端**（`mock_sse.py`）两部分：
 
 ### `bench_openai.py` 核心设计契约
 
@@ -31,11 +28,11 @@
 
 ```bash
 # 终端 1：启动本地 SSE 模拟流服务
-python3 docs/modules/part1-foundations/scripts/mock_sse.py \
+python3 mock_sse.py \
   --port 8400 --tokens 32 --first-content-delay 0.05 --interval 0.01
 
 # 终端 2：运行标准流式并发扫描
-python3 docs/modules/part1-foundations/scripts/bench_openai.py \
+python3 bench_openai.py \
   --base-url http://127.0.0.1:8400 \
   --model mock --max-tokens 16 --concurrency 1 4 --requests 20 \
   --output /tmp/bench-mock.json
@@ -121,15 +118,15 @@ sum by (finished_reason, model_name) (increase(vllm:request_success_total[5m]))
 
 ---
 
-## 三、GPU 算子优化与引擎接入源码索引
+## 三、GPU 算子优化与引擎接入编译参考
 
-对应第三篇（[第 12 章](../chapters/chapter-12.md)、[第 15 章](../chapters/chapter-15.md) 与 [第 17 章](../chapters/chapter-17.md)），仓库保留了三套结构完整的参考源码，均内置输入校验与计时骨架：
+对应第三篇（[第 12 章](../chapters/chapter-12.md)、[第 15 章](../chapters/chapter-15.md) 与 [第 17 章](../chapters/chapter-17.md)）中的正文核心实现，按模块整理完整的编译、运行与插件安装参考命令：
 
-| 参考源码入口 | 对应章节 | 核心实现内容 | 编译 / 运行参考命令 |
+| 模块与文件名约定 | 对应章节 | 核心实现内容 | 编译 / 运行参考命令 |
 | --- | --- | --- | --- |
-| [`gemm_bench.cu`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/gemm_bench.cu) | [第 12 章](../chapters/chapter-12.md) | FP32 GEMM 四版演进完整 CUDA 入口（`gemm_naive` → `gemm_tiled` → `float4` 向量化搬运 → `2×2` 线程粗化），内置 CPU 参考校验、非整除尾块保护与 CUDA Events 计时 | `nvcc -O3 -std=c++17 -arch=sm_80 gemm_bench.cu -o /tmp/gemm_bench`（按实际 GPU 计算能力调整 `-arch`，如 H100 用 `sm_90`，A40 用 `sm_86`） |
-| [`quant_matmul.py`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/quant_matmul.py) | [第 15 章](../chapters/chapter-15.md) | Triton 双路径量化矩阵乘完整实现：INT8 **W8A8**（`matmul_int8_kernel`，per-token × per-channel FP32 缩放 + L2 Swizzle）与 **W8A16 融合反量化**（`matmul_fused_dequant_kernel`） | `python3 docs/modules/part3-operators/examples/quant_matmul.py` |
-| [`silu_plugin/`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/silu_plugin/pyproject.toml) | [第 17 章](../chapters/chapter-17.md) | 接入 vLLM 平台扩展体系的最小自定义算子插件包，通过 `vllm.general_plugins` 入口点注册 `SiluAndMul` 的 Triton 实现（含 [`kernel.py`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/silu_plugin/my_plugin/kernel.py) 与 [`silu_and_mul_plugin.py`](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/silu_plugin/my_plugin/silu_and_mul_plugin.py)） | 在目标 vLLM 环境中执行 `pip install --no-build-isolation --no-deps -e docs/modules/part3-operators/examples/silu_plugin` |
+| `gemm_bench.cu` | [第 12 章](../chapters/chapter-12.md) | FP32 GEMM 四版演进完整 CUDA 入口（`gemm_naive` → `gemm_tiled` → `float4` 向量化搬运 → `2×2` 线程粗化），内置 CPU 参考校验、非整除尾块保护与 CUDA Events 计时 | `nvcc -O3 -std=c++17 -arch=sm_80 gemm_bench.cu -o /tmp/gemm_bench`（按实际 GPU 计算能力调整 `-arch`，如 H100 用 `sm_90`，A40 用 `sm_86`） |
+| `quant_matmul.py` | [第 15 章](../chapters/chapter-15.md) | Triton 双路径量化矩阵乘实现：INT8 **W8A8**（`matmul_int8_kernel`，per-token × per-channel FP32 缩放 + L2 Swizzle）与 **W8A16 融合反量化**（`matmul_fused_dequant_kernel`） | `python3 quant_matmul.py` |
+| `silu_plugin/` | [第 17 章](../chapters/chapter-17.md) | 接入 vLLM 平台扩展体系的最小自定义算子插件包，通过 `vllm.general_plugins` 入口点注册 `SiluAndMul` 的 Triton 实现（含 `pyproject.toml`、`my_plugin/kernel.py` 与 `my_plugin/silu_and_mul_plugin.py`） | 在目标 vLLM 环境中执行 `pip install --no-build-isolation --no-deps -e ./silu_plugin` |
 
 ---
 

@@ -53,7 +53,7 @@ $$
 IEEE 754 FP16 的最小正正规数是 $2^{-14} \approx 6.10 \times 10^{-5}$，最小正次正规数是 $2^{-24} \approx 5.96 \times 10^{-8}$。如果直接在 FP16 张量上计算 `(amax / 127.0).clamp_min(1e-8)`，由于 `1e-8` 小于最小正次正规数的一半，**FP16 会直接将其下溢舍入为 `0.0`**！一旦输入中出现全零行（如 padding token）或极小激活值，`x / scale` 会立刻变成 `0.0 / 0.0 = NaN` 并经矩阵乘污染整张输出张量。
 :::
 
-因此，统计 `amax`、计算 `scale`、执行除法与舍入都必须先提升到 **FP32**，并且 `scale` 必须以 **FP32** 传给后续的 Matmul Kernel（绝不可再转回 FP16）。下面两段函数与本书完整可运行示例 [quant_matmul.py](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/quant_matmul.py) 保持完全一致：
+因此，统计 `amax`、计算 `scale`、执行除法与舍入都必须先提升到 **FP32**，并且 `scale` 必须以 **FP32** 传给后续的 Matmul Kernel（绝不可再转回 FP16）。下面给出可直接复用的量化数据准备参考实现：
 
 ```python
 import torch
@@ -124,7 +124,7 @@ $$
 
 ### 15.2.3 两条路径的核心代码对照（关键 3 行差异）
 
-去掉外层地址初始化与校验样板，对比两条 Triton 路径的主循环与 Epilogue，你会发现两者骨架高度一致，核心差异恰恰浓缩在 **3 处**（完整可运行的固定配置 Kernel、Host Wrapper、边界校验与基准测试入口见 [quant_matmul.py](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/quant_matmul.py)）：
+去掉外层地址初始化与校验样板，对比两条 Triton 路径的主循环与 Epilogue，你会发现两者骨架高度一致，核心差异恰恰浓缩在 **3 处**：
 
 ```python
 import triton

@@ -52,7 +52,7 @@ $$
 
 ### 17.2.1 打包入口与延迟注册：`pyproject.toml` 与 `__init__.py`
 
-完整可安装的示例包位于 [silu_plugin](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/silu_plugin/pyproject.toml)。插件包只需三份小文件，第一环是声明 `vllm.general_plugins` 入口点：
+最小可安装的插件包（`silu_plugin`）只需三份小文件，第一环是在 `pyproject.toml` 中声明 `vllm.general_plugins` 入口点：
 
 ```toml
 # pyproject.toml
@@ -71,7 +71,7 @@ def register() -> None:
 
 ### 17.2.2 Triton Kernel 核心实现与精度契约
 
-第二环是编写语义严丝合缝的 Triton 算子（完整含多维/空张量测试与三基线微基准的源码见 [kernel.py](https://github.com/tdccccc/time-to-first-token/blob/main/docs/modules/part3-operators/examples/silu_plugin/my_plugin/kernel.py)）：
+第二环是在 `my_plugin/kernel.py` 中编写语义严丝合缝的 Triton 算子（上线前应配合多维/空张量单元测试与三基线微基准验证）：
 
 ```python
 # my_plugin/kernel.py（核心 Kernel 与入口）
