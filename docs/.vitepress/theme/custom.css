@@ -412,3 +412,90 @@ html.img-lightbox-open {
     display: none;
   }
 }
+
+/* ===========================================================================
+   Reading Focus Mode — Collapsible Left Sidebar & Right Outline (Desktop)
+   =========================================================================== */
+
+@media (min-width: 960px) {
+  .VPContent.has-sidebar {
+    transition: padding-left 0.22s ease, padding-right 0.22s ease;
+  }
+
+  html.atlas-hide-sidebar .VPSidebar {
+    transform: translateX(-100%) !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html.atlas-hide-sidebar .VPContent.has-sidebar {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBar.has-sidebar {
+    background-color: var(--vp-nav-bg-color) !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBar.has-sidebar .wrapper {
+    padding: 0 32px !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBar.has-sidebar .container {
+    max-width: calc(var(--vp-layout-max-width) - 64px) !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBar.has-sidebar .title {
+    position: static !important;
+    padding: 0 !important;
+    width: auto !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBarTitle.has-sidebar .title {
+    border-bottom-color: transparent !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBar.has-sidebar .content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBar.has-sidebar .content-body {
+    background-color: transparent !important;
+  }
+
+  html.atlas-hide-sidebar .VPNavBar.has-sidebar .divider {
+    padding-left: 0 !important;
+    background-color: var(--vp-c-gutter) !important;
+  }
+
+  html.atlas-hide-sidebar .VPDoc.has-sidebar .container {
+    display: flex;
+    justify-content: center;
+    max-width: 1104px;
+  }
+}
+
+@media (min-width: 1280px) {
+  html.atlas-hide-aside .VPDoc .aside {
+    display: none !important;
+  }
+
+  html.atlas-hide-aside .VPDoc .content {
+    max-width: 860px !important;
+    margin: 0 auto !important;
+  }
+
+  html.atlas-hide-aside .VPDoc.has-aside .content-container {
+    max-width: 820px !important;
+  }
+
+  html.atlas-hide-sidebar.atlas-hide-aside .VPDoc .content {
+    max-width: 920px !important;
+  }
+
+  html.atlas-hide-sidebar.atlas-hide-aside .VPDoc.has-aside .content-container {
+    max-width: 880px !important;
+  }
+}

@@ -5,6 +5,7 @@ import './custom.css'
 import AtlasHome from './components/AtlasHome.vue'
 import PostsIndex from './components/PostsIndex.vue'
 import ImageLightbox from './components/ImageLightbox.vue'
+import ReadingFocusControls from './components/ReadingFocusControls.vue'
 import RlBetaTiltWidget from './components/RlBetaTiltWidget.vue'
 import RlPpoClipWidget from './components/RlPpoClipWidget.vue'
 import RlGroupAdvantageWidget from './components/RlGroupAdvantageWidget.vue'
@@ -16,7 +17,7 @@ export default {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
-      'layout-bottom': () => h(ImageLightbox),
+      'layout-bottom': () => [h(ImageLightbox), h(ReadingFocusControls)],
     })
   },
   enhanceApp({ app }) {
