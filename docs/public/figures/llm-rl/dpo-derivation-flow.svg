@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" role="img" aria-label="DPO 三步推导流程图：从 KL 正则闭式最优解反解奖励函数，代入 Bradley-Terry 偏好模型自动消去配分函数 Z(x)，最终转化为纯离线监督分类损失">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .st { font-size: 13.5px; font-weight: 700; text-anchor: middle; }
+    .eq { font-size: 11.5px; text-anchor: middle; fill: #1e293b; }
+    .sm { font-size: 11px; text-anchor: middle; fill: #475569; }
+    .pill { font-size: 10.5px; font-weight: 700; text-anchor: middle; fill: #ffffff; }
+  </style>
+  <defs>
+    <marker id="ar-dpo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect width="880" height="280" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">DPO 核心机制：如何用三步代数绕开整个 RL 循环</text>
+  <text x="30" y="54" class="sub">关键钥匙在于 BT 模型只依赖同提示下的奖励差，恰好消去了不可计算的配分函数 β·log Z(x)。</text>
+
+  <!-- Step 1 -->
+  <rect x="28" y="78" width="248" height="178" rx="10" fill="#eef2ff" stroke="#818cf8" stroke-width="1.3"/>
+  <rect x="64" y="88" width="176" height="20" rx="10" fill="#4f46e5"/>
+  <text x="152" y="102" class="pill">Step 1 · 反解闭式解</text>
+  <text x="152" y="130" class="st" fill="#3730a3">用最优策略表达奖励</text>
+  <rect x="42" y="142" width="220" height="44" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="152" y="160" class="eq mono">r(x,y) = β·log[π*(y|x)/π_ref(y|x)]</text>
+  <text x="152" y="177" class="eq mono" fill="#dc2626">+ β·log Z(x)</text>
+  <text x="152" y="210" class="sm">任意奖励均可由最优策略表示</text>
+  <text x="152" y="229" class="sm">但 Z(x) 需对 |V|^T 条回复求和</text>
+  <text x="152" y="246" class="sm" fill="#dc2626">→ 无法直接计算</text>
+
+  <line x1="276" y1="167" x2="310" y2="167" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ar-dpo)"/>
+
+  <!-- Step 2 -->
+  <rect x="314" y="78" width="252" height="178" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.3"/>
+  <rect x="352" y="88" width="176" height="20" rx="10" fill="#d97706"/>
+  <text x="440" y="102" class="pill">Step 2 · 代入 BT 差值</text>
+  <text x="440" y="130" class="st" fill="#92400e">配分函数 Z(x) 自动抵消</text>
+  <rect x="328" y="142" width="224" height="44" rx="6" fill="#ffffff" stroke="#fde68a"/>
+  <text x="440" y="160" class="eq mono">r(x,y_w) − r(x,y_l)</text>
+  <text x="440" y="177" class="eq mono" fill="#059669">= β·log(π*_w/π_ref,w) − β·log(π*_l/π_ref,l)</text>
+  <text x="440" y="210" class="sm">BT 模型满足平移不变性</text>
+  <text x="440" y="229" class="sm">仅依赖 x 的 β·log Z(x) 精确消去</text>
+  <text x="440" y="246" class="sm" fill="#b45309">→ 无需显式奖励模型 r_φ</text>
+
+  <line x1="566" y1="167" x2="600" y2="167" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ar-dpo)"/>
+
+  <!-- Step 3 -->
+  <rect x="604" y="78" width="248" height="178" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.6"/>
+  <rect x="640" y="88" width="176" height="20" rx="10" fill="#059669"/>
+  <text x="728" y="102" class="pill">Step 3 · 离线最大似然</text>
+  <text x="728" y="130" class="st" fill="#065f46">直接优化隐式奖励分类</text>
+  <rect x="618" y="142" width="220" height="44" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="728" y="160" class="eq mono">L_DPO = −E[ log σ(β · h_θ) ]</text>
+  <text x="728" y="177" class="eq mono" fill="#047857">r̂_θ = β·log(π_θ / π_ref)</text>
+  <text x="728" y="210" class="sm">只需策略 π_θ 与参考 π_ref</text>
+  <text x="728" y="229" class="sm">推高 y_w 似然、压低 y_l 似然</text>
+  <text x="728" y="246" class="sm" fill="#047857">代价：离线分布漂移与似然位移</text>
+</svg>

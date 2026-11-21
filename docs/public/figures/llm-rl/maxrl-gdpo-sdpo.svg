@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 285" role="img" aria-label="2026 年三大算法创新方向对比：MaxRL 改写优化目标为最大似然 log p，GDPO 解耦多维奖励归一化，SDPO 用环境反馈将模型自己变成逐 token 教师">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .ct { font-size: 14.5px; font-weight: 700; }
+    .eq { font-size: 11.5px; font-weight: 600; text-anchor: middle; fill: #1e293b; }
+    .sm { font-size: 11.5px; fill: #475569; }
+    .pill { font-size: 10.5px; font-weight: 700; text-anchor: middle; fill: #ffffff; }
+  </style>
+
+  <rect width="880" height="285" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">2026 新一代目标函数：从修补裁剪到重塑“目标、多维优势与信号密度”</text>
+  <text x="30" y="54" class="sub">2025 年围绕 GRPO 的裁剪和聚合做手术；2026 年的三项代表性工作直接重新定义了优势从哪来以及反馈有多密。</text>
+
+  <!-- Card 1: MaxRL -->
+  <rect x="30" y="76" width="262" height="190" rx="10" fill="#ecfdf5" stroke="#34d399" stroke-width="1.4"/>
+  <rect x="46" y="88" width="96" height="20" rx="10" fill="#059669"/>
+  <text x="94" y="102" class="pill">MaxRL · 2602</text>
+  <text x="46" y="128" class="ct" fill="#065f46">目标升级：p → log p</text>
+  <rect x="46" y="138" width="230" height="40" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="161" y="155" class="eq mono">∇log p = ∑ (1/k)·∇pass@k</text>
+  <text x="161" y="171" class="eq mono" fill="#047857">Â_i = (r_i − r̄) / r̄</text>
+  <text x="46" y="198" class="sm">• 难题梯度按 1/p 放大</text>
+  <text x="46" y="218" class="sm">• 随采样数 N 逼近最大似然</text>
+  <text x="46" y="238" class="sm">• 缓解标准 RL 牺牲 pass@k 覆盖</text>
+  <text x="46" y="256" class="sm" fill="#047857">解决：优势如何照顾低通过率难题</text>
+
+  <!-- Card 2: GDPO -->
+  <rect x="309" y="76" width="262" height="190" rx="10" fill="#eef2ff" stroke="#818cf8" stroke-width="1.4"/>
+  <rect x="325" y="88" width="114" height="20" rx="10" fill="#4f46e5"/>
+  <text x="382" y="102" class="pill">GDPO / GD²PO</text>
+  <text x="325" y="128" class="ct" fill="#3730a3">多奖励解耦归一化</text>
+  <rect x="325" y="138" width="230" height="40" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="440" y="155" class="eq mono">Â_i^(k) = (r_i^(k)−μ_k)/σ_k</text>
+  <text x="440" y="171" class="eq mono" fill="#4338ca">再加权求和 + Batch 归一化</text>
+  <text x="325" y="198" class="sm">• 避免总分标准化压扁组合差异</text>
+  <text x="325" y="218" class="sm">• 防止简单格式分淹没正确性分</text>
+  <text x="325" y="238" class="sm">• GD²PO 进一步屏蔽冲突方向样本</text>
+  <text x="325" y="256" class="sm" fill="#4338ca">解决：多目标同时优化的尺度失真</text>
+
+  <!-- Card 3: SDPO -->
+  <rect x="588" y="76" width="262" height="190" rx="10" fill="#f0f9ff" stroke="#38bdf8" stroke-width="1.4"/>
+  <rect x="604" y="88" width="96" height="20" rx="10" fill="#0284c7"/>
+  <text x="652" y="102" class="pill">SDPO · 2601</text>
+  <text x="604" y="128" class="ct" fill="#075985">以反馈为条件的自蒸馏</text>
+  <rect x="604" y="138" width="230" height="40" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="719" y="155" class="eq mono">KL[π_θ(·|x,y_&lt;t) ‖ sg(π_θ(·|x,f,y_&lt;t))]</text>
+  <text x="719" y="171" class="eq mono" fill="#0369a1">A_t = log π(·|x,f) − log π(·|x)</text>
+  <text x="604" y="198" class="sm">• 利用编译报错/测试输出/评语 f</text>
+  <text x="604" y="218" class="sm">• 把 1 bit 升级为逐 token 优势</text>
+  <text x="604" y="238" class="sm">• 无需外部强教师，自身即老师</text>
+  <text x="604" y="256" class="sm" fill="#0369a1">解决：稀疏奖励下的信用分配瓶颈</text>
+</svg>

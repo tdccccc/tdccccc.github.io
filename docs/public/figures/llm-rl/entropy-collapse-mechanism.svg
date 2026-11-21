@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 310" role="img" aria-label="策略熵坍缩机理与探索维持曲线：左侧展示验证性能随策略熵按 R = -a*exp(H) + b 演进并在熵归零时提前饱和，右侧对比标准 RL 与熵维持后在 pass@k 上的能力边界差异">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .pt { font-size: 13.5px; font-weight: 700; }
+    .sm { font-size: 11px; fill: #475569; }
+  </style>
+
+  <rect width="880" height="310" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">熵坍缩机理与“锐化 vs 新能力”边界</text>
+  <text x="30" y="54" class="sub">左侧：训练早期熵 H 急剧耗尽使性能按 R = −a·e^H + b 触顶；右侧：标准 RLVR 提高小 k 的 pass@1，大 k 处却可能被基座反超。</text>
+
+  <!-- Left panel: Entropy-Performance curve -->
+  <rect x="30" y="72" width="402" height="220" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="48" y="96" class="pt" fill="#3730a3">① 熵耗尽与性能上限：R = −a·e^H + b</text>
+
+  <!-- Axes -->
+  <line x1="68" y1="246" x2="404" y2="246" stroke="#475569" stroke-width="1.3"/>
+  <line x1="68" y1="114" x2="68" y2="246" stroke="#475569" stroke-width="1.3"/>
+  <!-- Performance ceiling dashed -->
+  <line x1="68" y1="130" x2="404" y2="130" stroke="#dc2626" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="398" y="124" text-anchor="end" class="sm mono" fill="#dc2626">上限 b − a（H → 0）</text>
+
+  <!-- Entropy curve dropping fast -->
+  <path d="M 74 134 C 122 146, 162 216, 232 234 C 296 242, 348 244, 398 244" fill="none" stroke="#f59e0b" stroke-width="2.4" stroke-dasharray="5 3"/>
+  <text x="112" y="176" class="sm" fill="#b45309" font-weight="700">策略熵 H 骤降</text>
+
+  <!-- Performance curve saturating -->
+  <path d="M 74 236 C 126 220, 168 156, 238 138 C 298 132, 348 131, 398 131" fill="none" stroke="#4f46e5" stroke-width="2.6"/>
+  <text x="278" y="156" class="sm" fill="#3730a3" font-weight="700">性能 R 提前饱和</text>
+
+  <text x="236" y="266" text-anchor="middle" class="sm">训练步数 →（若不维持探索，ΔH ∝ −Cov(log π, Â)）</text>
+  <text x="48" y="283" class="sm" fill="#065f46">对策：Clip-Higher · Clip-Cov · CISPO · 参考模型重置（ProRL）</text>
+
+  <!-- Right panel: pass@k comparison -->
+  <rect x="448" y="72" width="402" height="220" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="466" y="96" class="pt" fill="#065f46">② pass@k 曲线：锐化分布 vs 扩展覆盖</text>
+
+  <!-- Axes -->
+  <line x1="486" y1="246" x2="822" y2="246" stroke="#475569" stroke-width="1.3"/>
+  <line x1="486" y1="114" x2="486" y2="246" stroke="#475569" stroke-width="1.3"/>
+
+  <!-- Base model curve (starts lower, overtakes at large k) -->
+  <path d="M 492 232 C 555 206, 635 162, 718 140 C 760 130, 795 124, 816 121" fill="none" stroke="#64748b" stroke-width="2.2" stroke-dasharray="5 4"/>
+  <text x="748" y="118" class="sm" fill="#475569" font-weight="700">基座模型</text>
+
+  <!-- Standard RLVR (starts much higher, flattens below base at large k) -->
+  <path d="M 492 184 C 555 166, 635 154, 718 148 C 765 146, 795 145, 816 144" fill="none" stroke="#dc2626" stroke-width="2.4"/>
+  <text x="760" y="160" text-anchor="middle" class="sm" fill="#991b1b" font-weight="700">标准 RLVR（收窄）</text>
+
+  <!-- MaxRL / ProRL (high pass@1 AND high pass@k) -->
+  <path d="M 492 180 C 560 156, 645 130, 730 118 C 772 114, 798 112, 816 111" fill="none" stroke="#059669" stroke-width="2.6"/>
+  <text x="615" y="128" class="sm" fill="#065f46" font-weight="700">MaxRL / 维持探索</text>
+
+  <!-- Crossover marker -->
+  <circle cx="668" cy="151" r="4.5" fill="#d97706" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="668" y="182" text-anchor="middle" class="sm" fill="#b45309">大 k 反超交点</text>
+
+  <text x="654" y="266" text-anchor="middle" class="sm mono">采样次数 k（对数刻度：1 → 16 → 256） →</text>
+  <text x="466" y="283" class="sm">标准 RLVR 显著提 pass@1；能否拓宽大 k 上界取决于目标与探索</text>
+</svg>

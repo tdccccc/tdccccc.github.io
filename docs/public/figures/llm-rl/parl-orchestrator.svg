@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 295" role="img" aria-label="Kimi K2.5 PARL 并行智能体强化学习架构图：主编排者动态派生多个冻结子智能体并行执行子任务，训练时仅更新编排者以规避多智能体信用分配困境，并用关键路径步数度量延迟">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .bt { font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .bs { font-size: 11px; text-anchor: middle; fill: #475569; }
+    .lbl { font-size: 12px; font-weight: 700; }
+  </style>
+  <defs>
+    <marker id="ar-parl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+    <marker id="ar-parl-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="880" height="295" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">并行智能体 RL（Kimi K2.5 PARL）：只训编排者与关键路径度量</text>
+  <text x="30" y="54" class="sub">把子智能体视作“冻结的高级工具”而非联合训练策略，巧妙绕开多智能体信用分配难题，并由 RL 自主习得何时并行。</text>
+
+  <!-- Orchestrator -->
+  <rect x="30" y="96" width="186" height="96" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.8"/>
+  <text x="123" y="124" class="bt" fill="#065f46">主编排者（Orchestrator）</text>
+  <text x="123" y="146" class="bs" fill="#047857" font-weight="700">唯一接受 RL 梯度更新</text>
+  <text x="123" y="167" class="bs">学习任务拆解、动态派发</text>
+  <text x="123" y="182" class="bs">与并行/串行权衡</text>
+
+  <!-- Spawn arrows -->
+  <line x1="216" y1="126" x2="294" y2="96" stroke="#059669" stroke-width="1.6" marker-end="url(#ar-parl)"/>
+  <line x1="216" y1="144" x2="294" y2="144" stroke="#059669" stroke-width="1.6" marker-end="url(#ar-parl)"/>
+  <line x1="216" y1="162" x2="294" y2="192" stroke="#059669" stroke-width="1.6" marker-end="url(#ar-parl)"/>
+  <text x="255" y="88" text-anchor="middle" class="bs" fill="#047857">动态派生</text>
+
+  <!-- Frozen Subagents -->
+  <rect x="298" y="76" width="234" height="40" rx="7" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="4 3"/>
+  <text x="415" y="94" class="bt" fill="#475569">子智能体 #1（冻结 · 不计损失）</text>
+  <text x="415" y="109" class="bs">并行检索 / 读代码仓 A（4 步）</text>
+
+  <rect x="298" y="124" width="234" height="40" rx="7" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="415" y="142" class="bt" fill="#92400e">子智能体 #2（冻结 · 关键路径）</text>
+  <text x="415" y="157" class="bs">深度验证模块 B（耗时最长：7 步）</text>
+
+  <rect x="298" y="172" width="234" height="40" rx="7" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="4 3"/>
+  <text x="415" y="190" class="bt" fill="#475569">子智能体 #k（最多至百路并发）</text>
+  <text x="415" y="205" class="bs">文档比对 / 单测生成（3 步）</text>
+
+  <!-- Return arrows -->
+  <line x1="532" y1="96" x2="596" y2="132" stroke="#64748b" stroke-width="1.4" marker-end="url(#ar-parl-m)"/>
+  <line x1="532" y1="144" x2="596" y2="144" stroke="#d97706" stroke-width="1.8" marker-end="url(#ar-parl-m)"/>
+  <line x1="532" y1="192" x2="596" y2="156" stroke="#64748b" stroke-width="1.4" marker-end="url(#ar-parl-m)"/>
+
+  <!-- Aggregation & Reward -->
+  <rect x="600" y="96" width="250" height="96" rx="10" fill="#eef2ff" stroke="#818cf8" stroke-width="1.4"/>
+  <text x="725" y="122" class="bt" fill="#3730a3">结果汇总与双重奖励</text>
+  <text x="725" y="145" class="bs">① 最终任务正确性奖励</text>
+  <text x="725" y="164" class="bs">② 关键步数（Critical Steps）效率奖</text>
+  <text x="725" y="182" class="bs mono" fill="#4338ca">max(sub_steps) 替代 ∑ sub_steps</text>
+
+  <!-- Bottom comparison bar -->
+  <rect x="30" y="228" width="820" height="50" rx="8" fill="#f0fdf4" stroke="#6ee7b7"/>
+  <text x="48" y="249" class="lbl" fill="#065f46">范式转变（从总 Token 数 → 关键路径步数）：</text>
+  <text x="48" y="268" class="bs" text-anchor="start">串行总步数 = 4+7+3 = 14 步；并行关键路径 = max(4,7,3) = 7 步。官方报告相对单智能体端到端耗时最多缩短约 4.5 倍。</text>
+</svg>

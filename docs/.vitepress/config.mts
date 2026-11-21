@@ -94,6 +94,102 @@ const llmInferenceSidebar = [
   },
 ]
 
+const llmRlSidebar = [
+  {
+    text: '← 返回 Tdccccc\'s Atlas 书架',
+    link: '/',
+  },
+  {
+    text: '《LLM 强化学习：原理与后训练实践》',
+    items: [
+      { text: '全书导览', link: '/books/llm-rl/' },
+    ],
+  },
+  {
+    text: '第一篇 · 理论底座与问题建模',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-rl/part-1' },
+      { text: '第 1 章 为什么需要后训练 RL', link: '/books/llm-rl/chapters/chapter-01' },
+      { text: '第 2 章 MDP、Bandit 与 KL 闭式解', link: '/books/llm-rl/chapters/chapter-02' },
+      { text: '第 3 章 策略梯度、GAE 与 PPO 裁剪', link: '/books/llm-rl/chapters/chapter-03' },
+    ],
+  },
+  {
+    text: '第二篇 · 奖励工程与防作弊',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-rl/part-2' },
+      { text: '第 4 章 人类偏好、奖励模型与 RLAIF', link: '/books/llm-rl/chapters/chapter-04' },
+      { text: '第 5 章 可验证奖励、评分细则与 PRM', link: '/books/llm-rl/chapters/chapter-05' },
+      { text: '第 6 章 奖励过优化与奖励作弊', link: '/books/llm-rl/chapters/chapter-06' },
+    ],
+  },
+  {
+    text: '第三篇 · 对齐与策略优化算法演进',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-rl/part-3' },
+      { text: '第 7 章 PPO-RLHF 与 DPO 偏好优化族', link: '/books/llm-rl/chapters/chapter-07' },
+      { text: '第 8 章 无 Critic 时代：RLOO 与 GRPO', link: '/books/llm-rl/chapters/chapter-08' },
+      { text: '第 9 章 GRPO 修正：Dr.GRPO/DAPO/GSPO/CISPO', link: '/books/llm-rl/chapters/chapter-09' },
+      { text: '第 10 章 新一代目标：MaxRL、GDPO 与 SDPO', link: '/books/llm-rl/chapters/chapter-10' },
+    ],
+  },
+  {
+    text: '第四篇 · 推理涌现、探索动态与蒸馏融合',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-rl/part-4' },
+      { text: '第 11 章 长思维链推理模型与工业配方', link: '/books/llm-rl/chapters/chapter-11' },
+      { text: '第 12 章 熵坍缩、长度控制与能力边界', link: '/books/llm-rl/chapters/chapter-12' },
+      { text: '第 13 章 在线蒸馏与专家整合范式', link: '/books/llm-rl/chapters/chapter-13' },
+    ],
+  },
+  {
+    text: '第五篇 · Agentic RL 与多轮环境',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-rl/part-5' },
+      { text: '第 14 章 多轮工具交互与 Agentic 建模', link: '/books/llm-rl/chapters/chapter-14' },
+      { text: '第 15 章 长程信用分配与并行多智能体', link: '/books/llm-rl/chapters/chapter-15' },
+      { text: '第 16 章 规模化环境、课程与异步 Agent RL', link: '/books/llm-rl/chapters/chapter-16' },
+    ],
+  },
+  {
+    text: '第六篇 · 规模化训练系统与工程归因',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-rl/part-6' },
+      { text: '第 17 章 RL 系统架构与显存/时间账本', link: '/books/llm-rl/chapters/chapter-17' },
+      { text: '第 18 章 训练-推理不一致与 MoE 稳定性', link: '/books/llm-rl/chapters/chapter-18' },
+      { text: '第 19 章 主流开源 RL 框架横评与选型', link: '/books/llm-rl/chapters/chapter-19' },
+      { text: '第 20 章 ScaleRL 扩展规律与排障归因手册', link: '/books/llm-rl/chapters/chapter-20' },
+    ],
+  },
+  {
+    text: '进阶专题库',
+    collapsed: true,
+    items: [
+      { text: '专题 A：核心论文精读与推导档案', link: '/books/llm-rl/topics/paper-notes' },
+      { text: '专题 B：多模态与生成式模型后训练 RL', link: '/books/llm-rl/topics/multimodal-rl' },
+      { text: '专题 C：测试时计算与在线自适应', link: '/books/llm-rl/topics/test-time-compute' },
+      { text: '专题 D：经典深度 RL 脉络速览', link: '/books/llm-rl/topics/classical-rl-map' },
+    ],
+  },
+  {
+    text: '参考手册与工具箱',
+    collapsed: true,
+    items: [
+      { text: '全局符号约定与核心公式速查卡', link: '/books/llm-rl/toolkit/notation-and-formulas' },
+      { text: '算法选型矩阵与排障速查表', link: '/books/llm-rl/toolkit/debugging-checklist' },
+      { text: '核心算法最小 PyTorch 参考实现', link: '/books/llm-rl/toolkit/reference-code' },
+      { text: '术语表', link: '/books/llm-rl/glossary' },
+      { text: '来源、口径与许可', link: '/books/llm-rl/colophon' },
+    ],
+  },
+]
+
 export default defineConfig({
   lang: 'zh-CN',
   title: "Tdccccc's Atlas",
@@ -127,6 +223,7 @@ export default defineConfig({
 
     sidebar: {
       '/books/llm-inference/': llmInferenceSidebar,
+      '/books/llm-rl/': llmRlSidebar,
     },
 
     outline: {

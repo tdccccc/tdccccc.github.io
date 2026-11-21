@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 285" role="img" aria-label="多轮 Agentic RL 轨迹与损失掩码示意图：展示系统提示、模型思考与工具调用、外部环境观测返回如何在一条连续 Token 序列中交错排列，以及损失掩码 μ_t 如何仅保留模型动作 Token 并严格遵循 Token-in-Token-out">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .tok { font-size: 11.5px; font-weight: 700; text-anchor: middle; }
+    .subtok { font-size: 10.5px; text-anchor: middle; fill: #475569; }
+    .lbl { font-size: 12px; font-weight: 700; fill: #334155; }
+    .sm { font-size: 11.5px; fill: #475569; }
+  </style>
+
+  <rect width="880" height="285" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">多轮 Agentic RL 轨迹构造：损失掩码 μ_t 与 Token-in-Token-out 铁律</text>
+  <text x="30" y="54" class="sub">多轮交互是随机 POMDP：环境返回的观测不由策略生成，必须用 μ_t = 0 彻底屏蔽梯度，且全程禁止重新分词。</text>
+
+  <!-- Track label -->
+  <text x="30" y="96" class="lbl">连续 Token 轨迹</text>
+
+  <!-- Segment 1: Prompt -->
+  <rect x="132" y="74" width="96" height="44" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="180" y="93" class="tok" fill="#475569">System+User</text>
+  <text x="180" y="109" class="subtok">任务提示 x</text>
+
+  <!-- Segment 2: Turn 1 Action -->
+  <rect x="234" y="74" width="134" height="44" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="301" y="93" class="tok" fill="#065f46">Turn 1 思考+调工具</text>
+  <text x="301" y="109" class="subtok mono">pytest -q tests/</text>
+
+  <!-- Segment 3: Env Obs 1 -->
+  <rect x="374" y="74" width="122" height="44" rx="6" fill="#fffbeb" stroke="#f59e0b" stroke-dasharray="4 3"/>
+  <text x="435" y="93" class="tok" fill="#92400e">环境观测 Obs 1</text>
+  <text x="435" y="109" class="subtok">Traceback 报错栈</text>
+
+  <!-- Segment 4: Turn 2 Action -->
+  <rect x="502" y="74" width="134" height="44" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="569" y="93" class="tok" fill="#065f46">Turn 2 改代码+复测</text>
+  <text x="569" y="109" class="subtok mono">apply_patch + run</text>
+
+  <!-- Segment 5: Env Obs 2 -->
+  <rect x="642" y="74" width="96" height="44" rx="6" fill="#fffbeb" stroke="#f59e0b" stroke-dasharray="4 3"/>
+  <text x="690" y="93" class="tok" fill="#92400e">环境观测 Obs 2</text>
+  <text x="690" y="109" class="subtok">All tests passed</text>
+
+  <!-- Segment 6: Final Answer -->
+  <rect x="744" y="74" width="106" height="44" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="797" y="93" class="tok" fill="#065f46">最终总结回复</text>
+  <text x="797" y="109" class="subtok mono">r(τ) = 1.0</text>
+
+  <!-- Mask row -->
+  <text x="30" y="152" class="lbl">损失掩码 μ_t</text>
+  <rect x="132" y="132" width="96" height="28" rx="5" fill="#e2e8f0"/>
+  <text x="180" y="151" class="tok mono" fill="#64748b">μ_t = 0</text>
+  <rect x="234" y="132" width="134" height="28" rx="5" fill="#059669"/>
+  <text x="301" y="151" class="tok mono" fill="#ffffff">μ_t = 1（计入梯度）</text>
+  <rect x="374" y="132" width="122" height="28" rx="5" fill="#fef3c7" stroke="#fcd34d"/>
+  <text x="435" y="151" class="tok mono" fill="#b45309">μ_t = 0（严禁求导）</text>
+  <rect x="502" y="132" width="134" height="28" rx="5" fill="#059669"/>
+  <text x="569" y="151" class="tok mono" fill="#ffffff">μ_t = 1（计入梯度）</text>
+  <rect x="642" y="132" width="96" height="28" rx="5" fill="#fef3c7" stroke="#fcd34d"/>
+  <text x="690" y="151" class="tok mono" fill="#b45309">μ_t = 0</text>
+  <rect x="744" y="132" width="106" height="28" rx="5" fill="#059669"/>
+  <text x="797" y="151" class="tok mono" fill="#ffffff">μ_t = 1</text>
+
+  <!-- Engineering iron rules box -->
+  <rect x="30" y="182" width="820" height="86" rx="9" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="48" y="206" class="lbl" fill="#3730a3">两条不可违背的多轮 Agent RL 工程铁律</text>
+  <text x="48" y="229" class="sm"><tspan font-weight="700" fill="#1e293b">1. 精确损失掩码 μ_t：</tspan>仅对策略自生成的思考、工具调用参数与最终回复计算策略梯度与 KL；若误把环境输出算进损失，模型会试图“背诵报错文本”。</text>
+  <text x="48" y="252" class="sm"><tspan font-weight="700" fill="#1e293b">2. Token-in-Token-out：</tspan>直接透传推理引擎吐出的 token ID 序列进入训练器，绝不做“ID → 文本 → 重新分词”往返，防止 BPE 边界合并造成 log π_old 与 log π_train 错位。</text>
+</svg>

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 285" role="img" aria-label="规模化异步 Agent RL 训练闭环：动态难度课程筛选中等通过率任务，经高并发隔离沙箱池与异步 Rollout 引擎产生长尾轨迹，通过缓冲区和 off-policy 重要性采样修正持续喂给训练集群">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .bt { font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .bs { font-size: 11px; text-anchor: middle; fill: #475569; }
+    .pill { font-size: 10.5px; font-weight: 700; text-anchor: middle; fill: #ffffff; }
+  </style>
+  <defs>
+    <marker id="ar-ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#475569"/>
+    </marker>
+    <marker id="ar-ag-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="880" height="285" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">规模化异步 Agent RL：课程筛选、沙箱池与解耦流水线（GLM-5 / slime 范式）</text>
+  <text x="30" y="54" class="sub">多轮智能体轨迹长度方差可达百倍，同步等待会导致 GPU 大面积空转；异步解耦 + Sweet Spot 课程是唯一规模化出路。</text>
+
+  <!-- Box 1: Curriculum -->
+  <rect x="28" y="84" width="174" height="118" rx="9" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+  <rect x="44" y="94" width="142" height="20" rx="10" fill="#d97706"/>
+  <text x="115" y="108" class="pill">① 动态课程调度器</text>
+  <text x="115" y="136" class="bt" fill="#92400e">维持 Sweet Spot</text>
+  <text x="115" y="156" class="bs">优先采样 0.15≤p≤0.85</text>
+  <text x="115" y="173" class="bs">逐步放宽最大轮数</text>
+  <text x="115" y="190" class="bs">与上下文窗口上限</text>
+
+  <line x1="202" y1="143" x2="226" y2="143" stroke="#475569" stroke-width="1.6" marker-end="url(#ar-ag)"/>
+
+  <!-- Box 2: Sandbox + Rollout -->
+  <rect x="230" y="84" width="222" height="118" rx="9" fill="#f0f9ff" stroke="#38bdf8" stroke-width="1.4"/>
+  <rect x="252" y="94" width="178" height="20" rx="10" fill="#0284c7"/>
+  <text x="341" y="108" class="pill">② 推理引擎 ⇄ 容器沙箱池</text>
+  <text x="341" y="136" class="bt" fill="#075985">长尾并发交互（权重 θ_{k−d}）</text>
+  <text x="341" y="156" class="bs">数千 Docker/VM 隔离实例</text>
+  <text x="341" y="173" class="bs">超时熔断 · 脏状态自动重置</text>
+  <text x="341" y="190" class="bs">完成一条立即入队，零同步等待</text>
+
+  <line x1="452" y1="143" x2="476" y2="143" stroke="#475569" stroke-width="1.6" marker-end="url(#ar-ag)"/>
+
+  <!-- Box 3: Trajectory Buffer -->
+  <rect x="480" y="84" width="160" height="118" rx="9" fill="#eef2ff" stroke="#818cf8" stroke-width="1.4"/>
+  <rect x="494" y="94" width="132" height="20" rx="10" fill="#4f46e5"/>
+  <text x="560" y="108" class="pill">③ 异步经验缓冲池</text>
+  <text x="560" y="136" class="bt" fill="#3730a3">去同步气泡</text>
+  <text x="560" y="156" class="bs">过滤零方差与过陈旧</text>
+  <text x="560" y="173" class="bs">保存 Token IDs + μ_t</text>
+  <text x="560" y="190" class="bs">与推理 log π_infer</text>
+
+  <line x1="640" y1="143" x2="664" y2="143" stroke="#475569" stroke-width="1.6" marker-end="url(#ar-ag)"/>
+
+  <!-- Box 4: Trainer -->
+  <rect x="668" y="84" width="184" height="118" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="1.6"/>
+  <rect x="684" y="94" width="152" height="20" rx="10" fill="#059669"/>
+  <text x="760" y="108" class="pill">④ 解耦训练集群 θ_k</text>
+  <text x="760" y="136" class="bt" fill="#065f46">Off-Policy 安全更新</text>
+  <text x="760" y="156" class="bs">Token 级 IS 修正陈旧度</text>
+  <text x="760" y="173" class="bs">仅对 μ_t=1 算策略梯度</text>
+  <text x="760" y="190" class="bs">异步流式广播新权重</text>
+
+  <!-- Feedback loops -->
+  <path d="M 760 202 V 248 H 341 V 206" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#ar-ag-g)"/>
+  <text x="552" y="240" text-anchor="middle" class="bs" fill="#047857" font-weight="700">周期 / 流水线权重热同步：θ_k → 推理引擎（允许滞后 d 步）</text>
+  <path d="M 560 202 V 268 H 115 V 206" fill="none" stroke="#d97706" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ar-ag)"/>
+  <text x="336" y="264" text-anchor="middle" class="bs" fill="#b45309">实时回传各题最新通过率 p(x)，驱动课程难度自适应</text>
+</svg>

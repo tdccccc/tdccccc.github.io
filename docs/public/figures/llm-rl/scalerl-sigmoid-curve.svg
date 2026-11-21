@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 305" role="img" aria-label="ScaleRL 发现的强化学习 S 形扩展曲线：对比只改变收敛陡峭度 B 的提效技巧与真正抬高渐近性能上限 R_∞ 的核心配方改动">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .lbl { font-size: 12px; font-weight: 700; }
+    .sm { font-size: 11px; fill: #475569; }
+  </style>
+
+  <rect width="880" height="305" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">RL 的扩展规律（ScaleRL）：S 形曲线区分“提效 B”与“提上限 R_∞”</text>
+  <text x="30" y="54" class="sub">超过 40 万 GPU 小时实验揭示：RL 性能随计算量 C 服从 S 形饱和曲线 R_C = R_0 + (R_∞ − R_0) / (1 + (C_mid / C)^B)。</text>
+
+  <!-- Plot area -->
+  <rect x="78" y="74" width="490" height="190" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <!-- Grid -->
+  <line x1="78" y1="112" x2="568" y2="112" stroke="#e2e8f0"/>
+  <line x1="78" y1="158" x2="568" y2="158" stroke="#e2e8f0"/>
+  <line x1="78" y1="204" x2="568" y2="204" stroke="#e2e8f0"/>
+  <!-- Asymptote lines -->
+  <line x1="78" y1="126" x2="568" y2="126" stroke="#64748b" stroke-dasharray="4 4"/>
+  <text x="562" y="140" text-anchor="end" class="sm mono" fill="#475569">基线上限 R_∞ (base)</text>
+  <line x1="78" y1="92" x2="568" y2="92" stroke="#059669" stroke-dasharray="4 4"/>
+  <text x="562" y="86" text-anchor="end" class="sm mono" fill="#065f46" font-weight="700">更高上限 R_∞'（CISPO + FP32 logits）</text>
+
+  <!-- Curve 1: Baseline S-curve -->
+  <path d="M 84 246 C 170 245, 240 232, 310 186 C 370 146, 440 130, 560 127" fill="none" stroke="#64748b" stroke-width="2.2"/>
+  <text x="444" y="156" class="sm" fill="#475569">基线配方</text>
+
+  <!-- Curve 2: Efficiency trick (higher B / smaller C_mid, same R_∞) -->
+  <path d="M 84 246 C 145 244, 195 215, 248 168 C 296 136, 365 128, 560 126" fill="none" stroke="#4f46e5" stroke-width="2.3" stroke-dasharray="6 3"/>
+  <text x="190" y="172" class="sm" fill="#3730a3" font-weight="700">提效技巧（改 C_mid/B）</text>
+  <text x="190" y="186" class="sm" fill="#4338ca">更快撞上同一个上限</text>
+
+  <!-- Curve 3: Higher ceiling (raises R_∞) -->
+  <path d="M 84 246 C 155 244, 215 205, 285 152 C 350 108, 430 96, 560 93" fill="none" stroke="#059669" stroke-width="2.8"/>
+  <text x="336" y="108" class="sm" fill="#065f46" font-weight="700">抬高天花板（改 R_∞）</text>
+
+  <!-- Early fit window marker -->
+  <rect x="84" y="74" width="136" height="190" fill="#fef3c7" fill-opacity="0.32"/>
+  <text x="152" y="92" text-anchor="middle" class="sm" fill="#b45309" font-weight="700">小规模早期拟合窗</text>
+
+  <!-- Axes labels -->
+  <text x="323" y="286" text-anchor="middle" class="sm mono">RL 训练总计算量 C（对数刻度 GPU-Hours） →</text>
+  <text transform="translate(46 170) rotate(-90)" text-anchor="middle" class="sm">验证集通过率 R_C</text>
+
+  <!-- Right summary card: ScaleRL Recipe -->
+  <rect x="586" y="74" width="266" height="190" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="602" y="98" class="lbl" fill="#065f46">ScaleRL 验证的黄金配方要素</text>
+  <line x1="602" y1="108" x2="836" y2="108" stroke="#a7f3d0"/>
+  <text x="602" y="128" class="sm"><tspan font-weight="700" fill="#065f46">抬高 R_∞：</tspan>CISPO 损失优于 DAPO</text>
+  <text x="602" y="148" class="sm"><tspan font-weight="700" fill="#065f46">抬高 R_∞：</tspan>输出头 FP32 计算 logits</text>
+  <text x="602" y="168" class="sm"><tspan font-weight="700" fill="#3730a3">提升效率：</tspan>PipelineRL 流水线异步</text>
+  <text x="602" y="188" class="sm"><tspan font-weight="700" fill="#3730a3">提升效率：</tspan>过滤零方差组与已掌握题</text>
+  <text x="602" y="208" class="sm"><tspan font-weight="700" fill="#3730a3">稳定规范：</tspan>提示级损失平均 +</text>
+  <text x="602" y="224" class="sm">  Batch 级优势归一化</text>
+  <text x="602" y="249" class="sm" fill="#64748b">注：实证范围覆盖可验证奖励（RLVR）</text>
+</svg>

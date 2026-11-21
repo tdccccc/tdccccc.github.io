@@ -30,4 +30,18 @@ export const books: BookItem[] = [
     tags: ['AI Infra', 'vLLM / SGLang', 'CUDA / Triton', '量化与 PD', '昇腾 Ascend'],
     featured: true,
   },
+  {
+    id: 'llm-rl',
+    title: 'LLM 强化学习：原理与后训练实践',
+    subtitle: '从策略梯度与 KL 正则第一性原理，到 RLHF、推理模型、Agentic RL 与规模化训练系统',
+    category: '强化学习',
+    status: '已完结 · 持续维护',
+    description:
+      '面向算法与系统工程师的大模型后训练强化学习精讲读物。全书以统一符号体系贯穿，系统讲透 MDP/Bandit 与 KL 闭式解、奖励工程与防作弊、PPO / DPO / GRPO / DAPO / GSPO / CISPO / MaxRL / SDPO 算法演进、长思维链推理与在线蒸馏、多轮 Agentic RL，以及分布式训练系统与训练-推理一致性排障。',
+    cover: '/covers/llm-rl.svg',
+    link: '/books/llm-rl/',
+    stats: ['6 篇 20 章主线', '4 篇进阶专题', '26 张原创机制图', '3 个交互实验'],
+    tags: ['强化学习', 'RLHF / RLVR', 'GRPO / DAPO', '推理与蒸馏', 'Agentic RL'],
+    featured: true,
+  },
 ]

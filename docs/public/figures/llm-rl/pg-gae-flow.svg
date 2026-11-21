@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" role="img" aria-label="从策略梯度 REINFORCE 到 GAE 与 PPO 裁剪的演化脉络：先用基线降方差，再用 Critic 与 GAE 在偏差与方差间折中，最后用重要性采样与裁剪支持多步更新">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .ct { font-size: 13.5px; font-weight: 700; text-anchor: middle; fill: #1e293b; }
+    .cf { font-size: 11px; text-anchor: middle; fill: #3730a3; }
+    .cs { font-size: 11px; text-anchor: middle; fill: #475569; }
+    .tag { font-size: 10.5px; font-weight: 700; text-anchor: middle; fill: #ffffff; }
+  </style>
+  <defs>
+    <marker id="ar-pg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect width="880" height="280" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">策略梯度三步演进：从朴素 REINFORCE 到 PPO</text>
+  <text x="30" y="54" class="sub">每一步都精准解决前一步的一个痛点：方差过大 → 长轨迹信用分配难 → 样本无法复用导致采样昂贵。</text>
+
+  <!-- Step 1 -->
+  <rect x="28" y="78" width="186" height="176" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/>
+  <rect x="52" y="88" width="138" height="20" rx="10" fill="#64748b"/>
+  <text x="121" y="102" class="tag">Step 1 · 原始策略梯度</text>
+  <text x="121" y="130" class="ct">REINFORCE</text>
+  <text x="121" y="154" class="cf mono">E[ r · ∇log π_θ ]</text>
+  <line x1="44" y1="170" x2="198" y2="170" stroke="#e2e8f0"/>
+  <text x="121" y="191" class="cs">✓ 无需对奖励 r 求导</text>
+  <text x="121" y="211" class="cs">✗ 方差极高，全正奖励时</text>
+  <text x="121" y="229" class="cs">好坏回复都在被推高</text>
+
+  <line x1="214" y1="166" x2="236" y2="166" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ar-pg)"/>
+
+  <!-- Step 2 -->
+  <rect x="240" y="78" width="186" height="176" rx="10" fill="#eef2ff" stroke="#818cf8" stroke-width="1.3"/>
+  <rect x="264" y="88" width="138" height="20" rx="10" fill="#4f46e5"/>
+  <text x="333" y="102" class="tag">Step 2 · 减去基线</text>
+  <text x="333" y="130" class="ct" fill="#3730a3">基线与优势 A</text>
+  <text x="333" y="154" class="cf mono">E[ (r − b) · ∇log π_θ ]</text>
+  <line x1="256" y1="170" x2="410" y2="170" stroke="#c7d2fe"/>
+  <text x="333" y="191" class="cs">✓ 保持梯度期望无偏</text>
+  <text x="333" y="211" class="cs">✓ 高于均值推高、低于压低</text>
+  <text x="333" y="229" class="cs">→ 衍生 RLOO / GRPO</text>
+
+  <line x1="426" y1="166" x2="448" y2="166" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ar-pg)"/>
+
+  <!-- Step 3 -->
+  <rect x="452" y="78" width="186" height="176" rx="10" fill="#f0f9ff" stroke="#38bdf8" stroke-width="1.3"/>
+  <rect x="476" y="88" width="138" height="20" rx="10" fill="#0284c7"/>
+  <text x="545" y="102" class="tag">Step 3 · 逐 Token 信用</text>
+  <text x="545" y="130" class="ct" fill="#075985">Critic + GAE(γ,λ)</text>
+  <text x="545" y="154" class="cf mono" fill="#0369a1">Â_t = ∑(γλ)^l δ_{t+l}</text>
+  <line x1="468" y1="170" x2="622" y2="170" stroke="#bae6fd"/>
+  <text x="545" y="191" class="cs">λ=0：单步 TD（低方差）</text>
+  <text x="545" y="211" class="cs">λ=1：望远镜求和（无偏）</text>
+  <text x="545" y="229" class="cs">✗ 仍限纯 on-policy 单步</text>
+
+  <line x1="638" y1="166" x2="660" y2="166" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ar-pg)"/>
+
+  <!-- Step 4 -->
+  <rect x="664" y="78" width="188" height="176" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.6"/>
+  <rect x="688" y="88" width="140" height="20" rx="10" fill="#059669"/>
+  <text x="758" y="102" class="tag">Step 4 · 样本复用与限幅</text>
+  <text x="758" y="130" class="ct" fill="#065f46">PPO-Clip 替代目标</text>
+  <text x="758" y="154" class="cf mono" fill="#047857">min(ρ_t Â_t, clip(ρ_t) Â_t)</text>
+  <line x1="680" y1="170" x2="836" y2="170" stroke="#a7f3d0"/>
+  <text x="758" y="191" class="cs">✓ 同一批样本多 epoch 复用</text>
+  <text x="758" y="211" class="cs">✓ 悲观下界防步幅过大</text>
+  <text x="758" y="229" class="cs">→ 成为 GRPO/DAPO 骨架</text>
+</svg>

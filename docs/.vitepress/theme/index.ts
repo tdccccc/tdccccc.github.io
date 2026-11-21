@@ -5,6 +5,9 @@ import './custom.css'
 import AtlasHome from './components/AtlasHome.vue'
 import PostsIndex from './components/PostsIndex.vue'
 import ImageLightbox from './components/ImageLightbox.vue'
+import RlBetaTiltWidget from './components/RlBetaTiltWidget.vue'
+import RlPpoClipWidget from './components/RlPpoClipWidget.vue'
+import RlGroupAdvantageWidget from './components/RlGroupAdvantageWidget.vue'
 
 export default {
   extends: DefaultTheme,
@@ -16,5 +19,8 @@ export default {
   enhanceApp({ app }) {
     app.component('AtlasHome', AtlasHome)
     app.component('PostsIndex', PostsIndex)
+    app.component('RlBetaTiltWidget', RlBetaTiltWidget)
+    app.component('RlPpoClipWidget', RlPpoClipWidget)
+    app.component('RlGroupAdvantageWidget', RlGroupAdvantageWidget)
   },
 }

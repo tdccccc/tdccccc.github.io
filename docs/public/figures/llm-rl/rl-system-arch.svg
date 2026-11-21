@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" role="img" aria-label="生成与训练分离的大规模 RL 训练系统架构：推理引擎集群与环境沙箱交互产生轨迹写入经验缓冲，FSDP/Megatron 训练器取批次更新参数并周期同步权重，支持滞后步数 d 的异步流水线">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .bt { font-size: 13.5px; font-weight: 700; text-anchor: middle; fill: #1e293b; }
+    .bs { font-size: 11px; text-anchor: middle; fill: #475569; }
+    .lbl { font-size: 11.5px; font-weight: 600; }
+  </style>
+  <defs>
+    <marker id="ar-sys" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#475569"/>
+    </marker>
+    <marker id="ar-sys-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="880" height="300" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">现代后训练 RL 分布式系统架构：Rollout 引擎 × 训练器双子系统</text>
+  <text x="30" y="54" class="sub">推理端跑 vLLM / SGLang 吃高吞吐解码，训练端跑 FSDP / Megatron 算全量反向；两者通过缓冲池与 NCCL 权重同步解耦。</text>
+
+  <!-- Rollout cluster (stacked) -->
+  <rect x="44" y="102" width="198" height="86" rx="9" fill="#f0f9ff" stroke="#7dd3fc"/>
+  <rect x="37" y="109" width="198" height="86" rx="9" fill="#f0f9ff" stroke="#38bdf8"/>
+  <rect x="30" y="116" width="198" height="86" rx="9" fill="#ffffff" stroke="#0284c7" stroke-width="1.6"/>
+  <text x="129" y="143" class="bt" fill="#075985">推理引擎集群 × N</text>
+  <text x="129" y="164" class="bs">vLLM / SGLang（Prefix Cache）</text>
+  <text x="129" y="185" class="bs mono" fill="#0369a1">权重版本 θ_(k−d)</text>
+
+  <!-- Environment / Verifier -->
+  <rect x="330" y="72" width="214" height="54" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+  <text x="437" y="95" class="bt" fill="#92400e">环境 / 规则验证器 / RM 服务</text>
+  <text x="437" y="114" class="bs">数学符号比对 · 代码沙箱 · 工具返回</text>
+
+  <!-- Experience Buffer -->
+  <rect x="330" y="148" width="214" height="62" rx="8" fill="#eef2ff" stroke="#818cf8" stroke-width="1.4"/>
+  <text x="437" y="173" class="bt" fill="#3730a3">经验缓冲池（Rollout Buffer）</text>
+  <text x="437" y="195" class="bs mono" fill="#4338ca">(token_ids, μ_t, log π_infer, r)</text>
+
+  <!-- Trainer -->
+  <rect x="638" y="116" width="212" height="86" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="1.8"/>
+  <text x="744" y="143" class="bt" fill="#065f46">分布式训练集群</text>
+  <text x="744" y="164" class="bs">FSDP / Megatron-LM（TP+PP+EP）</text>
+  <text x="744" y="185" class="bs mono" fill="#047857">当前优化权重 θ_k</text>
+
+  <!-- Arrows -->
+  <line x1="228" y1="136" x2="326" y2="99" stroke="#475569" stroke-width="1.5" marker-start="url(#ar-sys)" marker-end="url(#ar-sys)"/>
+  <text x="272" y="106" text-anchor="middle" class="bs">调用 ⇄ 观测</text>
+
+  <line x1="228" y1="176" x2="326" y2="178" stroke="#475569" stroke-width="1.5" marker-end="url(#ar-sys)"/>
+  <text x="278" y="169" text-anchor="middle" class="bs">提交完整轨迹</text>
+
+  <line x1="544" y1="178" x2="634" y2="164" stroke="#475569" stroke-width="1.5" marker-end="url(#ar-sys)"/>
+  <text x="589" y="162" text-anchor="middle" class="bs">取批次更新</text>
+
+  <!-- Weight sync return path -->
+  <path d="M 744 202 V 252 H 129 V 206" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#ar-sys-g)"/>
+  <rect x="292" y="238" width="290" height="28" rx="14" fill="#ecfdf5" stroke="#34d399"/>
+  <text x="437" y="256" text-anchor="middle" class="lbl" fill="#065f46">NCCL / RDMA 权重同步：θ_k → 推理引擎</text>
+
+  <text x="440" y="286" text-anchor="middle" class="bs">同步 RL（d = 0，存在长尾等待气泡） ｜ 异步 / PipelineRL（d = 1–8，零等待但需第 18 章 off-policy 修正）</text>
+</svg>

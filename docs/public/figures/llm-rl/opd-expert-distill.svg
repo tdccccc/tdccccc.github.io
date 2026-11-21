@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" role="img" aria-label="DeepSeek-V4 的 RL 训专家、多教师在线蒸馏整合架构图：数学、代码、智能体、通用指令分别独立跑 SFT 加 GRPO 炼出领域专家，再由学生模型自采样并接受对应领域专家逐 token 反向 KL 指导完成统一合并">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .bt { font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .bs { font-size: 11px; text-anchor: middle; fill: #475569; }
+    .pill { font-size: 10.5px; font-weight: 700; text-anchor: middle; fill: #ffffff; }
+  </style>
+  <defs>
+    <marker id="ar-opd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+    <marker id="ar-opd-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect width="880" height="300" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">2026 工业新范式：各领域 RL 训专家 + 多教师在线蒸馏（OPD）整合</text>
+  <text x="30" y="54" class="sub">RL 充当“能力生产者”，在线蒸馏充当“能力整合者”——彻底避开多领域混合 RL 奖励尺度冲突与相互干扰。</text>
+
+  <!-- Stage A: Specialist RL -->
+  <rect x="28" y="74" width="290" height="206" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.3"/>
+  <rect x="44" y="84" width="166" height="20" rx="10" fill="#4f46e5"/>
+  <text x="127" y="98" class="pill">阶段 A · 独立 RL 训专家</text>
+
+  <rect x="44" y="114" width="258" height="34" rx="6" fill="#ffffff" stroke="#818cf8"/>
+  <text x="173" y="135" class="bt" fill="#3730a3">数学推理专家 π_T(Math) · SFT + GRPO</text>
+
+  <rect x="44" y="154" width="258" height="34" rx="6" fill="#ffffff" stroke="#818cf8"/>
+  <text x="173" y="175" class="bt" fill="#3730a3">代码工程专家 π_T(Code) · SFT + GRPO</text>
+
+  <rect x="44" y="194" width="258" height="34" rx="6" fill="#ffffff" stroke="#818cf8"/>
+  <text x="173" y="215" class="bt" fill="#3730a3">智能体专家 π_T(Agent) · 多轮沙箱 RL</text>
+
+  <rect x="44" y="234" width="258" height="34" rx="6" fill="#ffffff" stroke="#818cf8"/>
+  <text x="173" y="255" class="bt" fill="#3730a3">通用对话专家 π_T(Chat) · RM/细则 RL</text>
+
+  <!-- Arrows from experts to OPD loss -->
+  <line x1="318" y1="131" x2="380" y2="165" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ar-opd-b)"/>
+  <line x1="318" y1="171" x2="380" y2="175" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ar-opd-b)"/>
+  <line x1="318" y1="211" x2="380" y2="185" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ar-opd-b)"/>
+  <line x1="318" y1="251" x2="380" y2="195" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ar-opd-b)"/>
+
+  <!-- Stage B: On-Policy Distillation Loop -->
+  <rect x="384" y="74" width="468" height="206" rx="10" fill="#ecfdf5" stroke="#34d399" stroke-width="1.5"/>
+  <rect x="400" y="84" width="214" height="20" rx="10" fill="#059669"/>
+  <text x="507" y="98" class="pill">阶段 B · 多教师在线蒸馏（OPD）</text>
+
+  <!-- Student model -->
+  <rect x="652" y="114" width="182" height="58" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.8"/>
+  <text x="743" y="138" class="bt" fill="#065f46">统一学生模型 π_θ</text>
+  <text x="743" y="157" class="bs">如 DeepSeek-V4 最终权重</text>
+
+  <!-- Rollout arrow -->
+  <path d="M 652 143 H 572 V 162" fill="none" stroke="#059669" stroke-width="1.6" marker-end="url(#ar-opd)"/>
+  <text x="612" y="135" class="bs" fill="#047857" font-weight="700">1. 自采样 y ~ π_θ</text>
+
+  <!-- Reverse KL box -->
+  <rect x="402" y="166" width="218" height="96" rx="8" fill="#ffffff" stroke="#34d399" stroke-width="1.4"/>
+  <text x="511" y="188" class="bt" fill="#065f46">2. 逐 Token 反向 KL 指导</text>
+  <text x="511" y="210" class="bs mono" fill="#1e293b">KL[ π_θ(·|s_t) ‖ π_T(·|s_t) ]</text>
+  <text x="511" y="232" class="bs">等价逐 token 策略梯度奖励：</text>
+  <text x="511" y="250" class="bs mono" fill="#047857">r_t = log π_T(y_t|s_t) − log π_θ(y_t|s_t)</text>
+
+  <!-- Update back to student -->
+  <path d="M 620 214 H 743 V 176" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#ar-opd)"/>
+  <text x="706" y="236" text-anchor="middle" class="bs" fill="#065f46" font-weight="700">3. 稠密梯度更新 π_θ</text>
+  <text x="706" y="254" text-anchor="middle" class="bs">On-policy 无暴露偏差 +</text>
+  <text x="706" y="269" text-anchor="middle" class="bs">~10× 效率 · 注意截断 Top-K 防熵塌</text>
+</svg>

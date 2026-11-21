@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 285" role="img" aria-label="前向 KL 与反向 KL 的分布形状差异：前向 KL 倾向覆盖所有模态（Mode-Covering，对应 SFT），反向 KL 倾向集中于单一高概率峰（Mode-Seeking，对应 RL 与在线蒸馏）">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .panel-t { font-size: 14.5px; font-weight: 700; }
+    .sm { font-size: 11.5px; fill: #475569; }
+  </style>
+
+  <rect width="860" height="285" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">KL 散度的不对称性：前向 KL（覆盖）vs 反向 KL（寻模）</text>
+  <text x="30" y="54" class="sub">假设目标分布 q（灰虚线，如参考/教师分布）有两个高价值峰，单峰策略 π_θ 最小化不同方向 KL 会落到截然不同的形状。</text>
+
+  <!-- Left panel: Forward KL -->
+  <rect x="30" y="72" width="390" height="195" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="48" y="98" class="panel-t" fill="#3730a3">前向 KL：KL(q ‖ π_θ) — 覆盖型（Mode-Covering）</text>
+  <text x="48" y="117" class="sm">对应 SFT / 离线蒸馏：凡是 q > 0 处，π_θ 不能为 0，否则惩罚无穷大</text>
+
+  <!-- Axes -->
+  <line x1="56" y1="226" x2="396" y2="226" stroke="#94a3b8" stroke-width="1.2"/>
+  <!-- Bimodal target q -->
+  <path d="M 64 226 C 95 226, 118 142, 148 142 C 178 142, 195 220, 226 220 C 257 220, 274 142, 304 142 C 334 142, 355 226, 388 226" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5 4"/>
+  <!-- Wide mean-covering pi -->
+  <path d="M 68 226 C 115 226, 155 168, 226 168 C 297 168, 337 226, 384 226" fill="#818cf8" fill-opacity="0.22" stroke="#4f46e5" stroke-width="2.5"/>
+  <text x="226" y="158" text-anchor="middle" class="sm" fill="#3730a3" font-weight="700">π_θ 拉宽覆盖两峰（波谷也分到概率）</text>
+  <text x="348" y="148" class="mono sm" fill="#64748b">q</text>
+  <text x="226" y="250" text-anchor="middle" class="sm">保留多样性，但可能给两峰之间的低质“折中区域”分配概率</text>
+
+  <!-- Right panel: Reverse KL -->
+  <rect x="440" y="72" width="390" height="195" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.3"/>
+  <text x="458" y="98" class="panel-t" fill="#065f46">反向 KL：KL(π_θ ‖ q) — 寻模型（Mode-Seeking）</text>
+  <text x="458" y="117" class="sm">对应 RL 目标与在线蒸馏 OPD：凡是 q ≈ 0 处，π_θ 必须迅速归零</text>
+
+  <!-- Axes -->
+  <line x1="466" y1="226" x2="806" y2="226" stroke="#94a3b8" stroke-width="1.2"/>
+  <!-- Bimodal target q -->
+  <path d="M 474 226 C 505 226, 528 142, 558 142 C 588 142, 605 220, 636 220 C 667 220, 684 142, 714 142 C 744 142, 765 226, 798 226" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5 4"/>
+  <!-- Sharp single-mode pi -->
+  <path d="M 500 226 C 524 226, 536 130, 558 130 C 580 130, 592 226, 616 226" fill="#34d399" fill-opacity="0.28" stroke="#059669" stroke-width="2.5"/>
+  <text x="688" y="172" text-anchor="middle" class="sm" fill="#065f46" font-weight="700">锁定一个高分峰</text>
+  <text x="688" y="190" text-anchor="middle" class="sm" fill="#047857">放弃另一峰以避开低分波谷</text>
+  <text x="758" y="148" class="mono sm" fill="#64748b">q</text>
+  <text x="636" y="250" text-anchor="middle" class="sm" fill="#065f46">推理准确率高（pass@1 强），但过强会收窄多样性（pass@k 降）</text>
+</svg>

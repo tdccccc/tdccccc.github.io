@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" role="img" aria-label="结果奖励 ORM、过程奖励 PRM 与评分细则 Rubrics 在一条推理轨迹上的打分位置与粒度对比">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .lbl { font-size: 13px; font-weight: 700; }
+    .tok { font-size: 11.5px; font-weight: 600; text-anchor: middle; fill: #1e293b; }
+    .sc { font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .note { font-size: 11.5px; fill: #475569; }
+  </style>
+
+  <rect width="880" height="280" rx="8" fill="#fbfcfe"/>
+  <text x="30" y="34" class="title">监督粒度对比：ORM vs PRM vs Rubrics</text>
+  <text x="30" y="54" class="sub">同一条多步推理回复：不同奖励机制在哪些位置给出信号，以及为何主流 RLVR 仍以 ORM 为主。</text>
+
+  <!-- Trajectory strip -->
+  <rect x="170" y="74" width="128" height="34" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="234" y="95" class="tok">步骤 1：设未知数</text>
+  <rect x="308" y="74" width="128" height="34" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="372" y="95" class="tok">步骤 2：列方程</text>
+  <rect x="446" y="74" width="128" height="34" rx="6" fill="#fef2f2" stroke="#f87171"/>
+  <text x="510" y="95" class="tok" fill="#991b1b">步骤 3：抄错符号 ✗</text>
+  <rect x="584" y="74" width="128" height="34" rx="6" fill="#fef2f2" stroke="#f87171"/>
+  <text x="648" y="95" class="tok" fill="#991b1b">步骤 4：错误结论</text>
+  <rect x="722" y="74" width="128" height="34" rx="6" fill="#f8fafc" stroke="#64748b"/>
+  <text x="786" y="95" class="tok">最终 \boxed{ans}</text>
+
+  <!-- Row 1: ORM / RLVR -->
+  <text x="30" y="144" class="lbl" fill="#065f46">ORM / RLVR</text>
+  <text x="30" y="162" class="note">仅检验最终答案</text>
+  <line x1="170" y1="146" x2="722" y2="146" stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1.5"/>
+  <rect x="722" y="128" width="128" height="36" rx="6" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="786" y="150" class="sc mono" fill="#991b1b">r = 0（全序列同罚）</text>
+
+  <!-- Row 2: PRM -->
+  <text x="30" y="198" class="lbl" fill="#3730a3">PRM 过程奖励</text>
+  <text x="30" y="216" class="note">逐步打分 / MC 展开</text>
+  <rect x="170" y="182" width="128" height="34" rx="6" fill="#d1fae5" stroke="#059669"/>
+  <text x="234" y="203" class="sc mono" fill="#065f46">+0.92 ✓</text>
+  <rect x="308" y="182" width="128" height="34" rx="6" fill="#d1fae5" stroke="#059669"/>
+  <text x="372" y="203" class="sc mono" fill="#065f46">+0.88 ✓</text>
+  <rect x="446" y="182" width="128" height="34" rx="6" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="510" y="203" class="sc mono" fill="#991b1b">-0.85 精确归因</text>
+  <rect x="584" y="182" width="128" height="34" rx="6" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="648" y="203" class="sc mono" fill="#991b1b">-0.95</text>
+  <text x="786" y="203" class="note" text-anchor="middle">RL 中易被作弊</text>
+
+  <!-- Row 3: Rubrics -->
+  <text x="30" y="250" class="lbl" fill="#0369a1">Rubrics 细则</text>
+  <text x="30" y="267" class="note">开放任务多维检查</text>
+  <rect x="170" y="234" width="680" height="34" rx="6" fill="#f0f9ff" stroke="#38bdf8"/>
+  <text x="510" y="255" class="sc" fill="#075985">c₁: 关键前提正确 (w₁=3, ✓) · c₂: 无计算错漏 (w₂=5, ✗) · c₃: 结构清晰 (w₃=2, ✓) → r = 5 / 10 = 0.50</text>
+</svg>
