@@ -36,20 +36,8 @@ const filteredPosts = computed(() => {
       <div class="atlas-kicker">NEVER STOP LEARNING AI.</div>
       <h1 class="atlas-title">Tdccccc's Atlas</h1>
       <p class="atlas-subtitle">
-        面向工程师的体系化技术读物与学习笔记——以「原理、公式与图解」为核心，持续沉淀
-        <strong>AI Infra</strong>、<strong>强化学习</strong>、<strong>模型与 Agent 评测</strong>
-        及更多工程方向的系统知识图谱。
+        个人持续沉淀 <strong>AI Infra</strong>、<strong>强化学习</strong>、<strong>模型与 Agent 评测</strong> 及更多方向的系统知识。
       </p>
-
-      <div class="atlas-hero-meta">
-        <span class="atlas-metric"><strong>{{ books.length }}</strong> 本体系读物</span>
-        <span class="atlas-sep">·</span>
-        <span class="atlas-metric"><strong>23</strong> 章主线 + <strong>35</strong> 张原创机制图</span>
-        <template v-if="posts.length">
-          <span class="atlas-sep">·</span>
-          <span class="atlas-metric"><strong>{{ posts.length }}</strong> 篇专题笔记</span>
-        </template>
-      </div>
     </header>
 
     <!-- Dynamic Topic Filter (auto-appears when 2+ categories exist) -->
@@ -66,12 +54,11 @@ const filteredPosts = computed(() => {
       </button>
     </nav>
 
-    <!-- Section 1: Systematic Books -->
+    <!-- Section 1: Bookshelf -->
     <section class="atlas-section" aria-labelledby="section-books">
       <div class="atlas-section-head">
         <div>
-          <h2 id="section-books" class="atlas-section-title">体系化读物</h2>
-          <p class="atlas-section-desc">完整成书的系统教程，每本配有独立章节导航、数学推导与原创架构图。</p>
+          <h2 id="section-books" class="atlas-section-title">书架</h2>
         </div>
       </div>
 
@@ -220,7 +207,7 @@ const filteredPosts = computed(() => {
 
 .atlas-subtitle {
   max-width: 44rem;
-  margin: 0 0 1.4rem;
+  margin: 0;
   font-size: 1.04rem;
   line-height: 1.8;
   color: var(--atlas-text-muted);
@@ -229,24 +216,6 @@ const filteredPosts = computed(() => {
 .atlas-subtitle strong {
   color: var(--vp-c-text-1);
   font-weight: 600;
-}
-
-.atlas-hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem;
-  font-size: 0.86rem;
-  color: var(--atlas-text-muted);
-}
-
-.atlas-metric strong {
-  font-family: var(--vp-font-family-mono);
-  color: var(--vp-c-text-1);
-}
-
-.atlas-sep {
-  opacity: 0.45;
 }
 
 .atlas-filter {

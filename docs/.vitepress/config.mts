@@ -121,9 +121,9 @@ export default defineConfig({
     logo: '/favicon.svg',
 
     nav: [
-      { text: '首页书架', link: '/' },
+      { text: '首页', link: '/' },
       {
-        text: '体系读物',
+        text: '书架',
         items: [
           { text: 'LLM 推理工程：原理与方法', link: '/books/llm-inference/' },
         ],
