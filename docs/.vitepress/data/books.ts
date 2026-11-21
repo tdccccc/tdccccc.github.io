@@ -44,4 +44,18 @@ export const books: BookItem[] = [
     tags: ['强化学习', 'RLHF / RLVR', 'GRPO / DAPO', '推理与蒸馏', 'Agentic RL'],
     featured: true,
   },
+  {
+    id: 'llm-eval',
+    title: 'LLM 与 Agent 评测：原理、基准与工程实践',
+    subtitle: '从统计显著性与判分校准底座，到 Agent 专项、沙箱基建与企业业务迭代闭环',
+    category: '模型与 Agent 评测',
+    status: '已完结 · 持续维护',
+    description:
+      '面向算法、Agent 应用与评测基建工程师的系统专著，构成“推理底座 × RL 后训练 × 评测闭环”三部曲终章。全书严守统计口径与脚手架解耦原则，系统讲透配对检验与 MDE、pass@k 与 pass^k、LLM-as-a-Judge 的 Rogan-Gladen 统计校准、工具/MCP/SWE/Deep Research/GUI/多智能体专项评测、沙箱录制回放与质量-成本-延迟帕累托，以及 EDD 黄金集、线上 Tracing 与后训练反哺飞轮。',
+    cover: '/covers/llm-eval.svg',
+    link: '/books/llm-eval/',
+    stats: ['5 篇 20 章主线', '4 篇进阶专题', '25 张原创机制图', '3 个交互实验'],
+    tags: ['模型与 Agent 评测', '统计学与校准', 'SWE / MCP / τ²', '沙箱与帕累托', 'EDD 业务闭环'],
+    featured: true,
+  },
 ]

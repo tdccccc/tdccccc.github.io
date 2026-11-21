@@ -190,6 +190,95 @@ const llmRlSidebar = [
   },
 ]
 
+const llmEvalSidebar = [
+  {
+    text: '← 返回 Tdccccc\'s Atlas 书架',
+    link: '/',
+  },
+  {
+    text: '《LLM 与 Agent 评测：原理、基准与工程实践》',
+    items: [
+      { text: '全书导览', link: '/books/llm-eval/' },
+    ],
+  },
+  {
+    text: '第一篇 · 统计口径与判分校准底座',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-eval/part-1' },
+      { text: '第 1 章 评测测量学与统计显著性', link: '/books/llm-eval/chapters/chapter-01' },
+      { text: '第 2 章 pass@k、pass^k 与 Arena 排名', link: '/books/llm-eval/chapters/chapter-02' },
+      { text: '第 3 章 判分器工程与 Judge 统计校准', link: '/books/llm-eval/chapters/chapter-03' },
+      { text: '第 4 章 人类校准协议与数据污染防治', link: '/books/llm-eval/chapters/chapter-04' },
+    ],
+  },
+  {
+    text: '第二篇 · 基础模型选型速评',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-eval/part-2' },
+      { text: '第 5 章 知识、指令遵循、长上下文与校准', link: '/books/llm-eval/chapters/chapter-05' },
+      { text: '第 6 章 推理、代码与多模态底座评测', link: '/books/llm-eval/chapters/chapter-06' },
+      { text: '第 7 章 安全、提示注入与边界风险', link: '/books/llm-eval/chapters/chapter-07' },
+    ],
+  },
+  {
+    text: '第三篇 · Agent 评测专项',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-eval/part-3' },
+      { text: '第 8 章 Agent 评测第一性框架与脚手架解耦', link: '/books/llm-eval/chapters/chapter-08' },
+      { text: '第 9 章 工具调用、MCP 与多轮用户交互', link: '/books/llm-eval/chapters/chapter-09' },
+      { text: '第 10 章 Coding / SWE 与终端执行 Agent', link: '/books/llm-eval/chapters/chapter-10' },
+      { text: '第 11 章 Deep Research、RAG 与长报告工作流', link: '/books/llm-eval/chapters/chapter-11' },
+      { text: '第 12 章 GUI 操控、长期记忆与多智能体协同', link: '/books/llm-eval/chapters/chapter-12' },
+    ],
+  },
+  {
+    text: '第四篇 · 评测基建、帕累托与误差归因',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-eval/part-4' },
+      { text: '第 13 章 评测 Harness 架构与开源框架选型', link: '/books/llm-eval/chapters/chapter-13' },
+      { text: '第 14 章 沙箱隔离、录制回放与确定性治理', link: '/books/llm-eval/chapters/chapter-14' },
+      { text: '第 15 章 质量 × 成本 × 延迟联合帕累托评测', link: '/books/llm-eval/chapters/chapter-15' },
+      { text: '第 16 章 系统化误差分析、失败谱系与报告规范', link: '/books/llm-eval/chapters/chapter-16' },
+    ],
+  },
+  {
+    text: '第五篇 · 企业业务落地与迭代闭环',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-eval/part-5' },
+      { text: '第 17 章 评测驱动开发：构建业务黄金评测集', link: '/books/llm-eval/chapters/chapter-17' },
+      { text: '第 18 章 三大高频企业业务实战拆解', link: '/books/llm-eval/chapters/chapter-18' },
+      { text: '第 19 章 离线 CI 闸门、线上 Tracing 与灰度飞轮', link: '/books/llm-eval/chapters/chapter-19' },
+      { text: '第 20 章 从评测到演进：脚手架、SFT 与 RLVR 闭环', link: '/books/llm-eval/chapters/chapter-20' },
+    ],
+  },
+  {
+    text: '进阶专题库',
+    collapsed: true,
+    items: [
+      { text: '专题 A：核心评测基准与论文口径档案', link: '/books/llm-eval/topics/benchmark-archive' },
+      { text: '专题 B：心理测量学与 IRT / CAT 自适应评测', link: '/books/llm-eval/topics/irt-and-cat' },
+      { text: '专题 C：量化、推理加速与国产芯片精度回归', link: '/books/llm-eval/topics/quant-and-chip-regression' },
+      { text: '专题 D：多模态生成（图 / 视频 / 语音）评测速览', link: '/books/llm-eval/topics/generative-multimodal-eval' },
+    ],
+  },
+  {
+    text: '参考手册与工具箱',
+    collapsed: true,
+    items: [
+      { text: '统计公式、检验方法与指标口径速查卡', link: '/books/llm-eval/toolkit/metrics-and-stats' },
+      { text: '基准选型与评测上线避坑清单', link: '/books/llm-eval/toolkit/eval-checklist' },
+      { text: '最小可运行 Python 评测工具箱', link: '/books/llm-eval/toolkit/reference-code' },
+      { text: '术语表', link: '/books/llm-eval/glossary' },
+      { text: '来源、口径与许可', link: '/books/llm-eval/colophon' },
+    ],
+  },
+]
+
 export default defineConfig({
   lang: 'zh-CN',
   title: "Tdccccc's Atlas",
@@ -224,6 +313,7 @@ export default defineConfig({
     sidebar: {
       '/books/llm-inference/': llmInferenceSidebar,
       '/books/llm-rl/': llmRlSidebar,
+      '/books/llm-eval/': llmEvalSidebar,
     },
 
     outline: {

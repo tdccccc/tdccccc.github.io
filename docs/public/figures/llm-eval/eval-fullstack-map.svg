@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 480" role="img" aria-label="LLM 与 Agent 评测全栈地图：自上而下覆盖企业业务闭环、Agent 专项评测、评测工程基建与统计测量底座四层，左侧贯穿统计口径、四层解耦与业务飞轮主轴">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 22px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13.5px; fill: #64748b; }
+    .layer-title { font-size: 15px; font-weight: 700; }
+    .layer-hint { font-size: 11.5px; }
+    .ch-pill { font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .chip-txt { font-size: 10.5px; font-weight: 600; fill: #1e293b; text-anchor: middle; }
+    .spine-title { font-size: 14px; font-weight: 700; fill: #92400e; text-anchor: middle; }
+    .spine-card-t { font-size: 12px; font-weight: 700; fill: #1e293b; text-anchor: middle; }
+    .spine-card-s { font-size: 10.5px; fill: #64748b; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="eval-arrow-spine" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#d97706"/>
+    </marker>
+    <marker id="eval-arrow-down" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="480" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="38" y="38" class="title">LLM 与 Agent 评测：原理、基准与工程实践全栈地图</text>
+  <text x="38" y="62" class="sub">以「测得准、算得清、拆得开、落得实」为主轴，打通统计测量底座、基础能力标尺、Agent 专项、评测基建与企业迭代飞轮。</text>
+
+  <!-- Left Vertical Spine -->
+  <g>
+    <rect x="38" y="82" width="124" height="360" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+    <rect x="52" y="94" width="96" height="22" rx="11" fill="#d97706"/>
+    <text x="100" y="109" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">贯穿全书主轴</text>
+
+    <text x="100" y="140" class="spine-title">严密口径与</text>
+    <text x="100" y="159" class="spine-title">闭环归因</text>
+
+    <rect x="49" y="176" width="102" height="52" rx="7" fill="#ffffff" stroke="#fde68a"/>
+    <text x="100" y="197" class="spine-card-t">统计置信底座</text>
+    <text x="100" y="216" class="spine-card-s">CI · MDE · pass^k</text>
+
+    <rect x="49" y="238" width="102" height="52" rx="7" fill="#ffffff" stroke="#fde68a"/>
+    <text x="100" y="259" class="spine-card-t">四维归因解耦</text>
+    <text x="100" y="278" class="spine-card-s">模型 · 脚手架 · 沙箱</text>
+
+    <rect x="49" y="300" width="102" height="52" rx="7" fill="#ffffff" stroke="#fde68a"/>
+    <text x="100" y="321" class="spine-card-t">生产迭代飞轮</text>
+    <text x="100" y="340" class="spine-card-s">EDD · CI · RLVR</text>
+
+    <rect x="49" y="366" width="102" height="62" rx="7" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="100" y="387" font-size="11" font-weight="700" fill="#92400e" text-anchor="middle">第一篇 Ch 1–4</text>
+    <text x="100" y="404" font-size="11" font-weight="700" fill="#92400e" text-anchor="middle">第五篇 Ch 17–20</text>
+    <text x="100" y="420" font-size="10" fill="#b45309" text-anchor="middle">统计与指标速查卡</text>
+  </g>
+
+  <!-- Spine connectors -->
+  <line x1="162" y1="122" x2="180" y2="122" stroke="#d97706" stroke-width="1.6" marker-end="url(#eval-arrow-spine)"/>
+  <line x1="162" y1="214" x2="180" y2="214" stroke="#d97706" stroke-width="1.6" marker-end="url(#eval-arrow-spine)"/>
+  <line x1="162" y1="306" x2="180" y2="306" stroke="#d97706" stroke-width="1.6" marker-end="url(#eval-arrow-spine)"/>
+  <line x1="162" y1="398" x2="180" y2="398" stroke="#d97706" stroke-width="1.6" marker-end="url(#eval-arrow-spine)"/>
+
+  <!-- Layer 1: 企业业务落地与迭代闭环层 -->
+  <g>
+    <rect x="182" y="82" width="700" height="80" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+    <rect x="188" y="92" width="4" height="60" rx="2" fill="#059669"/>
+    <text x="202" y="107" class="layer-title" fill="#065f46">① 企业业务落地与持续迭代闭环层</text>
+    <text x="458" y="107" class="layer-hint" fill="#047857">从私有黄金集到线上观测与后训练反哺</text>
+    <rect x="730" y="90" width="140" height="22" rx="11" fill="#d1fae5" stroke="#6ee7b7"/>
+    <text x="800" y="105" class="ch-pill" fill="#065f46">第五篇 Ch 17–20</text>
+
+    <rect x="202" y="120" width="160" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="282" y="139" class="chip-txt">EDD 黄金评测集构建</text>
+    <rect x="372" y="120" width="160" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="452" y="139" class="chip-txt">RAG · 工单 · Copilot 实战</text>
+    <rect x="542" y="120" width="160" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="622" y="139" class="chip-txt">CI 闸门 · Tracing · 灰度 A/B</text>
+    <rect x="712" y="120" width="158" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="791" y="139" class="chip-txt">脚手架重构 vs RLVR 闭环</text>
+  </g>
+
+  <line x1="532" y1="162" x2="532" y2="172" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#eval-arrow-down)"/>
+
+  <!-- Layer 2: Agent 专项评测核心高地 -->
+  <g>
+    <rect x="182" y="174" width="700" height="80" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+    <rect x="188" y="184" width="4" height="60" rx="2" fill="#4f46e5"/>
+    <text x="202" y="199" class="layer-title" fill="#3730a3">② Agent 专项评测核心高地（全书重心）</text>
+    <text x="488" y="199" class="layer-hint" fill="#4f46e5">终态断言 × 轨迹审视 × 脚手架解耦</text>
+    <rect x="730" y="182" width="140" height="22" rx="11" fill="#e0e7ff" stroke="#a5b4fc"/>
+    <text x="800" y="197" class="ch-pill" fill="#3730a3">第三篇 Ch 8–12</text>
+
+    <rect x="202" y="212" width="160" height="30" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="282" y="231" class="chip-txt">四层框架与脚手架解耦</text>
+    <rect x="372" y="212" width="160" height="30" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="452" y="231" class="chip-txt">BFCL · MCP · τ²-bench</text>
+    <rect x="542" y="212" width="160" height="30" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="622" y="231" class="chip-txt">SWE-bench &amp; Terminal</text>
+    <rect x="712" y="212" width="158" height="30" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="791" y="231" class="chip-txt">Deep Research · GUI · 记忆</text>
+  </g>
+
+  <line x1="532" y1="254" x2="532" y2="264" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#eval-arrow-down)"/>
+
+  <!-- Layer 3: 评测工程基建、帕累托与归因层 -->
+  <g>
+    <rect x="182" y="266" width="700" height="80" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+    <rect x="188" y="276" width="4" height="60" rx="2" fill="#0284c7"/>
+    <text x="202" y="291" class="layer-title" fill="#075985">③ 评测工程基建、联合帕累托与误差归因层</text>
+    <text x="506" y="291" class="layer-hint" fill="#0284c7">可复现、抗抖动、算清 ROI 性价比</text>
+    <rect x="730" y="274" width="140" height="22" rx="11" fill="#e0f2fe" stroke="#7dd3fc"/>
+    <text x="800" y="289" class="ch-pill" fill="#0369a1">第四篇 Ch 13–16</text>
+
+    <rect x="202" y="304" width="160" height="30" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="282" y="323" class="chip-txt">Harness 与开源框架选型</text>
+    <rect x="372" y="304" width="160" height="30" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="452" y="323" class="chip-txt">Docker 沙箱与录制回放</text>
+    <rect x="542" y="304" width="160" height="30" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="622" y="323" class="chip-txt">质量 × 成本 × 延迟帕累托</text>
+    <rect x="712" y="304" width="158" height="30" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="791" y="323" class="chip-txt">Open Coding &amp; 失败谱系</text>
+  </g>
+
+  <line x1="532" y1="346" x2="532" y2="356" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#eval-arrow-down)"/>
+
+  <!-- Layer 4: 统计测量底座与基础模型选型速评 -->
+  <g>
+    <rect x="182" y="358" width="700" height="84" rx="10" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.4"/>
+    <rect x="188" y="368" width="4" height="64" rx="2" fill="#e11d48"/>
+    <text x="202" y="383" class="layer-title" fill="#9f1239">④ 统计测量校准底座与基础模型选型标尺</text>
+    <text x="498" y="383" class="layer-hint" fill="#be123c">先保证“尺子不歪”，再为业务选底座</text>
+    <rect x="720" y="366" width="150" height="22" rx="11" fill="#ffe4e6" stroke="#fda4af"/>
+    <text x="795" y="381" class="ch-pill" fill="#9f1239">第一、二篇 Ch 1–7</text>
+
+    <rect x="202" y="397" width="160" height="32" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="282" y="417" class="chip-txt">配对检验 · MDE · 聚类 SE</text>
+    <rect x="372" y="397" width="160" height="32" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="452" y="417" class="chip-txt">pass@k · pass^k · Arena</text>
+    <rect x="542" y="397" width="160" height="32" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="622" y="417" class="chip-txt">Judge 校准 (RG) 与防污染</text>
+    <rect x="712" y="397" width="158" height="32" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="791" y="417" class="chip-txt">长文 · 推理 · 代码 · 安全注入</text>
+  </g>
+</svg>

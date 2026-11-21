@@ -8,6 +8,9 @@ import ImageLightbox from './components/ImageLightbox.vue'
 import RlBetaTiltWidget from './components/RlBetaTiltWidget.vue'
 import RlPpoClipWidget from './components/RlPpoClipWidget.vue'
 import RlGroupAdvantageWidget from './components/RlGroupAdvantageWidget.vue'
+import EvalStatsPowerWidget from './components/EvalStatsPowerWidget.vue'
+import EvalPassKWidget from './components/EvalPassKWidget.vue'
+import EvalJudgeBiasWidget from './components/EvalJudgeBiasWidget.vue'
 
 export default {
   extends: DefaultTheme,
@@ -22,5 +25,8 @@ export default {
     app.component('RlBetaTiltWidget', RlBetaTiltWidget)
     app.component('RlPpoClipWidget', RlPpoClipWidget)
     app.component('RlGroupAdvantageWidget', RlGroupAdvantageWidget)
+    app.component('EvalStatsPowerWidget', EvalStatsPowerWidget)
+    app.component('EvalPassKWidget', EvalPassKWidget)
+    app.component('EvalJudgeBiasWidget', EvalJudgeBiasWidget)
   },
 }
