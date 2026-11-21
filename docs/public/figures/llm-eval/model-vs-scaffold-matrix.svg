@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 462" role="img" aria-label="改脚手架（Harness Engineering）vs 改模型（SFT / DPO / RLVR）归因决策象限与三步排障优先路由图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .axis-t { font-size: 12px; font-weight: 700; fill: #475569; text-anchor: middle; }
+    .q-badge { font-size: 10.5px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+    .q-title { font-size: 13.8px; font-weight: 700; }
+    .q-body { font-size: 11px; fill: #334155; }
+    .q-foot { font-size: 10.6px; font-weight: 700; }
+    .r-title { font-size: 14px; font-weight: 700; fill: #1e293b; }
+    .r-step-t { font-size: 12px; font-weight: 700; fill: #0f172a; }
+    .r-step-b { font-size: 10.2px; fill: #475569; }
+  </style>
+  <defs>
+    <marker id="ms-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="462" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="32" y="36" class="title">改脚手架（Harness Engineering）vs 改模型（SFT / RLVR）归因决策矩阵</text>
+  <text x="32" y="58" class="sub">先测 Oracle 上下文与 pass@k 剪刀差，永远优先榨干天级/零训卡的脚手架红利，再动用周级后训练重武器。</text>
+
+  <!-- Quadrant Frame -->
+  <!-- Y-axis label -->
+  <text x="26" y="168" class="axis-t" transform="rotate(-90 26 168)">高 pass@k（会做但不稳）</text>
+  <text x="26" y="346" class="axis-t" transform="rotate(-90 26 346)">低 pass@k（底座做不出）</text>
+
+  <!-- Quadrant Axes -->
+  <line x1="56" y1="255" x2="618" y2="255" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <line x1="337" y1="82" x2="337" y2="424" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+
+  <!-- Top-Left Quadrant: Scaffold / Harness Engineering -->
+  <g>
+    <rect x="64" y="88" width="262" height="156" rx="10" fill="#ecfdf5" stroke="#34d399" stroke-width="1.6"/>
+    <rect x="76" y="99" width="82" height="20" rx="10" fill="#059669"/>
+    <text x="117" y="113" class="q-badge">首选 · 最高 ROI</text>
+    <text x="166" y="114" class="q-title" fill="#065f46">重构脚手架</text>
+    <text x="76" y="138" class="q-body">· 症状：工具参数歧义、格式偶发解析错、</text>
+    <text x="76" y="154" class="q-body">  长历史噪声干扰、多步任务边界不清</text>
+    <text x="76" y="174" class="q-body">· 动作：修 Schema 与报错回传、拆子任务、</text>
+    <text x="76" y="190" class="q-body">  加代码校验器 / 网关护栏 / 上下文折叠</text>
+    <rect x="76" y="206" width="238" height="26" rx="6" fill="#d1fae5"/>
+    <text x="195" y="223" class="q-foot" fill="#065f46" text-anchor="middle">周期 1–3 天 · 零训卡成本 · 随时回滚</text>
+  </g>
+
+  <!-- Top-Right Quadrant: RLVR / Agentic RL -->
+  <g>
+    <rect x="348" y="88" width="262" height="156" rx="10" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
+    <rect x="360" y="99" width="74" height="20" rx="10" fill="#4f46e5"/>
+    <text x="397" y="113" class="q-badge">策略拉齐</text>
+    <text x="444" y="114" class="q-title" fill="#3730a3">RLVR / Agentic RL</text>
+    <text x="360" y="138" class="q-body">· 症状：pass@8 远高于 pass@1 与 pass^k，</text>
+    <text x="360" y="154" class="q-body">  探索试错不稳，或思维链过长拖垮延迟</text>
+    <text x="360" y="174" class="q-body">· 动作：在可验证沙箱/Rubrics 上跑在线 RL，</text>
+    <text x="360" y="190" class="q-body">  内化长程规划、出错自愈与精炼思考</text>
+    <rect x="360" y="206" width="238" height="26" rx="6" fill="#e0e7ff"/>
+    <text x="479" y="223" class="q-foot" fill="#3730a3" text-anchor="middle">周期 1–3 周 · 需非零方差探索基础</text>
+  </g>
+
+  <!-- Bottom-Left Quadrant: RAG / Memory / Data Infra -->
+  <g>
+    <rect x="64" y="266" width="262" height="156" rx="10" fill="#f0f9ff" stroke="#38bdf8" stroke-width="1.6"/>
+    <rect x="76" y="277" width="82" height="20" rx="10" fill="#0284c7"/>
+    <text x="117" y="291" class="q-badge">数据与环境层</text>
+    <text x="166" y="292" class="q-title" fill="#075985">修检索与工具管线</text>
+    <text x="76" y="316" class="q-body">· 症状：私有知识缺失、索引陈旧、表格切碎、</text>
+    <text x="76" y="332" class="q-body">  业务政策频繁变更或外部观测信息不全</text>
+    <text x="76" y="352" class="q-body">· 动作：改切片/父子索引/增量同步/权限过滤，</text>
+    <text x="76" y="368" class="q-body">  严禁用 SFT 死记高频变动的业务事实</text>
+    <rect x="76" y="384" width="238" height="26" rx="6" fill="#e0f2fe"/>
+    <text x="195" y="401" class="q-foot" fill="#075985" text-anchor="middle">周期 2–5 天 · 知识实时可更新零重训</text>
+  </g>
+
+  <!-- Bottom-Right Quadrant: SFT / Distillation / Upgrade Base -->
+  <g>
+    <rect x="348" y="266" width="262" height="156" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.6"/>
+    <rect x="360" y="277" width="74" height="20" rx="10" fill="#d97706"/>
+    <text x="397" y="291" class="q-badge">能力注入</text>
+    <text x="444" y="292" class="q-title" fill="#92400e">SFT / 蒸馏 / 换底座</text>
+    <text x="360" y="316" class="q-body">· 症状：Oracle 条件下 pass@8 仍近乎 0%，</text>
+    <text x="360" y="332" class="q-body">  或需将旗舰能力压缩到小模型降本提速</text>
+    <text x="360" y="352" class="q-body">· 动作：强模型拒绝采样 SFT / DPO / OPD，</text>
+    <text x="360" y="368" class="q-body">  冷启动破零方差后再接 RL，或直接换底座</text>
+    <rect x="360" y="384" width="238" height="26" rx="6" fill="#fef3c7"/>
+    <text x="479" y="401" class="q-foot" fill="#92400e" text-anchor="middle">周期 2–4 周 · 重构成本与延迟帕累托</text>
+  </g>
+
+  <!-- X-axis bottom labels -->
+  <text x="195" y="446" class="axis-t">← 外部上下文 / 接口 / 环境约束问题</text>
+  <text x="479" y="446" class="axis-t">模型内生推理 / 策略 / 成本极限 →</text>
+
+  <!-- Right Panel: 3-Step Diagnostic Routing -->
+  <g>
+    <rect x="636" y="88" width="252" height="334" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+    <text x="652" y="114" class="r-title">三步排障决策路由</text>
+    <line x1="652" y1="125" x2="872" y2="125" stroke="#e2e8f0" stroke-width="1.2"/>
+
+    <!-- Step 1 -->
+    <rect x="652" y="138" width="220" height="72" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+    <text x="664" y="157" class="r-step-t">① 跑 Oracle 上下文消融</text>
+    <text x="664" y="175" class="r-step-b">手工喂入正确文档与干净工具回包：</text>
+    <text x="664" y="191" class="r-step-b">飙升 → 立刻停训，修 RAG / 脚手架</text>
+
+    <line x1="762" y1="210" x2="762" y2="226" stroke="#64748b" stroke-width="1.5" marker-end="url(#ms-arrow)"/>
+
+    <!-- Step 2 -->
+    <rect x="652" y="232" width="220" height="74" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+    <text x="664" y="251" class="r-step-t">② 测 pass@8 vs pass@1 剪刀差</text>
+    <text x="664" y="269" class="r-step-b">剪刀差大（&gt;25pp）→ RLVR 收益极高</text>
+    <text x="664" y="285" class="r-step-b">pass@8 仍低 → 先 SFT 冷启动或换强底座</text>
+
+    <line x1="762" y1="306" x2="762" y2="322" stroke="#64748b" stroke-width="1.5" marker-end="url(#ms-arrow)"/>
+
+    <!-- Step 3 -->
+    <rect x="652" y="328" width="220" height="78" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+    <text x="664" y="347" class="r-step-t" fill="#9f1239">③ 算清帕累托与维护税</text>
+    <text x="664" y="365" class="r-step-b">仅当日调用量足够高、或小模型蒸馏</text>
+    <text x="664" y="381" class="r-step-b">显著改善 $/Task × P95 时，才启动私有</text>
+    <text x="664" y="397" class="r-step-b">权重维护，否则优先升级商用/开源新基座</text>
+  </g>
+</svg>

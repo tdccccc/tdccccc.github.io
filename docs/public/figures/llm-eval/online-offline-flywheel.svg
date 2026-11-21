@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 462" role="img" aria-label="三级发布漏斗（L1 PR 冒烟、L2 夜间全量回归、L3 影子流量与灰度 A/B）与线上 Tracing 隐式信号反哺离线黄金集的自动化飞轮">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .badge { font-size: 11px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+    .card-t { font-size: 14px; font-weight: 700; }
+    .card-b { font-size: 10.5px; fill: #334155; }
+    .band-label { font-size: 12px; font-weight: 700; fill: #475569; }
+    .loop-pill { font-size: 11px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="fw-arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="fw-arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#d97706"/>
+    </marker>
+    <marker id="fw-arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="462" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="32" y="36" class="title">三级发布漏斗 × 全链路 Tracing 与 Online-to-Offline 沉淀飞轮</text>
+  <text x="32" y="58" class="sub">上部：从代码提交到灰度放量的三级防御纵深；下部：线上隐式质量信号驱动离线防回归黄金集持续进化。</text>
+
+  <!-- Upper Band Label -->
+  <rect x="32" y="72" width="166" height="22" rx="11" fill="#e0f2fe"/>
+  <text x="115" y="87" class="loop-pill" fill="#0369a1">离线 → 线上：三级发布漏斗</text>
+
+  <!-- L1: PR Smoke Gate -->
+  <g>
+    <rect x="32" y="102" width="246" height="126" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.5"/>
+    <rect x="44" y="113" width="66" height="20" rx="10" fill="#0284c7"/>
+    <text x="77" y="127" class="badge">L1 闸门</text>
+    <text x="120" y="128" class="card-t" fill="#075985">PR 级冒烟测试</text>
+    <text x="44" y="152" class="card-b">· 规模：50–80 题高区分度 + 全部红线</text>
+    <text x="44" y="170" class="card-b">· 机制：确定性断言 + Replay Proxy</text>
+    <text x="44" y="188" class="card-b">· SLA：&lt; 5 分钟完成，失败直接阻断合入</text>
+    <text x="44" y="208" class="card-b">· 触发：Prompt / 工具 / 路由 / 模型变更</text>
+  </g>
+  <line x1="278" y1="165" x2="306" y2="165" stroke="#0284c7" stroke-width="2" marker-end="url(#fw-arrow-blue)"/>
+
+  <!-- L2: Nightly Full Regression -->
+  <g>
+    <rect x="312" y="102" width="276" height="126" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.5"/>
+    <rect x="324" y="113" width="66" height="20" rx="10" fill="#4f46e5"/>
+    <text x="357" y="127" class="badge">L2 闸门</text>
+    <text x="400" y="128" class="card-t" fill="#3730a3">夜间全量回归与趋势监控</text>
+    <text x="324" y="152" class="card-b">· 规模：500–2000 题（Dev + 锁库 Holdout）</text>
+    <text x="324" y="170" class="card-b">· 机制：完整容器沙箱 + 用户模拟器 + pass^k</text>
+    <text x="324" y="188" class="card-b">· 统计：Paired Bootstrap CI + RG Judge 矫正</text>
+    <text x="324" y="208" class="card-b">· 追踪：MDE 波动、infra_error 分桶与 $/Task</text>
+  </g>
+  <line x1="588" y1="165" x2="616" y2="165" stroke="#0284c7" stroke-width="2" marker-end="url(#fw-arrow-blue)"/>
+
+  <!-- L3: Shadow & Canary A/B -->
+  <g>
+    <rect x="622" y="102" width="266" height="126" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+    <rect x="634" y="113" width="66" height="20" rx="10" fill="#059669"/>
+    <text x="667" y="127" class="badge">L3 放量</text>
+    <text x="710" y="128" class="card-t" fill="#065f46">影子流量与灰度 A/B</text>
+    <text x="634" y="152" class="card-b">· Shadow：异步暗跑，写工具接只读 Mock</text>
+    <text x="634" y="170" class="card-b">· Canary：按租户/用户 1%→5%→20%→100%</text>
+    <text x="634" y="188" class="card-b">· 北极星：解决率 / 转化率 / 24h 代码留存</text>
+    <text x="634" y="208" class="card-b">· 护栏：P95 延迟 / 成本 / 人工转接秒级回滚</text>
+  </g>
+
+  <!-- Right Vertical Turn Arrow: L3 down to Tracing -->
+  <path d="M755,228 L755,292" stroke="#d97706" stroke-width="2.2" fill="none" marker-end="url(#fw-arrow-amber)"/>
+  <rect x="688" y="248" width="134" height="22" rx="11" fill="#fef3c7" stroke="#fcd34d"/>
+  <text x="755" y="263" class="loop-pill" fill="#92400e">真实流量全量可观测</text>
+
+  <!-- Lower Band Label -->
+  <rect x="336" y="252" width="248" height="22" rx="11" fill="#fef2f2" stroke="#fecdd3"/>
+  <text x="460" y="267" class="loop-pill" fill="#9f1239">线上 → 离线：Online-to-Offline 自动化沉淀</text>
+
+  <!-- Bottom Right: OTel Tracing & Implicit Signals -->
+  <g>
+    <rect x="598" y="298" width="290" height="142" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+    <rect x="610" y="309" width="76" height="20" rx="10" fill="#d97706"/>
+    <text x="648" y="323" class="badge">STEP A</text>
+    <text x="696" y="324" class="card-t" fill="#92400e">全链路 Tracing 与隐式信号</text>
+    <text x="610" y="348" class="card-b">· OTel Span：Prompt Hash / 工具耗时 / Token 账单</text>
+    <text x="610" y="366" class="card-b">· 记录隐式状态快照（权限 / 索引版本 / Git SHA）</text>
+    <text x="610" y="384" class="card-b">· 隐式负信号：重生成 · 中途打断 · 负面追问情绪</text>
+    <text x="610" y="402" class="card-b">· 行为异常：24h 代码删除 · 工具回滚 · 长步数毛刺</text>
+    <text x="610" y="422" class="card-b">· 线上异步抽检 Judge（1%–5% 低分告警）</text>
+  </g>
+  <line x1="598" y1="369" x2="570" y2="369" stroke="#d97706" stroke-width="2" marker-end="url(#fw-arrow-amber)"/>
+
+  <!-- Bottom Center: Auto Sampling, PII Redaction, Clustering -->
+  <g>
+    <rect x="312" y="298" width="252" height="142" rx="10" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+    <rect x="324" y="309" width="76" height="20" rx="10" fill="#e11d48"/>
+    <text x="362" y="323" class="badge">STEP B</text>
+    <text x="410" y="324" class="card-t" fill="#9f1239">自动采样、脱敏与聚类</text>
+    <text x="324" y="348" class="card-b">· 触发式抓取：低分轨迹 + 隐式负信号全收</text>
+    <text x="324" y="366" class="card-b">· 结构保真脱敏：替换 PII / 密钥 / 敏感额</text>
+    <text x="324" y="384" class="card-b">· 向量聚类去重：剔除已知重复 Bad Case</text>
+    <text x="324" y="402" class="card-b">· 排序优先浮出「高频新失败簇」</text>
+    <text x="324" y="422" class="card-b">· 自动打包可本地沙箱一键回放上下文</text>
+  </g>
+  <line x1="312" y1="369" x2="284" y2="369" stroke="#d97706" stroke-width="2" marker-end="url(#fw-arrow-amber)"/>
+
+  <!-- Bottom Left: Expert Review & Golden Regression Ingestion -->
+  <g>
+    <rect x="32" y="298" width="246" height="142" rx="10" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.5"/>
+    <rect x="44" y="309" width="76" height="20" rx="10" fill="#0d9488"/>
+    <text x="82" y="323" class="badge">STEP C</text>
+    <text x="130" y="324" class="card-t" fill="#115e59">复核入库为防回归资产</text>
+    <text x="44" y="348" class="card-b">· 周度 1–2h 专家 Open Coding 复核代表例</text>
+    <text x="44" y="366" class="card-b">· 补全可执行 Rubric 与环境终态断言</text>
+    <text x="44" y="384" class="card-b">· 致命红线 → 升级写入 L1 冒烟硬闸门</text>
+    <text x="44" y="402" class="card-b">· 新型复杂簇 → 进入 L2 滚动新鲜切片</text>
+    <text x="44" y="422" class="card-b">· 定期淘汰低区分度陈旧题防评测膨胀</text>
+  </g>
+
+  <!-- Left Vertical Return Arrow: Bottom Left up to L1/L2 -->
+  <path d="M155,298 L155,234" stroke="#059669" stroke-width="2.2" fill="none" marker-end="url(#fw-arrow-green)"/>
+  <rect x="86" y="252" width="138" height="22" rx="11" fill="#d1fae5" stroke="#34d399"/>
+  <text x="155" y="267" class="loop-pill" fill="#065f46">永久防回归反哺 CI</text>
+</svg>

@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 472" role="img" aria-label="三大高频企业场景评测架构对照：企业知识库 RAG、客服与运维工单 Agent、内部研发 Copilot 的黄金集设计、判分器、核心上线闸门与排障坑">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .col-title { font-size: 15px; font-weight: 700; text-anchor: middle; }
+    .col-tag { font-size: 10.8px; font-weight: 700; text-anchor: middle; }
+    .sec-label { font-size: 11px; font-weight: 700; }
+    .body { font-size: 11.2px; fill: #334155; }
+    .metric { font-size: 11.4px; font-weight: 700; fill: #0f172a; }
+    .trap-t { font-size: 11px; font-weight: 700; fill: #9f1239; }
+    .trap-b { font-size: 10.8px; fill: #881337; }
+  </style>
+
+  <rect width="920" height="472" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="32" y="36" class="title">企业三大高频落地场景：黄金集、分层判分器与上线闸门全景对照</text>
+  <text x="32" y="58" class="sub">统一按“任务黄金集 → 确定性/校准判分 → 核心 SLA 闸门 → 典型线上排障”四维落地（SLA 数值为教学参考基线）。</text>
+
+  <!-- Column 1: Enterprise RAG -->
+  <g>
+    <rect x="32" y="78" width="272" height="376" rx="11" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.5"/>
+    <rect x="44" y="89" width="248" height="46" rx="8" fill="#0284c7"/>
+    <text x="168" y="109" class="col-title" fill="#ffffff">① 企业知识库 RAG</text>
+    <text x="168" y="126" class="col-tag" fill="#e0f2fe">核心原则：检索与生成严格解耦</text>
+
+    <!-- Box 1: Dataset -->
+    <rect x="44" y="145" width="248" height="74" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="54" y="162" class="sec-label" fill="#0369a1">黄金集覆盖焦点</text>
+    <text x="54" y="180" class="body">· 多权限 ACL 隔离与越权诱导题</text>
+    <text x="54" y="196" class="body">· 跨文档版本冲突与废止条款辨别</text>
+    <text x="54" y="212" class="body">· 跨页大表计算 + 15% 无依据拒答</text>
+
+    <!-- Box 2: Graders -->
+    <rect x="44" y="227" width="248" height="72" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="54" y="244" class="sec-label" fill="#0369a1">分层判分器与校准</text>
+    <text x="54" y="262" class="body">· 检索层：Recall@5 / MRR / NDCG</text>
+    <text x="54" y="278" class="body">· 权限层：doc_id 零越界规则断言</text>
+    <text x="54" y="294" class="body">· 生成层：声明核验 + RG 矫正 Judge</text>
+
+    <!-- Box 3: SLA -->
+    <rect x="44" y="307" width="248" height="72" rx="7" fill="#e0f2fe" stroke="#7dd3fc"/>
+    <text x="54" y="324" class="sec-label" fill="#075985">核心上线门槛 SLA</text>
+    <text x="54" y="342" class="metric">Recall@5 ≥ 92%  |  权限越界 = 0%</text>
+    <text x="54" y="358" class="metric">引用可核验 ≥ 95%  |  拒答率 ≥ 90%</text>
+    <text x="54" y="373" class="body">按文档源聚类计算 Clustered SE</text>
+
+    <!-- Box 4: Incident -->
+    <rect x="44" y="387" width="248" height="56" rx="7" fill="#fef2f2" stroke="#fca5a5"/>
+    <text x="54" y="404" class="trap-t">典型线上排障实录</text>
+    <text x="54" y="421" class="trap-b">切片截断表格丢表头 → 数值张冠李戴</text>
+    <text x="54" y="436" class="trap-b">解：结构感知整表切块 + 父子索引</text>
+  </g>
+
+  <!-- Column 2: Customer Service / Ops Ticket Agent -->
+  <g>
+    <rect x="324" y="78" width="272" height="376" rx="11" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.5"/>
+    <rect x="336" y="89" width="248" height="46" rx="8" fill="#4f46e5"/>
+    <text x="460" y="109" class="col-title" fill="#ffffff">② 客服 / 运维工单 Agent</text>
+    <text x="460" y="126" class="col-tag" fill="#e0e7ff">核心原则：终态断言 × 政策红线 × pass^k</text>
+
+    <!-- Box 1: Dataset -->
+    <rect x="336" y="145" width="248" height="74" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="346" y="162" class="sec-label" fill="#4338ca">黄金集覆盖焦点</text>
+    <text x="346" y="180" class="body">· 可重置模拟工单/订单/库存数据库</text>
+    <text x="346" y="196" class="body">· 多轮受控用户模拟器（催单/施压）</text>
+    <text x="346" y="212" class="body">· 退款/审批硬政策 + 间接提示注入</text>
+
+    <!-- Box 2: Graders -->
+    <rect x="336" y="227" width="248" height="72" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="346" y="244" class="sec-label" fill="#4338ca">分层判分器与校准</text>
+    <text x="346" y="262" class="body">· 终态层：数据库记录哈希精确断言</text>
+    <text x="346" y="278" class="body">· 政策层：审批前置与权限代码校验</text>
+    <text x="346" y="294" class="body">· 体验层：轻量沟通 Rubric 抽检</text>
+
+    <!-- Box 3: SLA -->
+    <rect x="336" y="307" width="248" height="72" rx="7" fill="#e0e7ff" stroke="#a5b4fc"/>
+    <text x="346" y="324" class="sec-label" fill="#3730a3">核心上线门槛 SLA</text>
+    <text x="346" y="342" class="metric">pass@1 ≥ 88%  |  写操作 pass^5 ≥ 75%</text>
+    <text x="346" y="358" class="metric">政策越权 = 0%  |  注入 ASR ≤ 1%</text>
+    <text x="346" y="373" class="body">良性工单过度拒绝率 ORR ≤ 3%</text>
+
+    <!-- Box 4: Incident -->
+    <rect x="336" y="387" width="248" height="56" rx="7" fill="#fef2f2" stroke="#fca5a5"/>
+    <text x="346" y="404" class="trap-t">典型线上排障实录</text>
+    <text x="346" y="421" class="trap-b">用户软磨硬泡 → 诱使越权绕过审批</text>
+    <text x="346" y="436" class="trap-b">解：工具网关硬护栏 + 施压红队回归</text>
+  </g>
+
+  <!-- Column 3: Internal Code Copilot / PR Agent -->
+  <g>
+    <rect x="616" y="78" width="272" height="376" rx="11" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+    <rect x="628" y="89" width="248" height="46" rx="8" fill="#059669"/>
+    <text x="752" y="109" class="col-title" fill="#ffffff">③ 研发代码 Copilot / PR</text>
+    <text x="752" y="126" class="col-tag" fill="#d1fae5">核心原则：私有仓沙箱 × 安全 × 留存率</text>
+
+    <!-- Box 1: Dataset -->
+    <rect x="628" y="145" width="248" height="74" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="638" y="162" class="sec-label" fill="#047857">黄金集覆盖焦点</text>
+    <text x="638" y="180" class="body">· 内部私有框架与 RPC/SDK 补全</text>
+    <text x="638" y="196" class="body">· 历史已合并 PR + 单测修复切片</text>
+    <text x="638" y="212" class="body">· 安全漏洞与架构规范 PR Review</text>
+
+    <!-- Box 2: Graders -->
+    <rect x="628" y="227" width="248" height="72" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="638" y="244" class="sec-label" fill="#047857">分层判分器与校准</text>
+    <text x="638" y="262" class="body">· 功能层：隔离容器编译 + 单测套件</text>
+    <text x="638" y="278" class="body">· 安全层：SAST / Semgrep / Lint</text>
+    <text x="638" y="294" class="body">· 线上联动：采纳率 × 24h 代码留存</text>
+
+    <!-- Box 3: SLA -->
+    <rect x="628" y="307" width="248" height="72" rx="7" fill="#d1fae5" stroke="#6ee7b7"/>
+    <text x="638" y="324" class="sec-label" fill="#065f46">核心上线门槛 SLA</text>
+    <text x="638" y="342" class="metric">既有测试破坏 = 0% | 高危 SAST = 0</text>
+    <text x="638" y="358" class="metric">Review 误报 ≤ 15% | 补全 P95 ≤ 250ms</text>
+    <text x="638" y="373" class="body">按代码仓时间戳切分防数据泄漏</text>
+
+    <!-- Box 4: Incident -->
+    <rect x="628" y="387" width="248" height="56" rx="7" fill="#fef2f2" stroke="#fca5a5"/>
+    <text x="638" y="404" class="trap-t">典型线上排障实录</text>
+    <text x="638" y="421" class="trap-b">仓库索引陈旧 → 引用已废弃内部 API</text>
+    <text x="638" y="436" class="trap-b">解：Merge 增量索引 + 废弃符号黑名单</text>
+  </g>
+</svg>

@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 468" role="img" aria-label="评测驱动后训练演进闭环与 Train / Dev / Holdout 物理隔离防污染防火墙架构图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .zone-t { font-size: 12.5px; font-weight: 700; }
+    .box-t { font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .box-b { font-size: 10.8px; fill: #334155; text-anchor: middle; }
+    .wall-t { font-size: 12.5px; font-weight: 700; fill: #9f1239; text-anchor: middle; }
+    .wall-s { font-size: 10.8px; fill: #881337; text-anchor: middle; }
+    .pill { font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="ep-arrow-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="ep-arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="468" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="32" y="36" class="title">评测驱动后训练闭环与 Train / Dev / Holdout 物理防污染防火墙</text>
+  <text x="32" y="58" class="sub">只传递“抽象失败模式”，绝不传递“评测原题”——打通 SFT / DPO / RLVR 演进闭环的同时守住测量公信力。</text>
+
+  <!-- TOP ZONE: Training Pipeline (Train Pool) -->
+  <rect x="32" y="74" width="856" height="146" rx="12" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+  <text x="48" y="96" class="zone-t" fill="#3730a3">训练域（Train Pool · 可自由扩增、拒绝采样与强化学习更新）</text>
+
+  <!-- T1: Pattern Abstraction -->
+  <g>
+    <rect x="48" y="108" width="184" height="98" rx="8" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="140" y="130" class="box-t" fill="#3730a3">① 抽象失败模式提取</text>
+    <text x="140" y="150" class="box-b">仅接收 Open Coding 根因</text>
+    <text x="140" y="167" class="box-b">（如：多表漏过滤 / 重试退避）</text>
+    <text x="140" y="185" class="box-b">严禁拷贝 Dev / Holdout 原题</text>
+  </g>
+  <line x1="232" y1="157" x2="258" y2="157" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ep-arrow-indigo)"/>
+
+  <!-- T2: New Task Synthesis -->
+  <g>
+    <rect x="264" y="108" width="194" height="98" rx="8" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="361" y="130" class="box-t" fill="#3730a3">② 同源环境新题合成</text>
+    <text x="361" y="150" class="box-b">在程序化沙箱/规则生成器中</text>
+    <text x="361" y="167" class="box-b">构造同失败谱系「全新训练题」</text>
+    <text x="361" y="185" class="box-b">附确定性验证器或加权 Rubrics</text>
+  </g>
+  <line x1="458" y1="157" x2="484" y2="157" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ep-arrow-indigo)"/>
+
+  <!-- T3: Post-training Engines -->
+  <g>
+    <rect x="490" y="108" width="234" height="98" rx="8" fill="#ffffff" stroke="#818cf8" stroke-width="1.3"/>
+    <text x="607" y="128" class="box-t" fill="#312e81">③ 三路后训练演进引擎</text>
+    <text x="607" y="148" class="box-b">· 拒绝采样过验轨迹 → SFT / OPD</text>
+    <text x="607" y="166" class="box-b">· 同题正负轨迹配对 → DPO</text>
+    <text x="607" y="184" class="box-b">· 可验证沙箱 → RLVR / Agentic RL</text>
+    <text x="607" y="199" class="box-b">（观测掩码 μ_t + Token-in-Token-out）</text>
+  </g>
+  <line x1="724" y1="157" x2="750" y2="157" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ep-arrow-indigo)"/>
+
+  <!-- T4: Candidate Checkpoint -->
+  <g>
+    <rect x="756" y="108" width="116" height="98" rx="8" fill="#4f46e5"/>
+    <text x="814" y="142" class="box-t" fill="#ffffff">新候选模型</text>
+    <text x="814" y="162" class="box-t" fill="#e0e7ff">Checkpoint</text>
+    <text x="814" y="184" font-size="10.5" fill="#c7d2fe" text-anchor="middle">v(t+1) 推入闸门</text>
+  </g>
+
+  <!-- MIDDLE BARRIER: Physical Firewall & Decontamination Gate -->
+  <g>
+    <rect x="32" y="236" width="856" height="54" rx="9" fill="#fef2f2" stroke="#e11d48" stroke-width="2" stroke-dasharray="8 4"/>
+    <text x="460" y="259" class="wall-t">物理隔离与防污染自检防火墙（Data Contamination Firewall）</text>
+    <text x="460" y="278" class="wall-s">训练前强制执行 13-gram / MinHash 与语义近邻（cosine &gt; 0.90）交叉审计 · 原题跨界零容忍 · 权限隔离留痕</text>
+  </g>
+
+  <!-- Crossing Arrows through Firewall -->
+  <!-- Left upward arrow: Dev Error Taxonomy -> Abstract Pattern -->
+  <path d="M140,328 L140,212" stroke="#059669" stroke-width="2" fill="none" marker-end="url(#ep-arrow-green)"/>
+  <rect x="52" y="294" width="176" height="18" rx="9" fill="#d1fae5" stroke="#34d399"/>
+  <text x="140" y="307" class="pill" fill="#065f46">仅输出脱题的失败谱系标签</text>
+
+  <!-- Blocked red cross line in center showing raw data is FORBIDDEN -->
+  <line x1="361" y1="328" x2="361" y2="291" stroke="#e11d48" stroke-width="2" stroke-dasharray="3 2"/>
+  <line x1="351" y1="291" x2="371" y2="291" stroke="#e11d48" stroke-width="2.4"/>
+  <rect x="275" y="294" width="172" height="18" rx="9" fill="#ffe4e6" stroke="#fda4af"/>
+  <text x="361" y="307" class="pill" fill="#9f1239">禁止评测原题 / 答案流入训练</text>
+
+  <!-- Right downward arrow: Candidate Checkpoint -> Holdout & Release Gate -->
+  <path d="M814,206 L814,324" stroke="#4f46e5" stroke-width="2" fill="none" marker-end="url(#ep-arrow-indigo)"/>
+  <rect x="736" y="294" width="152" height="18" rx="9" fill="#e0e7ff" stroke="#818cf8"/>
+  <text x="812" y="307" class="pill" fill="#3730a3">盲测权重接入只读评审</text>
+
+  <!-- BOTTOM ZONE: Evaluation & Governance Pools -->
+  <rect x="32" y="328" width="856" height="122" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="48" y="350" class="zone-t" fill="#065f46">评测裁决域（Eval Domain · 严格区分研发调试池与权限锁定发布池）</text>
+
+  <!-- B1: Dev Eval Pool -->
+  <g>
+    <rect x="48" y="362" width="248" height="74" rx="8" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="172" y="382" class="box-t" fill="#065f46">Dev 开发评测池（研发可见）</text>
+    <text x="172" y="401" class="box-b">承载 Open Coding 轨迹误差分析</text>
+    <text x="172" y="418" class="box-b">指导脚手架调优与抽象模式提炼</text>
+  </g>
+
+  <!-- B2: Holdout Gate Pool -->
+  <g>
+    <rect x="322" y="362" width="268" height="74" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+    <text x="456" y="382" class="box-t" fill="#92400e">Holdout 锁库发布池（权限隔离）</text>
+    <text x="456" y="401" class="box-b">研发与训练管线均不可见原文</text>
+    <text x="456" y="418" class="box-b">检验真实泛化，防止人工与模型过拟合</text>
+  </g>
+
+  <!-- B3: Release & Production Flywheel -->
+  <g>
+    <rect x="616" y="362" width="256" height="74" rx="8" fill="#059669"/>
+    <text x="744" y="383" class="box-t" fill="#ffffff">通过双池统计与帕累托闸门</text>
+    <text x="744" y="402" font-size="11" fill="#ecfdf5" text-anchor="middle">95% CI 显著胜出 · 污染=0 · $/Task 达标</text>
+    <text x="744" y="420" font-size="11" font-weight="700" fill="#fef3c7" text-anchor="middle">→ 灰度放量上线，开启下一轮演进</text>
+  </g>
+
+  <line x1="590" y1="399" x2="610" y2="399" stroke="#059669" stroke-width="2" marker-end="url(#ep-arrow-green)"/>
+</svg>
