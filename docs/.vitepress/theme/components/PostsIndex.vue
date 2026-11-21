@@ -20,11 +20,8 @@ const filtered = computed(() =>
 <template>
   <div class="posts-page">
     <header class="posts-header">
-      <div class="posts-kicker">FIELD NOTES & BLOG</div>
-      <h1 class="posts-title">技术博客与专题笔记</h1>
-      <p class="posts-desc">
-        除成册体系读物外的单篇深度文章、论文拆解与工程复盘，涵盖 AI Infra、强化学习、模型与 Agent 评测及更多方向。
-      </p>
+      <div class="posts-kicker">BLOG & NOTES</div>
+      <h1 class="posts-title">博客与笔记</h1>
     </header>
 
     <nav v-if="categories.length > 2" class="posts-filter" aria-label="文章分类筛选">

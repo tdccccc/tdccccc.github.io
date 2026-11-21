@@ -136,12 +136,11 @@ const filteredPosts = computed(() => {
       </div>
     </section>
 
-    <!-- Section 2: Tech Blog & Field Notes -->
+    <!-- Section 2: Blog & Notes -->
     <section class="atlas-section" aria-labelledby="section-posts">
       <div class="atlas-section-head">
         <div>
-          <h2 id="section-posts" class="atlas-section-title">技术博客与专题笔记</h2>
-          <p class="atlas-section-desc">单篇深度拆解、论文精读与工程实践记录。</p>
+          <h2 id="section-posts" class="atlas-section-title">博客与笔记</h2>
         </div>
         <a v-if="posts.length" href="/posts/" class="atlas-more-link">全部文章 →</a>
       </div>
@@ -167,9 +166,7 @@ const filteredPosts = computed(() => {
 
       <div v-else class="atlas-empty-note">
         <span class="atlas-empty-dot" aria-hidden="true"></span>
-        <span>
-          <strong>持续更新中</strong> — 更多涵盖 AI Infra、强化学习、模型与 Agent 评测及通用系统工程的读物与单篇笔记正在沉淀中。
-        </span>
+        <span>持续更新中</span>
       </div>
     </section>
   </div>
