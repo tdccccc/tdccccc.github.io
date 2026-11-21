@@ -2,7 +2,9 @@
 
 [![Deploy](https://github.com/tdccccc/tdccccc.github.io/actions/workflows/deploy.yml/badge.svg)](https://github.com/tdccccc/tdccccc.github.io/actions/workflows/deploy.yml) · [在线访问：tdccccc.github.io](https://tdccccc.github.io/)
 
-面向工程师的个人体系化技术读物与学习笔记总站，采用 **VitePress** 单仓统一管理多本成册读物与单篇技术博客，自动部署至 GitHub Pages。
+> **Never stop learning AI.**
+
+面向工程师的个人技术读物与学习笔记总站，采用 **VitePress** 单仓统一管理多本成册读物与单篇技术博客，自动部署至 GitHub Pages。
 
 ## 目录结构
 

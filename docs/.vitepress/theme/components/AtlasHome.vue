@@ -33,7 +33,7 @@ const filteredPosts = computed(() => {
   <div class="atlas-page">
     <!-- Hero -->
     <header class="atlas-hero">
-      <div class="atlas-kicker">TDCCCCC'S ATLAS · TECHNICAL KNOWLEDGE HUB</div>
+      <div class="atlas-kicker">NEVER STOP LEARNING AI.</div>
       <h1 class="atlas-title">Tdccccc's Atlas</h1>
       <p class="atlas-subtitle">
         面向工程师的体系化技术读物与学习笔记——以「原理、公式与图解」为核心，持续沉淀

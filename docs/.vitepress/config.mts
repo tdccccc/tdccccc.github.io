@@ -97,7 +97,7 @@ const llmInferenceSidebar = [
 export default defineConfig({
   lang: 'zh-CN',
   title: "Tdccccc's Atlas",
-  description: '体系化技术读物与工程笔记总站 — 覆盖 AI Infra、强化学习、模型与 Agent 评测及更多工程方向',
+  description: 'Never stop learning AI. — 面向工程师的技术读物与学习笔记，覆盖 AI Infra、强化学习、模型与 Agent 评测及更多方向',
   cleanUrls: true,
   lastUpdated: true,
 
@@ -182,7 +182,7 @@ export default defineConfig({
     ],
 
     footer: {
-      message: 'Tdccccc\'s Atlas · 原理、方法与一线工程笔记',
+      message: "Tdccccc's Atlas · Never stop learning AI.",
       copyright: '基于 CC BY 4.0 协议共享内容',
     },
   },
