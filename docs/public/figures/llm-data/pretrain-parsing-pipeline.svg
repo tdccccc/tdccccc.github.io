@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 450" role="img" aria-label="预训练三大核心数据源高保真解析管线与冷热分层血缘存储架构">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.6px; fill: #64748b; }
+    .col-h { font-size: 12.5px; font-weight: 700; fill: #0f172a; text-anchor: middle; }
+    .card-t { font-size: 12px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 10.2px; fill: #475569; }
+    .pill { font-size: 9.8px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-vio" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-em" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="450" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">预训练数据源谱系与高保真解析管线（抽取器决定数据天花板）</text>
+  <text x="36" y="55" class="sub">放弃信息残缺的 WET 文本，针对 HTML、学术 PDF 与代码仓分别构建结构保真抽取器，并统一落盘至冷热分层数据湖。</text>
+
+  <!-- Column Headers -->
+  <rect x="36" y="68" width="170" height="24" rx="6" fill="#e2e8f0"/>
+  <text x="121" y="84" class="col-h">原始多源输入（Raw）</text>
+
+  <rect x="234" y="68" width="388" height="24" rx="6" fill="#e0f2fe"/>
+  <text x="428" y="84" class="col-h" fill="#0369a1">高保真领域专用抽取引擎（High-Fidelity Extractors）</text>
+
+  <rect x="650" y="68" width="234" height="24" rx="6" fill="#ecfdf5"/>
+  <text x="767" y="84" class="col-h" fill="#065f46">统一血缘 Schema 与冷热存储</text>
+
+  <!-- TRACK 1: CommonCrawl WARC HTML -->
+  <rect x="36" y="102" width="170" height="96" rx="8" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.3"/>
+  <rect x="46" y="110" width="90" height="18" rx="9" fill="#0284c7"/>
+  <text x="91" y="123" class="pill" fill="#ffffff">Web 网页归档</text>
+  <text x="46" y="146" class="card-t">CommonCrawl WARC</text>
+  <text x="46" y="164" class="card-s">完整 HTTP 头与原始 DOM</text>
+  <text x="46" y="182" font-size="9.8" font-weight="700" fill="#be123c">× 弃用 WET（损毁公式/缩进）</text>
+
+  <line x1="206" y1="150" x2="230" y2="150" stroke="#0284c7" stroke-width="1.8" marker-end="url(#arr-sky)"/>
+
+  <rect x="234" y="102" width="388" height="96" rx="8" fill="#ffffff" stroke="#7dd3fc" stroke-width="1.3"/>
+  <rect x="244" y="110" width="166" height="19" rx="4" fill="#e0f2fe"/>
+  <text x="327" y="123" class="pill" fill="#0369a1">Trafilatura / Resiliparse</text>
+  <rect x="418" y="110" width="194" height="19" rx="4" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="515" y="123" class="pill" fill="#9a3412">结构保真率较 WET 提升显著</text>
+  <text x="244" y="147" class="card-t">DOM 树精准去噪 + 数学与代码标签特化还原</text>
+  <text x="244" y="166" class="card-s">• 保留 &lt;pre&gt;&lt;code&gt; 缩进换行与 Markdown 表格边界</text>
+  <text x="244" y="183" class="card-s">• 还原 MathJax / KaTeX / MathML 节点为标准 LaTeX 公式</text>
+
+  <line x1="622" y1="150" x2="646" y2="150" stroke="#0284c7" stroke-width="1.8" marker-end="url(#arr-sky)"/>
+
+  <!-- TRACK 2: Academic PDF & Books -->
+  <rect x="36" y="210" width="170" height="96" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.3"/>
+  <rect x="46" y="218" width="94" height="18" rx="9" fill="#7c3aed"/>
+  <text x="93" y="231" class="pill" fill="#ffffff">论文、教材与书</text>
+  <text x="46" y="254" class="card-t">arXiv / PDF / EPUB</text>
+  <text x="46" y="272" class="card-s">双栏排版、跨页长表、</text>
+  <text x="46" y="288" class="card-s">复杂公式与扫描矢量图</text>
+
+  <line x1="206" y1="258" x2="230" y2="258" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arr-vio)"/>
+
+  <rect x="234" y="210" width="388" height="96" rx="8" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.3"/>
+  <rect x="244" y="218" width="166" height="19" rx="4" fill="#ede9fe"/>
+  <text x="327" y="231" class="pill" fill="#5b21b6">MinerU / olmOCR / VLM</text>
+  <rect x="418" y="218" width="194" height="19" rx="4" fill="#f5f3ff" stroke="#c4b5fd"/>
+  <text x="515" y="231" class="pill" fill="#6d28d9">LaTeX 源码优先 · 扫描页走 VLM</text>
+  <text x="244" y="255" class="card-t">版面分析（Layout）→ 阅读顺序重排 → 公式/表格转写</text>
+  <text x="244" y="274" class="card-s">• 识别双栏/脚注/页眉，杜绝 PyMuPDF 跨栏乱序拼接</text>
+  <text x="244" y="291" class="card-s">• 复杂表格输出对齐 Markdown/HTML，公式统一 $...$ 语法</text>
+
+  <line x1="622" y1="258" x2="646" y2="258" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arr-vio)"/>
+
+  <!-- TRACK 3: Code Repositories -->
+  <rect x="36" y="318" width="170" height="96" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.3"/>
+  <rect x="46" y="326" width="90" height="18" rx="9" fill="#059669"/>
+  <text x="91" y="339" class="pill" fill="#ffffff">多文件代码仓</text>
+  <text x="46" y="362" class="card-t">GitHub / Git Repos</text>
+  <text x="46" y="380" class="card-s">源码、单测、PR/Issue、</text>
+  <text x="46" y="396" class="card-s">Commit Diff 与构建配置</text>
+
+  <line x1="206" y1="366" x2="230" y2="366" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-em)"/>
+
+  <rect x="234" y="318" width="388" height="96" rx="8" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.3"/>
+  <rect x="244" y="326" width="166" height="19" rx="4" fill="#d1fae5"/>
+  <text x="327" y="339" class="pill" fill="#065f46">AST 依赖图拓扑拼接</text>
+  <rect x="418" y="326" width="194" height="19" rx="4" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="515" y="339" class="pill" fill="#047857">剔除自动生成/锁文件/二进制</text>
+  <text x="244" y="363" class="card-t">仓库级（Repo-Level）跨文件上下文连续封装</text>
+  <text x="244" y="382" class="card-s">• 解析 Import 依赖图，将接口定义排在调用方之前打包</text>
+  <text x="244" y="399" class="card-s">• 附带 &lt;repo_name&gt; 与相对路径元标签，原生赋能代码补全</text>
+
+  <line x1="622" y1="366" x2="646" y2="366" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-em)"/>
+
+  <!-- RIGHT COLUMN: Unified Provenance & Storage -->
+  <rect x="650" y="102" width="234" height="312" rx="10" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.4"/>
+
+  <!-- Schema Card -->
+  <rect x="662" y="114" width="210" height="122" rx="7" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="672" y="133" class="card-t" fill="#0f172a">标准 Silver Parquet 元数据</text>
+  <text x="672" y="152" class="mono" font-size="9.8" fill="#0369a1">doc_id / url / dump_id</text>
+  <text x="672" y="168" class="mono" font-size="9.8" fill="#047857">text / lang / char_len</text>
+  <text x="672" y="184" class="mono" font-size="9.8" fill="#6d28d9">extractor_ver / parse_score</text>
+  <text x="672" y="200" class="mono" font-size="9.8" fill="#b45309">license / robots_ok / tdm_opt</text>
+  <text x="672" y="218" font-size="9.8" fill="#64748b">支撑端到端血缘 DAG 与合规定向删除</text>
+
+  <!-- Cold/Hot Tier Card -->
+  <rect x="662" y="248" width="210" height="72" rx="7" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="672" y="267" class="card-t" fill="#9a3412">冷存储 Raw 层（不可变底片）</text>
+  <text x="672" y="285" class="card-s">WARC/PDF 归档对象存储（Glacier）</text>
+  <text x="672" y="302" class="card-s">抽取器升级时随时重跑，零重爬成本</text>
+
+  <rect x="662" y="330" width="210" height="72" rx="7" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="672" y="349" class="card-t" fill="#065f46">热存储 Silver 层（列式查询）</text>
+  <text x="672" y="367" class="card-s">Zstd 压缩 Parquet 分片（128–512MB）</text>
+  <text x="672" y="384" class="card-s">供下游过滤、去重与打分流水线并行读</text>
+
+  <!-- Bottom Footer Strip -->
+  <rect x="36" y="424" width="848" height="20" rx="4" fill="#f1f5f9"/>
+  <text x="460" y="438" text-anchor="middle" font-size="10.4" fill="#475569">合规底线：原始采集强制记录 robots.txt 状态、TDM 保留声明与开源代码 SPDX 许可证，未标明来源的“黑盒语料”禁止进入底座库</text>
+</svg>

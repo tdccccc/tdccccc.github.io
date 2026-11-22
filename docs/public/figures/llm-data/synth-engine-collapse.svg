@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="规模化离线批合成引擎与抗模型坍缩双闭环架构：左侧展示缓存复用、强弱级联与确定性验证成本账，右侧展示替换式坍缩对比外部锚定曲线与四重防坍缩护栏">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-h { font-size: 13.5px; font-weight: 700; }
+    .card-t { font-size: 12px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 10.5px; fill: #475569; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+    .axis { font-size: 10px; fill: #64748b; }
+  </style>
+  <defs>
+    <marker id="arr-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-ind" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arr-em" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">规模化离线批合成引擎：成本优化链路与抗模型坍缩护栏</text>
+  <text x="30" y="55" class="sub">左：前缀/视觉缓存 + 强弱模型级联 + 确定性验证压低单位有效成本 C_eff；右：真实锚定与外部真值锁死坍缩方差。</text>
+
+  <!-- LEFT PANEL: Batch Synthesis Engine -->
+  <rect x="28" y="72" width="444" height="374" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="40" y="83" width="146" height="22" rx="11" fill="#0284c7"/>
+  <text x="113" y="98" class="pill" fill="#ffffff">高吞吐离线批合成流水线</text>
+  <text x="196" y="98" font-size="11" fill="#475569">联动《LLM 推理工程》离线满载调度</text>
+
+  <!-- Stage 1: Seed + Prefix/ViT Cache -->
+  <rect x="42" y="114" width="416" height="66" rx="8" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.2"/>
+  <rect x="48" y="122" width="4" height="50" rx="2" fill="#0284c7"/>
+  <text x="62" y="136" class="card-t" fill="#075985">① 离线批推理与双级缓存（vLLM / SGLang）</text>
+  <text x="62" y="153" class="card-s">• Continuous Batching + FP8 满载吞吐（牺牲单请求 TTFT 换取 3–5× 吞吐）</text>
+  <text x="62" y="169" class="card-s">• RadixAttention 前缀缓存复用 60%–85% 多轮 KV + ViT 图像编码单次复用</text>
+
+  <line x1="250" y1="180" x2="250" y2="195" stroke="#0284c7" stroke-width="1.6" marker-end="url(#arr-sky)"/>
+
+  <!-- Stage 2: Strong-Weak Cascading Router -->
+  <rect x="42" y="198" width="416" height="72" rx="8" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.2"/>
+  <rect x="48" y="206" width="4" height="56" rx="2" fill="#4f46e5"/>
+  <text x="62" y="220" class="card-t" fill="#3730a3">② 强弱模型级联与路由（Cascading Router）</text>
+  <rect x="62" y="229" width="176" height="32" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="150" y="243" font-size="10.8" font-weight="700" fill="#1e293b" text-anchor="middle">80% 常规任务 → 32B 开源批引擎</text>
+  <text x="150" y="256" font-size="9.5" fill="#64748b" text-anchor="middle">低单价初稿 + 批量拒绝采样</text>
+  <line x1="238" y1="245" x2="260" y2="245" stroke="#4f46e5" stroke-width="1.4" marker-end="url(#arr-ind)"/>
+  <rect x="264" y="229" width="182" height="32" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="355" y="243" font-size="10.8" font-weight="700" fill="#4338ca" text-anchor="middle">20% 难题升级 → 旗舰教师模型</text>
+  <text x="355" y="256" font-size="9.5" fill="#64748b" text-anchor="middle">低置信 / 验证失败分叉点精准接管</text>
+
+  <line x1="250" y1="270" x2="250" y2="285" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-ind)"/>
+
+  <!-- Stage 3: Deterministic Verifier & Sandbox -->
+  <rect x="42" y="288" width="416" height="62" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.2"/>
+  <rect x="48" y="296" width="4" height="46" rx="2" fill="#059669"/>
+  <text x="62" y="310" class="card-t" fill="#065f46">③ 外部确定性验证器与人工抽检兜底（η_pass 与 γ_audit）</text>
+  <text x="62" y="327" class="card-s">• 编译器 / 单元测试 / 符号求解 / 沙箱终态断言剔除幻觉与 Lucky Hack</text>
+  <text x="62" y="342" class="card-s">• 强验证器将人工质检率 γ_audit 从 10% 压至 0.5%–1%，防止审计费反超算力</text>
+
+  <!-- Cost Formula Box -->
+  <rect x="42" y="360" width="416" height="74" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.3"/>
+  <text x="250" y="381" class="mono" font-size="11.8" font-weight="700" fill="#9a3412" text-anchor="middle">C_eff = (C_gen + C_env + C_verify) / η_pass + γ_audit · C_human</text>
+  <rect x="54" y="393" width="122" height="30" rx="6" fill="#ffffff" stroke="#fed7aa"/>
+  <text x="115" y="406" font-size="10" font-weight="700" fill="#64748b" text-anchor="middle">纯人工精标</text>
+  <text x="115" y="419" class="mono" font-size="10.5" font-weight="700" fill="#be123c" text-anchor="middle">$35.00 / 条</text>
+  <rect x="188" y="393" width="124" height="30" rx="6" fill="#ffffff" stroke="#fed7aa"/>
+  <text x="250" y="406" font-size="10" font-weight="700" fill="#64748b" text-anchor="middle">朴素 API 直出</text>
+  <text x="250" y="419" class="mono" font-size="10.5" font-weight="700" fill="#c2410c" text-anchor="middle">$2.10 / 条</text>
+  <rect x="324" y="393" width="122" height="30" rx="6" fill="#dcfce7" stroke="#86efac"/>
+  <text x="385" y="406" font-size="10" font-weight="700" fill="#065f46" text-anchor="middle">缓存 + 级联 + 验证</text>
+  <text x="385" y="419" class="mono" font-size="10.5" font-weight="700" fill="#047857" text-anchor="middle">$0.325 / 条</text>
+
+  <!-- Cross-panel arrow -->
+  <line x1="472" y1="319" x2="490" y2="319" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-em)"/>
+
+  <!-- RIGHT PANEL: Model Collapse vs Grounding Defenses -->
+  <rect x="492" y="72" width="400" height="374" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="504" y="83" width="152" height="22" rx="11" fill="#e11d48"/>
+  <text x="580" y="98" class="pill" fill="#ffffff">模型坍缩演化 vs 外部锚定</text>
+  <text x="665" y="98" font-size="11" fill="#475569">详见专题 B 理论边界</text>
+
+  <!-- Distribution Chart Box -->
+  <rect x="506" y="114" width="372" height="164" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.2"/>
+  <text x="520" y="132" font-size="11.5" font-weight="700" fill="#1e293b">多代合成训练后的概率分布演化（尾部蒸发与方差发散）</text>
+
+  <!-- Chart Axes -->
+  <line x1="534" y1="248" x2="858" y2="248" stroke="#94a3b8" stroke-width="1.2"/>
+  <line x1="534" y1="146" x2="534" y2="248" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="526" y="152" class="axis" text-anchor="end">p(x)</text>
+  <text x="858" y="264" class="axis" text-anchor="end">稀有长尾 / 知识空间 x</text>
+  <text x="540" y="264" class="axis">长尾稀有知识</text>
+  <text x="692" y="264" class="axis" text-anchor="middle">高频主流模式</text>
+
+  <!-- Tail highlight shading -->
+  <rect x="536" y="218" width="76" height="29" fill="#ffe4e6" opacity="0.65" rx="3"/>
+  <text x="574" y="236" font-size="9.5" font-weight="700" fill="#be123c" text-anchor="middle">尾部率先蒸发</text>
+
+  <!-- True real distribution P_real (slate dashed) -->
+  <path d="M540,246 C575,244 600,224 635,204 C665,186 680,174 696,174 C712,174 727,186 757,204 C792,224 817,244 852,246" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="5 3"/>
+
+  <!-- Grounded accumulating distribution (emerald) -->
+  <path d="M542,246 C577,243 604,222 638,202 C666,184 682,170 698,170 C714,170 730,184 758,202 C790,222 815,243 850,246" fill="none" stroke="#059669" stroke-width="2.2"/>
+
+  <!-- Replace-mode recursive collapse G_5 (rose narrow shifted spike) -->
+  <path d="M620,248 C655,247 680,244 700,225 C714,205 724,152 732,150 C740,152 750,205 764,225 C784,244 804,247 830,248" fill="none" stroke="#e11d48" stroke-width="2.4"/>
+
+  <!-- Chart Legend -->
+  <line x1="546" y1="148" x2="564" y2="148" stroke="#475569" stroke-width="2" stroke-dasharray="4 2"/>
+  <text x="568" y="152" font-size="9.8" fill="#475569">真实分布 P_real</text>
+  <line x1="654" y1="148" x2="672" y2="148" stroke="#059669" stroke-width="2.2"/>
+  <text x="676" y="152" font-size="9.8" fill="#065f46">累加+外部锚定（有界）</text>
+  <line x1="786" y1="148" x2="804" y2="148" stroke="#e11d48" stroke-width="2.4"/>
+  <text x="808" y="152" font-size="9.8" fill="#be123c">替换递归 G5</text>
+
+  <!-- Variance callout inside chart -->
+  <rect x="752" y="164" width="118" height="36" rx="5" fill="#fff1f2" stroke="#fda4af"/>
+  <text x="811" y="179" class="mono" font-size="9.5" font-weight="700" fill="#9f1239" text-anchor="middle">Var(μ̂_k) → ∞</text>
+  <text x="811" y="193" font-size="9.2" fill="#be123c" text-anchor="middle">均值漂移 + 协方差塌缩</text>
+
+  <!-- 4 Anti-collapse Guardrails (2x2 grid) -->
+  <text x="508" y="297" class="sec-h" fill="#065f46">工业级四重抗坍缩防线</text>
+
+  <rect x="506" y="306" width="181" height="60" rx="7" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="516" y="324" class="card-t" fill="#065f46">1. 真实种子累加锚定</text>
+  <text x="516" y="340" class="card-s">严禁纯替换；锁定真实语料</text>
+  <text x="516" y="354" class="card-s">基座底线（如 ≥30% 实采）</text>
+
+  <rect x="697" y="306" width="181" height="60" rx="7" fill="#f0f9ff" stroke="#bae6fd"/>
+  <text x="707" y="324" class="card-t" fill="#075985">2. 外部真值环境校验</text>
+  <text x="707" y="340" class="card-s">编译器/搜索/沙箱注入新</text>
+  <text x="707" y="354" class="card-s">信息位，打破自噬闭环</text>
+
+  <rect x="506" y="374" width="181" height="60" rx="7" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <text x="516" y="392" class="card-t" fill="#5b21b6">3. 跨家族异构混血</text>
+  <text x="516" y="408" class="card-s">混用多家族生成器与验证器</text>
+  <text x="516" y="422" class="card-s">阻断同源风格与错误共振</text>
+
+  <rect x="697" y="374" width="181" height="60" rx="7" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="707" y="392" class="card-t" fill="#9a3412">4. 多样性与熵值监控</text>
+  <text x="707" y="408" class="card-s">追踪 n-gram 熵 / 语义簇</text>
+  <text x="707" y="422" class="card-s">密度与尾部覆盖率告警</text>
+</svg>

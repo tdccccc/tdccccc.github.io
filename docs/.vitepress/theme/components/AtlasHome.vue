@@ -36,7 +36,7 @@ const filteredPosts = computed(() => {
       <div class="atlas-kicker">NEVER STOP LEARNING AI.</div>
       <h1 class="atlas-title">Tdccccc's Atlas</h1>
       <p class="atlas-subtitle">
-        个人持续沉淀 <strong>AI Infra</strong>、<strong>强化学习</strong>、<strong>模型与 Agent 评测</strong> 及更多方向的系统知识。
+        个人持续沉淀 <strong>AI Infra</strong>、<strong>强化学习</strong>、<strong>模型与 Agent 评测</strong>、<strong>数据工程</strong> 及更多方向的系统知识。
       </p>
     </header>
 

@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 450" role="img" aria-label="预训练百 TB 级数据留存漏斗与 LLM/Agent 全生命周期四阶段数据蓝图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.8px; fill: #64748b; }
+    .sec-t { font-size: 13.5px; font-weight: 700; fill: #0f172a; }
+    .stage-t { font-size: 11.8px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+    .stage-v { font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .drop-t { font-size: 10px; fill: #9f1239; text-anchor: middle; }
+    .drop-s { font-size: 9.5px; fill: #64748b; text-anchor: middle; }
+    .card-t { font-size: 12.2px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 10.5px; fill: #475569; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="450" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">万亿 Token 洗数留存漏斗与全生命周期四阶段蓝图</text>
+  <text x="36" y="55" class="sub">端到端留存率 η_yield = ∏ η_i ≈ 11.3%（25T 原始 Token → 2.82T 净训练语料）；洗数投入 &lt; 1% 总算力预算，换取 20%–40% 有效算力节约。</text>
+
+  <!-- Section 1: Yield Funnel -->
+  <rect x="36" y="70" width="848" height="202" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.2"/>
+  <text x="52" y="92" class="sec-t">一、预训练数据留存漏斗（教材基准算例：100 TB WARC ≈ 25.0T 原始 Token）</text>
+  <rect x="698" y="77" width="172" height="22" rx="11" fill="#e0f2fe" stroke="#7dd3fc"/>
+  <text x="784" y="92" class="pill mono" fill="#0369a1">η_yield = 11.26%</text>
+
+  <!-- Funnel Trapezoids -->
+  <!-- Stage 0: Raw 25T (height 94, y=106..200) -->
+  <polygon points="54,106 168,106 168,200 54,200" fill="#334155" rx="4"/>
+  <text x="111" y="138" class="stage-t">原始 WARC</text>
+  <text x="111" y="157" class="stage-t mono">25.0T</text>
+  <text x="111" y="175" font-size="10" fill="#cbd5e1" text-anchor="middle">100 TB 网页归档</text>
+
+  <!-- Stage 1: Parse 55% -> 13.75T (y=106..200 -> 121..185) -->
+  <polygon points="174,106 300,121 300,185 174,200" fill="#0284c7"/>
+  <text x="237" y="144" class="stage-t">高保真解析</text>
+  <text x="237" y="162" class="stage-t mono">13.75T</text>
+  <text x="237" y="178" font-size="10" fill="#e0f2fe" text-anchor="middle">η₁ = 55%</text>
+
+  <!-- Stage 2: Lang/URL 60% -> 8.25T (y=121..185 -> 130..176) -->
+  <polygon points="306,121 432,130 432,176 306,185" fill="#2563eb"/>
+  <text x="369" y="145" class="stage-t">语言与 URL</text>
+  <text x="369" y="163" class="stage-t mono">8.25T</text>
+  <text x="369" y="114" class="stage-v mono" fill="#1d4ed8">η₂ = 60%</text>
+
+  <!-- Stage 3: Heuristic 70% -> 5.78T (y=130..176 -> 136..170) -->
+  <polygon points="438,130 564,136 564,170 438,176" fill="#4f46e5"/>
+  <text x="501" y="148" class="stage-t">启发式清洗</text>
+  <text x="501" y="164" class="stage-t mono">5.78T</text>
+  <text x="501" y="122" class="stage-v mono" fill="#4338ca">η₃ = 70%</text>
+
+  <!-- Stage 4: Dedup 65% -> 3.75T (y=136..170 -> 140..166) -->
+  <polygon points="570,136 696,140 696,166 570,170" fill="#7c3aed"/>
+  <text x="633" y="150" class="stage-t" font-size="11">多尺度去重</text>
+  <text x="633" y="163" class="stage-t mono" font-size="10.5">3.75T</text>
+  <text x="633" y="128" class="stage-v mono" fill="#6d28d9">η₄ = 65%</text>
+
+  <!-- Stage 5: Model Scoring 75% -> 2.82T (y=140..166 -> 142..164) -->
+  <polygon points="702,140 866,142 866,164 702,166" fill="#059669"/>
+  <text x="784" y="157" class="stage-t">打分精选 → 2.82T 净语料</text>
+  <text x="784" y="131" class="stage-v mono" fill="#047857">η₅ = 75%（高信噪比入库）</text>
+
+  <!-- Discard Arrows and Labels -->
+  <line x1="237" y1="194" x2="237" y2="218" stroke="#e11d48" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#arr-red)"/>
+  <text x="237" y="234" class="drop-t">丢弃 11.25T</text>
+  <text x="237" y="249" class="drop-s">导航栏/脚本/广告标签</text>
+
+  <line x1="369" y1="184" x2="369" y2="218" stroke="#e11d48" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#arr-red)"/>
+  <text x="369" y="234" class="drop-t">丢弃 5.50T</text>
+  <text x="369" y="249" class="drop-s">非目标语种/黑名单站</text>
+
+  <line x1="501" y1="176" x2="501" y2="218" stroke="#e11d48" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#arr-red)"/>
+  <text x="501" y="234" class="drop-t">丢弃 2.47T</text>
+  <text x="501" y="249" class="drop-s">乱码/SEO农场/高频废行</text>
+
+  <line x1="633" y1="170" x2="633" y2="218" stroke="#e11d48" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#arr-red)"/>
+  <text x="633" y="234" class="drop-t">丢弃 2.03T</text>
+  <text x="633" y="249" class="drop-s">精确/MinHash/子串重复</text>
+
+  <line x1="784" y1="168" x2="784" y2="218" stroke="#e11d48" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#arr-red)"/>
+  <text x="784" y="234" class="drop-t">丢弃 0.93T</text>
+  <text x="784" y="249" class="drop-s">低教育密度/口水账网页</text>
+
+  <!-- Section 2: 4-Stage Full Lifecycle Blueprint -->
+  <text x="36" y="295" class="sec-t">二、全生命周期四阶段数据工程蓝图（量级递减 6 个数量级，单 Token 信息密度递增 4 个数量级）</text>
+
+  <!-- Stage Box 1 -->
+  <rect x="36" y="307" width="194" height="96" rx="8" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+  <rect x="46" y="316" width="76" height="19" rx="9" fill="#0284c7"/>
+  <text x="84" y="329" class="pill" fill="#ffffff">阶段 1 · 预训练</text>
+  <text x="132" y="329" class="mono" font-size="10.5" font-weight="700" fill="#0369a1">10T–30T tok</text>
+  <text x="46" y="352" class="card-t">广度知识与世界表征</text>
+  <text x="46" y="370" class="card-s">多源解析 · 模型打分 · 多尺度去重</text>
+  <text x="46" y="387" class="card-s">单价：~$0.03–0.12 / 1B tok</text>
+
+  <line x1="230" y1="355" x2="250" y2="355" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr-gray)"/>
+
+  <!-- Stage Box 2 -->
+  <rect x="254" y="307" width="194" height="96" rx="8" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+  <rect x="264" y="316" width="84" height="19" rx="9" fill="#4f46e5"/>
+  <text x="306" y="329" class="pill" fill="#ffffff">阶段 2 · 退火期</text>
+  <text x="356" y="329" class="mono" font-size="10.5" font-weight="700" fill="#3730a3">0.5T–2T tok</text>
+  <text x="264" y="352" class="card-t">Mid-training 与长窗扩展</text>
+  <text x="264" y="370" class="card-s">数学/代码上调 · 教科书改写 · 128K+</text>
+  <text x="264" y="387" class="card-s">最后 5%–10% 撬动能力跃迁</text>
+
+  <line x1="448" y1="355" x2="468" y2="355" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr-gray)"/>
+
+  <!-- Stage Box 3 -->
+  <rect x="472" y="307" width="194" height="96" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.4"/>
+  <rect x="482" y="316" width="84" height="19" rx="9" fill="#7c3aed"/>
+  <text x="524" y="329" class="pill" fill="#ffffff">阶段 3 · 后训练</text>
+  <text x="574" y="329" class="mono" font-size="10.5" font-weight="700" fill="#5b21b6">10K–1M 样本</text>
+  <text x="482" y="352" class="card-t">SFT · 偏好 · RLVR 燃料</text>
+  <text x="482" y="370" class="card-s">能力树覆盖 · Rubric · 甜点区题池</text>
+  <text x="482" y="387" class="card-s">合成 $0.02–0.15 / 精标 $5–45</text>
+
+  <line x1="666" y1="355" x2="686" y2="355" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr-gray)"/>
+
+  <!-- Stage Box 4 -->
+  <rect x="690" y="307" width="194" height="96" rx="8" fill="#fff1f2" stroke="#fda4af" stroke-width="1.4"/>
+  <rect x="700" y="316" width="88" height="19" rx="9" fill="#e11d48"/>
+  <text x="744" y="329" class="pill" fill="#ffffff">阶段 4 · 生产飞轮</text>
+  <text x="795" y="329" class="mono" font-size="10.5" font-weight="700" fill="#9f1239">持续增量闭环</text>
+  <text x="700" y="352" class="card-t">Agent 轨迹与在线回流</text>
+  <text x="700" y="370" class="card-s">沙箱真值 · 反事实修复 · 双轨隔离</text>
+  <text x="700" y="387" class="card-s">合成 $0.08–0.80 / 有效轨迹</text>
+
+  <!-- Bottom ROI Banner -->
+  <rect x="36" y="414" width="848" height="24" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="460" y="430" text-anchor="middle" font-size="11.2" font-weight="600" fill="#9a3412">核心经济账：70B 预训练算力约 $10M 级，而精洗 25T→2.8T 数据单轮仅约数千至数万美元（&lt;1% 预算），却能换回 20%–40% 有效数据增益</text>
+</svg>

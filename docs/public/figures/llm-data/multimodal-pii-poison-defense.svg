@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="全模态隐私脱敏、数据投毒与间接提示注入净化及多模态版权合规治理架构：三根防线支柱汇入统一合规准入审计闸门">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .col-t { font-size: 13.5px; font-weight: 700; }
+    .box-t { font-size: 11.5px; font-weight: 700; fill: #1e293b; }
+    .box-s { font-size: 10.2px; fill: #475569; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-down-sl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">全模态隐私脱敏、投毒与注入净化及版权合规三道防线</text>
+  <text x="30" y="55" class="sub">任何语料进入 Gold 层或训练快照前，必须同步通过隐私擦除、安全去毒与版权授权三支柱查验并签发审计清单。</text>
+
+  <!-- PILLAR 1: Full-Modality PII & Multi-Tenant Isolation -->
+  <rect x="28" y="74" width="276" height="278" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+  <rect x="42" y="85" width="154" height="22" rx="11" fill="#0284c7"/>
+  <text x="119" y="100" class="pill" fill="#ffffff">防线一 · 全模态 PII 与租户隔离</text>
+
+  <rect x="40" y="116" width="252" height="58" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="50" y="133" class="box-t" fill="#075985">文本一致性假名化</text>
+  <text x="50" y="149" class="box-s">• 正则（证件/AKSK/卡号）+ NER + 复核</text>
+  <text x="50" y="163" class="box-s">• 同会话实体一致映射，保留指代推理链</text>
+
+  <rect x="40" y="182" width="252" height="54" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="50" y="199" class="box-t" fill="#075985">图像 / GUI 截图框级遮罩</text>
+  <text x="50" y="215" class="box-s">• OCR 定位密钥/邮箱/工号 + 检测框脱敏</text>
+  <text x="50" y="229" class="box-s">• 人脸/车牌模糊，同时保全 UI 按钮语义</text>
+
+  <rect x="40" y="244" width="252" height="46" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="50" y="261" class="box-t" fill="#075985">音频声纹去标识</text>
+  <text x="50" y="277" class="box-s">• ASR 时间戳静音擦除 + 音色变换匿名化</text>
+
+  <rect x="40" y="298" width="252" height="44" rx="7" fill="#e0f2fe" stroke="#38bdf8"/>
+  <text x="50" y="315" class="box-t" fill="#0369a1">B2B 多租户物理隔离</text>
+  <text x="50" y="331" class="box-s">• 独立桶 + 独立 KMS，禁跨租户权重混训</text>
+
+  <!-- PILLAR 2: Poisoning & Indirect Prompt Injection Defense -->
+  <rect x="322" y="74" width="276" height="278" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.4"/>
+  <rect x="336" y="85" width="166" height="22" rx="11" fill="#e11d48"/>
+  <text x="419" y="100" class="pill" fill="#ffffff">防线二 · 投毒与间接注入净化</text>
+
+  <rect x="334" y="116" width="252" height="68" rx="7" fill="#ffffff" stroke="#fecdd3"/>
+  <text x="344" y="133" class="box-t" fill="#9f1239">间接提示注入剥离（跨载体）</text>
+  <text x="344" y="149" class="box-s">• 网页隐藏 DOM（opacity:0 / display:none）</text>
+  <text x="344" y="163" class="box-s">• PDF 白底白字 / 极小字号隐写文本层</text>
+  <text x="344" y="177" class="box-s">• 图像覆盖指令字样与代码注释恶意载荷</text>
+
+  <rect x="334" y="192" width="252" height="68" rx="7" fill="#ffffff" stroke="#fecdd3"/>
+  <text x="344" y="209" class="box-t" fill="#9f1239">数据投毒与后门样本检测</text>
+  <text x="344" y="225" class="box-s">• 困惑度异常 + 梯度/影响力离群过滤</text>
+  <text x="344" y="239" class="box-s">• 罕见触发词跨源突发频次聚类告警</text>
+  <text x="344" y="253" class="box-s">• 众包标注蜜罐抽检（防恶意低价刷单）</text>
+
+  <rect x="334" y="268" width="252" height="74" rx="7" fill="#ffe4e6" stroke="#fb7185"/>
+  <text x="344" y="285" class="box-t" fill="#be123c">Agent 语料指令/数据解耦校验</text>
+  <text x="344" y="301" class="box-s">• 检索与工具回包中剥离伪系统指令模板</text>
+  <text x="344" y="316" class="box-s">• 仅数百条毒样本即可植入固定后门</text>
+  <text x="344" y="331" class="box-s">• 入库前必跑行为红队金丝雀探针测试</text>
+
+  <!-- PILLAR 3: License, Multimodal IP & Unlearning -->
+  <rect x="616" y="74" width="276" height="278" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.4"/>
+  <rect x="630" y="85" width="166" height="22" rx="11" fill="#7c3aed"/>
+  <text x="713" y="100" class="pill" fill="#ffffff">防线三 · 版权协议与遗忘治理</text>
+
+  <rect x="628" y="116" width="252" height="64" rx="7" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="638" y="133" class="box-t" fill="#5b21b6">代码开源协议白名单治理</text>
+  <text x="638" y="149" class="box-s">• 放行宽松协议：MIT / Apache-2.0 / BSD</text>
+  <text x="638" y="163" class="box-s">• 隔离强传染 GPL/AGPL 与无声明仓</text>
+  <text x="638" y="176" class="box-s">• 仓库级 + 文件头 SPDX 联合溯源</text>
+
+  <rect x="628" y="188" width="252" height="64" rx="7" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="638" y="205" class="box-t" fill="#5b21b6">多模态版权溯源与 Opt-out</text>
+  <text x="638" y="221" class="box-s">• 遵守 robots / TDMRep / ai.txt 拒爬</text>
+  <text x="638" y="235" class="box-s">• 商用水印图库分类器拦截与授权单留档</text>
+  <text x="638" y="248" class="box-s">• 权利人退出清单同步写入血缘 DAG</text>
+
+  <rect x="628" y="260" width="252" height="82" rx="7" fill="#ede9fe" stroke="#a78bfa"/>
+  <text x="638" y="277" class="box-t" fill="#4c1d95">机器遗忘（Unlearning）工程现实</text>
+  <text x="638" y="293" class="box-s">• 近似遗忘易被少量微调逆转且伤通用能力</text>
+  <text x="638" y="308" class="box-s">• 唯一可审计基线：入库前严审 + 血缘删数</text>
+  <text x="638" y="323" class="box-s">  + 增量重训 / 高变动私域改走 RAG 与 LoRA</text>
+
+  <!-- Converging arrows to Bottom Audit Gate -->
+  <line x1="166" y1="352" x2="166" y2="372" stroke="#64748b" stroke-width="1.7" marker-end="url(#arr-down-sl)"/>
+  <line x1="460" y1="352" x2="460" y2="372" stroke="#64748b" stroke-width="1.7" marker-end="url(#arr-down-sl)"/>
+  <line x1="754" y1="352" x2="754" y2="372" stroke="#64748b" stroke-width="1.7" marker-end="url(#arr-down-sl)"/>
+
+  <!-- BOTTOM BAR: Unified Compliance Audit Gate -->
+  <rect x="28" y="376" width="864" height="72" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+  <rect x="34" y="384" width="5" height="56" rx="2.5" fill="#059669"/>
+  <text x="52" y="402" class="col-t" fill="#065f46">统一合规准入闸门与可签发审计证据包（Compliance Audit Manifest）</text>
+  <text x="52" y="421" class="box-s">随每次 Snapshot 自动归档：① PII 残留抽检率 &lt;0.01% 报告 · ② 去毒/去注入扫描日志 · ③ 协议与授权溯源台账 · ④ 数据来源摘要卡</text>
+  <text x="52" y="438" font-size="10.2" font-weight="700" fill="#047857">对齐法规基准：国内《生成式 AI 暂行办法》《数据安全法》《个人信息保护法》 · 国际 GDPR / EU AI Act / SOC 2 审计要求</text>
+</svg>

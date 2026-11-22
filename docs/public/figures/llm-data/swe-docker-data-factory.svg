@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="Coding/SWE 与终端运维 Agent 数据工厂：自然 PR 挖掘漏斗与镜像复用可验证合成双轨架构">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13.2px; font-weight: 700; }
+    .box-t { font-size: 11.5px; font-weight: 700; fill: #1e293b; }
+    .box-s { font-size: 10.2px; fill: #475569; }
+    .num { font-size: 11px; font-weight: 700; text-anchor: end; }
+  </style>
+  <defs>
+    <marker id="arr-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#475569"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">Coding / SWE 与终端运维 Agent 数据工厂：自然挖掘漏斗 vs 镜像复用合成</text>
+  <text x="30" y="54" class="sub">自然 PR 挖掘的端到端留存率仅 ~2.4%；通过「1 个基线容器镜像摊销 50–200 道合成故障/缺陷任务」，存储直降 40×、单位成本压低 3×。</text>
+
+  <!-- Top Left: Natural PR Mining Yield Funnel -->
+  <rect x="30" y="70" width="380" height="236" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.4"/>
+  <text x="46" y="93" class="sec-t" fill="#9a3412">① 轨 A：GitHub 自然 PR 挖掘漏斗（稀缺瓶颈）</text>
+
+  <!-- Funnel bars -->
+  <rect x="46" y="106" width="348" height="28" rx="5" fill="#ffedd5" stroke="#fb923c"/>
+  <text x="56" y="124" class="box-t" fill="#9a3412">原始合并 PR 池</text>
+  <text x="384" y="124" class="num mono" fill="#9a3412">100,000 (100%)</text>
+
+  <rect x="64" y="142" width="312" height="28" rx="5" fill="#fed7aa" stroke="#f97316"/>
+  <text x="74" y="160" class="box-t" fill="#9a3412">含关联 Issue + 测试补丁</text>
+  <text x="366" y="160" class="num mono" fill="#9a3412">18,000 (18.0%)</text>
+
+  <rect x="82" y="178" width="276" height="28" rx="5" fill="#fdba74" stroke="#ea580c"/>
+  <text x="92" y="196" class="box-t" fill="#7c2d12">合规协议 + 时间切分去污</text>
+  <text x="348" y="196" class="num mono" fill="#7c2d12">9,900 (9.9%)</text>
+
+  <rect x="100" y="214" width="240" height="28" rx="5" fill="#fb923c" stroke="#c2410c"/>
+  <text x="110" y="232" class="box-t" fill="#ffffff">自动构建 Docker + 基线通过</text>
+  <text x="330" y="232" class="num mono" fill="#ffffff">4,554 (4.55%)</text>
+
+  <rect x="118" y="250" width="204" height="28" rx="5" fill="#ea580c"/>
+  <text x="128" y="268" class="box-t" fill="#ffffff">F2P + P2P 3× 无抖动验真</text>
+  <text x="312" y="268" class="num mono" fill="#ffffff">2,368 (2.37%)</text>
+
+  <text x="220" y="295" font-size="10.2" fill="#9a3412" text-anchor="middle">痛点：近 1 镜 1 题，2 万题需 ~50 TB 镜像层且拉取慢</text>
+
+  <!-- Arrow passing clean base images to Track B -->
+  <line x1="410" y1="226" x2="434" y2="226" stroke="#0284c7" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+  <text x="422" y="216" font-size="9.2" fill="#0369a1" text-anchor="middle">镜像</text>
+
+  <!-- Top Right: Track B Environment-First Synthesis -->
+  <rect x="436" y="70" width="454" height="236" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.5"/>
+  <text x="452" y="93" class="sec-t" fill="#075985">② 轨 B：镜像复用规模化任务合成（SWE-smith / DevOps 范式）</text>
+
+  <!-- Base Image Hub -->
+  <rect x="452" y="106" width="422" height="36" rx="7" fill="#0284c7"/>
+  <text x="663" y="128" font-size="11.2" font-weight="700" fill="#ffffff" text-anchor="middle">1 个已验真基线镜像（CoW OverlayFS · 40ms 重置 · 摊销 50–200 题）</text>
+
+  <!-- 4 Synthesis Operators -->
+  <rect x="452" y="154" width="204" height="64" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="464" y="172" class="box-t" fill="#0369a1">1. AST / 依赖图缺陷注入</text>
+  <text x="464" y="189" class="box-s">变异边界条件、锁、跨文件签名</text>
+  <text x="464" y="205" class="box-s">原单测立刻转为天然 F2P 判据</text>
+
+  <rect x="670" y="154" width="204" height="64" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="682" y="172" class="box-t" fill="#0369a1">2. 历史提交回滚与 PR 镜像</text>
+  <text x="682" y="189" class="box-s">逆向回撤健康分支功能提交</text>
+  <text x="682" y="205" class="box-s">合成多文件重构与接口迁移题</text>
+
+  <rect x="452" y="228" width="204" height="64" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="464" y="246" class="box-t" fill="#0369a1">3. F2P / P2P 单测自动合成</text>
+  <text x="464" y="263" class="box-s">补全缺单测 Issue 的回归脚本</text>
+  <text x="464" y="279" class="box-s">变异测试校验防“空过假断言”</text>
+
+  <rect x="670" y="228" width="204" height="64" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="682" y="246" class="box-t" fill="#0369a1">4. Linux / DevOps 故障注入</text>
+  <text x="682" y="263" class="box-s">端口冲突/权限损坏/Nginx/OOM</text>
+  <text x="682" y="279" class="box-s">黑盒健康探针与数据完整断言</text>
+
+  <!-- Connector arrows down to Bottom Rollout & Pruning Pipeline -->
+  <line x1="220" y1="306" x2="220" y2="324" stroke="#475569" stroke-width="1.6" marker-end="url(#arr-dark)"/>
+  <line x1="663" y1="306" x2="663" y2="324" stroke="#059669" stroke-width="1.6" marker-end="url(#arr-emerald)"/>
+
+  <!-- Bottom: Anti-Cheat Rollout, Trajectory Pruning & Cost Ledger -->
+  <rect x="30" y="326" width="860" height="122" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="46" y="348" class="sec-t" fill="#065f46">③ 抗作弊沙箱 Rollout、长程轨迹剪枝与经济账对比</text>
+
+  <rect x="46" y="360" width="194" height="74" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="58" y="378" class="box-t">防作弊环境加固</text>
+  <text x="58" y="395" class="box-s mono">--network=none + TZ=UTC</text>
+  <text x="58" y="410" class="box-s">剥离 .git 未来提交/reflog</text>
+  <text x="58" y="425" class="box-s">只读挂载测试目录防篡改</text>
+
+  <line x1="240" y1="397" x2="256" y2="397" stroke="#059669" stroke-width="1.5" marker-end="url(#arr-emerald)"/>
+
+  <rect x="258" y="360" width="208" height="74" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="270" y="378" class="box-t">长程编辑轨迹采集与剪枝</text>
+  <text x="270" y="395" class="box-s">rg/AST 定位 → 复现 → 手术编辑</text>
+  <text x="270" y="410" class="box-s">截断超长报错堆栈保留关键帧</text>
+  <text x="270" y="425" class="box-s">保留有效回滚、剔除盲目死循环</text>
+
+  <line x1="466" y1="397" x2="482" y2="397" stroke="#059669" stroke-width="1.5" marker-end="url(#arr-emerald)"/>
+
+  <rect x="484" y="360" width="174" height="74" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="496" y="378" class="box-t">甜点区难度分桶</text>
+  <text x="496" y="395" class="box-s">k=8 采样估算通过率 p_i</text>
+  <text x="496" y="410" class="box-s mono" fill="#047857">p_i ∈ [0.1, 0.8] 入库</text>
+  <text x="496" y="425" class="box-s">剔除全错死题与送分题</text>
+
+  <line x1="658" y1="397" x2="674" y2="397" stroke="#059669" stroke-width="1.5" marker-end="url(#arr-emerald)"/>
+
+  <rect x="676" y="360" width="198" height="74" rx="7" fill="#d1fae5" stroke="#10b981" stroke-width="1.4"/>
+  <text x="688" y="378" class="box-t" fill="#065f46">单位有效轨迹成本对比</text>
+  <text x="688" y="396" class="box-s" fill="#064e3b">自然 PR 挖掘：<tspan class="mono" font-weight="700">$0.62 / 轨</tspan></text>
+  <text x="688" y="412" class="box-s" fill="#064e3b">镜像复用合成：<tspan class="mono" font-weight="700" fill="#047857">$0.19 / 轨</tspan></text>
+  <text x="688" y="427" class="box-s mono" fill="#065f46">镜像磁盘占压直降 40×</text>
+</svg>

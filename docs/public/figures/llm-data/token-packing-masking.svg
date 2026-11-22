@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="Document Packing 块内注意力掩码隔离机制、FIM 变换与多模态模板防毒化校验点">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.6px; fill: #64748b; }
+    .sec-t { font-size: 13.2px; font-weight: 700; fill: #0f172a; }
+    .lbl { font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+    .sm { font-size: 10px; fill: #475569; }
+    .tok { font-size: 9.8px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">样本打包、块内注意力掩码（Intra-doc Masking）与模板防毒化</text>
+  <text x="36" y="55" class="sub">打包消除 Padding 算力浪费，但必须配合块对角掩码与 RoPE Position Reset 阻断跨文档串扰，并严防特殊 Token 与 Loss Mask 错位。</text>
+
+  <!-- Top Left: Sequence Packing + Position Reset -->
+  <rect x="36" y="70" width="410" height="186" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="52" y="92" class="sec-t">一、多文档无缝打包（Document Packing）与位置重置</text>
+
+  <!-- Packed sequence bar -->
+  <text x="52" y="114" class="sm" font-weight="700">单条固定长度序列（L = 8,192，Padding 浪费从 35% 降至 &lt;1%）</text>
+  <rect x="52" y="122" width="126" height="30" rx="5" fill="#0284c7"/>
+  <text x="115" y="141" class="lbl" fill="#ffffff">Doc A (数学论文)</text>
+  <rect x="180" y="122" width="24" height="30" rx="4" fill="#334155"/>
+  <text x="192" y="140" class="tok mono" fill="#f8fafc">eos</text>
+
+  <rect x="206" y="122" width="110" height="30" rx="5" fill="#059669"/>
+  <text x="261" y="141" class="lbl" fill="#ffffff">Doc B (Python)</text>
+  <rect x="318" y="122" width="24" height="30" rx="4" fill="#334155"/>
+  <text x="330" y="140" class="tok mono" fill="#f8fafc">eos</text>
+
+  <rect x="344" y="122" width="88" height="30" rx="5" fill="#7c3aed"/>
+  <text x="388" y="141" class="lbl" fill="#ffffff">Doc C (百科)</text>
+
+  <!-- RoPE Position IDs -->
+  <text x="52" y="172" class="sm" font-weight="700">RoPE Position IDs（在每个 &lt;eos&gt; 边界强制归零！）</text>
+  <rect x="52" y="179" width="152" height="22" rx="4" fill="#e0f2fe" stroke="#7dd3fc"/>
+  <text x="128" y="194" class="tok mono" fill="#0369a1">0, 1, 2, ..., n_A</text>
+  <rect x="206" y="179" width="136" height="22" rx="4" fill="#d1fae5" stroke="#6ee7b7"/>
+  <text x="274" y="194" class="tok mono" fill="#065f46">0, 1, ..., n_B</text>
+  <rect x="344" y="179" width="88" height="22" rx="4" fill="#ede9fe" stroke="#c4b5fd"/>
+  <text x="388" y="194" class="tok mono" fill="#5b21b6">0, 1, ..., n_C</text>
+
+  <rect x="52" y="210" width="380" height="34" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="62" y="225" font-size="10.2" font-weight="700" fill="#9a3412">隐蔽陷阱：若未重置 Position ID 且未加块掩码，</text>
+  <text x="62" y="239" font-size="10" fill="#c2410c">Doc B 首 Token 会错误看到 Doc A 结尾并携带超大虚假位置偏移。</text>
+
+  <!-- Top Right: Attention Mask Comparison -->
+  <rect x="460" y="70" width="424" height="186" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="476" y="92" class="sec-t">二、注意力掩码矩阵对比（FlashAttention Varlen 零开销实现）</text>
+
+  <!-- Matrix 1: Naive Causal (Leakage!) -->
+  <text x="562" y="112" class="lbl" fill="#be123c">错误：朴素下三角掩码（跨文档污染）</text>
+  <g transform="translate(502, 120)">
+    <rect x="0" y="0" width="120" height="120" fill="#f8fafc" stroke="#94a3b8"/>
+    <!-- Doc A (0..44) -->
+    <polygon points="0,0 44,44 0,44" fill="#0284c7" opacity="0.8"/>
+    <!-- Doc B (44..84) + leakage B->A -->
+    <rect x="0" y="44" width="44" height="40" fill="#fda4af" opacity="0.85"/>
+    <polygon points="44,44 84,84 44,84" fill="#059669" opacity="0.8"/>
+    <!-- Doc C (84..120) + leakage C->A,B -->
+    <rect x="0" y="84" width="84" height="36" fill="#fb7185" opacity="0.85"/>
+    <polygon points="84,84 120,120 84,120" fill="#7c3aed" opacity="0.8"/>
+    <!-- Grid borders -->
+    <line x1="44" y1="0" x2="44" y2="120" stroke="#ffffff" stroke-width="1.2"/>
+    <line x1="84" y1="0" x2="84" y2="120" stroke="#ffffff" stroke-width="1.2"/>
+    <line x1="0" y1="44" x2="120" y2="44" stroke="#ffffff" stroke-width="1.2"/>
+    <line x1="0" y1="84" x2="120" y2="84" stroke="#ffffff" stroke-width="1.2"/>
+    <text x="22" y="68" font-size="9.2" font-weight="700" fill="#881337" text-anchor="middle">串扰!</text>
+    <text x="42" y="106" font-size="9.2" font-weight="700" fill="#881337" text-anchor="middle">伪跨文档依赖</text>
+    <text x="16" y="34" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">A</text>
+    <text x="58" y="75" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">B</text>
+    <text x="98" y="112" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">C</text>
+  </g>
+
+  <!-- Matrix 2: Intra-doc Block-Diagonal -->
+  <text x="768" y="112" class="lbl" fill="#047857">正确：块内对角掩码（完全隔离）</text>
+  <g transform="translate(708, 120)">
+    <rect x="0" y="0" width="120" height="120" fill="#f1f5f9" stroke="#94a3b8"/>
+    <!-- Doc A -->
+    <polygon points="0,0 44,44 0,44" fill="#0284c7" opacity="0.88"/>
+    <!-- Doc B -->
+    <polygon points="44,44 84,84 44,84" fill="#059669" opacity="0.88"/>
+    <!-- Doc C -->
+    <polygon points="84,84 120,120 84,120" fill="#7c3aed" opacity="0.88"/>
+    <line x1="44" y1="0" x2="44" y2="120" stroke="#cbd5e1" stroke-dasharray="2 2"/>
+    <line x1="84" y1="0" x2="84" y2="120" stroke="#cbd5e1" stroke-dasharray="2 2"/>
+    <line x1="0" y1="44" x2="120" y2="44" stroke="#cbd5e1" stroke-dasharray="2 2"/>
+    <line x1="0" y1="84" x2="120" y2="84" stroke="#cbd5e1" stroke-dasharray="2 2"/>
+    <text x="40" y="102" font-size="9.5" font-weight="700" fill="#64748b" text-anchor="middle">-∞ (阻断)</text>
+    <text x="16" y="34" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">A</text>
+    <text x="58" y="75" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">B</text>
+    <text x="98" y="112" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">C</text>
+  </g>
+
+  <!-- Arrow between matrices -->
+  <line x1="634" y1="180" x2="694" y2="180" stroke="#0284c7" stroke-width="2" marker-end="url(#arr-b)"/>
+  <text x="664" y="172" class="tok mono" fill="#0369a1">cu_seqlens</text>
+
+  <!-- Bottom Left: FIM Mechanism -->
+  <rect x="36" y="272" width="410" height="174" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.3"/>
+  <text x="52" y="295" class="sec-t" fill="#3730a3">三、代码预训练 FIM（Fill-in-the-Middle）重排机制</text>
+
+  <text x="52" y="317" class="sm">原始连续代码文件（按 50%–70% 比例随机切为三段）：</text>
+  <rect x="52" y="324" width="124" height="24" rx="4" fill="#3b82f6"/>
+  <text x="114" y="340" class="tok" fill="#ffffff">Prefix（上文）</text>
+  <rect x="180" y="324" width="114" height="24" rx="4" fill="#f59e0b"/>
+  <text x="237" y="340" class="tok" fill="#ffffff">Middle（待补全）</text>
+  <rect x="298" y="324" width="132" height="24" rx="4" fill="#10b981"/>
+  <text x="364" y="340" class="tok" fill="#ffffff">Suffix（下文）</text>
+
+  <text x="52" y="368" class="sm">PSM 模式重排（让因果 LM 同步看到前后文后预测中段）：</text>
+  <rect x="52" y="375" width="42" height="24" rx="4" fill="#1e293b"/>
+  <text x="73" y="391" class="tok mono" fill="#e2e8f0">&lt;PRE&gt;</text>
+  <rect x="96" y="375" width="76" height="24" rx="4" fill="#3b82f6"/>
+  <text x="134" y="391" class="tok" fill="#ffffff">Prefix</text>
+  <rect x="174" y="375" width="42" height="24" rx="4" fill="#1e293b"/>
+  <text x="195" y="391" class="tok mono" fill="#e2e8f0">&lt;SUF&gt;</text>
+  <rect x="218" y="375" width="76" height="24" rx="4" fill="#10b981"/>
+  <text x="256" y="391" class="tok" fill="#ffffff">Suffix</text>
+  <rect x="296" y="375" width="42" height="24" rx="4" fill="#1e293b"/>
+  <text x="317" y="391" class="tok mono" fill="#e2e8f0">&lt;MID&gt;</text>
+  <rect x="340" y="375" width="66" height="24" rx="4" fill="#f59e0b"/>
+  <text x="373" y="391" class="tok" fill="#ffffff">Middle</text>
+  <rect x="408" y="375" width="28" height="24" rx="4" fill="#334155"/>
+  <text x="422" y="391" class="tok mono" fill="#f8fafc">eot</text>
+
+  <text x="52" y="422" font-size="10.4" fill="#4338ca">注意：切分点严禁落在多字节 UTF-8 中间；&lt;PRE&gt;/&lt;SUF&gt;/&lt;MID&gt; 必须为</text>
+  <text x="52" y="437" font-size="10.4" fill="#4338ca">不可拆分的 Special Token，避免被 BPE 切碎成普通字符。</text>
+
+  <!-- Bottom Right: Multimodal & Chat Template Silent Poisoning -->
+  <rect x="460" y="272" width="424" height="174" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.3"/>
+  <text x="476" y="295" class="sec-t" fill="#9f1239">四、多模态与对话/工具模板的静默毒化排雷清单</text>
+
+  <!-- Token Strip with Loss Mask -->
+  <text x="476" y="317" class="sm" font-weight="700">混合序列 Token 布局与 Loss Mask (m_t) 严密对齐示例：</text>
+  <rect x="476" y="324" width="62" height="24" rx="4" fill="#cbd5e1"/>
+  <text x="507" y="340" class="tok mono" fill="#334155">Sys/Usr</text>
+  <rect x="540" y="324" width="98" height="24" rx="4" fill="#7c3aed"/>
+  <text x="589" y="340" class="tok mono" fill="#ffffff">&lt;img_pad&gt;×T_img</text>
+  <rect x="640" y="324" width="84" height="24" rx="4" fill="#059669"/>
+  <text x="682" y="340" class="tok mono" fill="#ffffff">&lt;think&gt;+Act</text>
+  <rect x="726" y="324" width="74" height="24" rx="4" fill="#cbd5e1"/>
+  <text x="763" y="340" class="tok mono" fill="#334155">ToolObs</text>
+  <rect x="802" y="324" width="66" height="24" rx="4" fill="#059669"/>
+  <text x="835" y="340" class="tok mono" fill="#ffffff">Ans+eot</text>
+
+  <!-- Mask indicator strip -->
+  <rect x="476" y="352" width="162" height="16" rx="3" fill="#e2e8f0"/>
+  <text x="557" y="364" class="tok mono" fill="#475569">m_t = 0（不计梯度）</text>
+  <rect x="640" y="352" width="84" height="16" rx="3" fill="#bbf7d0"/>
+  <text x="682" y="364" class="tok mono" fill="#065f46">m_t = 1</text>
+  <rect x="726" y="352" width="74" height="16" rx="3" fill="#e2e8f0"/>
+  <text x="763" y="364" class="tok mono" fill="#475569">m_t = 0</text>
+  <rect x="802" y="352" width="66" height="16" rx="3" fill="#bbf7d0"/>
+  <text x="835" y="364" class="tok mono" fill="#065f46">m_t = 1</text>
+
+  <!-- 3 Silent Bugs -->
+  <text x="476" y="388" font-size="10.5" font-weight="700" fill="#9f1239">三大高频静默毒化 Bug（训练 Loss 照降，推理直接崩坏）：</text>
+  <text x="476" y="405" font-size="10.2" fill="#475569">① 双重 BOS / 丢失 &lt;eot&gt; 导致模型学会无限续写复读，永不停止。</text>
+  <text x="476" y="421" font-size="10.2" fill="#475569">② 占位符数 ≠ 真实 ViT Patch 数（AnyRes 动态切片对齐偏移）。</text>
+  <text x="476" y="437" font-size="10.2" fill="#475569">③ 模板换行符差一空格（"\n" vs " \n"），使训推分词边界完全错位。</text>
+</svg>

@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 455" role="img" aria-label="SFT 二维复杂度与质量筛选网格及 Long-CoT 冷启动拒绝采样提纯流水线">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .panel-t { font-size: 14px; font-weight: 700; fill: #1e293b; }
+    .panel-s { font-size: 11px; fill: #64748b; }
+    .axis-lbl { font-size: 11px; font-weight: 600; fill: #334155; }
+    .tick { font-size: 10px; fill: #64748b; }
+    .quad-t { font-size: 11.5px; font-weight: 700; }
+    .quad-s { font-size: 10px; }
+    .step-t { font-size: 12px; font-weight: 700; fill: #1e293b; }
+    .step-s { font-size: 10.2px; fill: #475569; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="455" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">SFT 二维筛选（DEITA 复杂度 × 质量）与 Long-CoT 冷启动提纯机制</text>
+  <text x="36" y="56" class="sub">少而精的本质：用复杂度×质量前沿加语义去重替代盲目扩量，再用验证与思维链体检产出零污染冷启动包。</text>
+
+  <!-- Left Panel: 2D Complexity x Quality Grid -->
+  <rect x="36" y="74" width="456" height="352" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="84" width="4" height="28" rx="2" fill="#4f46e5"/>
+  <text x="56" y="98" class="panel-t">A. DEITA 复杂度 × 质量二维筛选与 SemDeDup</text>
+  <text x="56" y="113" class="panel-s">原始 2M 候选池 → 联合打分 S = C × Q + 语义去重 → 50K 高信噪比金标</text>
+
+  <!-- Grid Plot Area: x=92..468 (w=376), y=132..362 (h=230) -->
+  <!-- Quadrant backgrounds -->
+  <!-- Bottom-left: Low C, Low Q -->
+  <rect x="92" y="247" width="188" height="115" fill="#fef2f2"/>
+  <!-- Top-left: Low C, High Q -->
+  <rect x="92" y="132" width="188" height="115" fill="#f8fafc"/>
+  <!-- Bottom-right: High C, Low Q -->
+  <rect x="280" y="247" width="188" height="115" fill="#fffbeb"/>
+  <!-- Top-right: High C, High Q (Pareto Gold Zone) -->
+  <rect x="280" y="132" width="188" height="115" fill="#ecfdf5"/>
+
+  <!-- Dashed Quadrant Dividers -->
+  <line x1="280" y1="132" x2="280" y2="362" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <line x1="92" y1="247" x2="468" y2="247" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+  <!-- Pareto Frontier Curve C*Q = tau -->
+  <path d="M 244 132 Q 290 218 468 258" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 3"/>
+  <rect x="336" y="220" width="124" height="20" rx="5" fill="#d1fae5" stroke="#6ee7b7"/>
+  <text x="398" y="234" font-size="10" font-weight="700" fill="#065f46" text-anchor="middle" class="mono">S = C × Q ≥ τ*</text>
+
+  <!-- Quadrant Labels -->
+  <text x="104" y="152" class="quad-t" fill="#475569">简单重复区（保底抽样）</text>
+  <text x="104" y="167" class="quad-s" fill="#64748b">日常问候 / 简单改写 · 仅留 5%–10%</text>
+
+  <text x="292" y="152" class="quad-t" fill="#065f46">高信噪比精选区（核心留存）</text>
+  <text x="292" y="167" class="quad-s" fill="#047857">多步推理 / 复杂约束 · SemDeDup 去冗余</text>
+
+  <text x="104" y="267" class="quad-t" fill="#b91c1c">低质噪声区（直接剔除）</text>
+  <text x="104" y="282" class="quad-s" fill="#dc2626">机器翻译错句 / 无信息模板 / 敷衍回答</text>
+
+  <text x="292" y="267" class="quad-t" fill="#b45309">伪难题毒化区（重点排雷）</text>
+  <text x="292" y="282" class="quad-s" fill="#d97706">高难提问但推导幻觉、逻辑自相矛盾</text>
+
+  <!-- Scatter dots -->
+  <!-- Discarded low-low dots -->
+  <g fill="#f87171" opacity="0.65">
+    <circle cx="118" cy="342" r="3.5"/><circle cx="136" cy="322" r="3.5"/><circle cx="158" cy="345" r="3.5"/>
+    <circle cx="176" cy="306" r="3.5"/><circle cx="204" cy="330" r="3.5"/><circle cx="228" cy="312" r="3.5"/>
+    <circle cx="248" cy="340" r="3.5"/><circle cx="145" cy="298" r="3.5"/><circle cx="262" cy="296" r="3.5"/>
+  </g>
+  <!-- Simple high-Q dots -->
+  <g fill="#94a3b8" opacity="0.75">
+    <circle cx="122" cy="202" r="3.5"/><circle cx="146" cy="186" r="3.5"/><circle cx="174" cy="214" r="3.5"/>
+    <circle cx="198" cy="192" r="3.5"/><circle cx="224" cy="222" r="3.5"/><circle cx="236" cy="180" r="3.5"/>
+  </g>
+  <!-- High-C low-Q toxic dots -->
+  <g fill="#f59e0b" opacity="0.75">
+    <circle cx="310" cy="316" r="3.5"/><circle cx="342" cy="336" r="3.5"/><circle cx="378" cy="304" r="3.5"/>
+    <circle cx="412" cy="332" r="3.5"/><circle cx="442" cy="308" r="3.5"/><circle cx="362" cy="346" r="3.5"/>
+  </g>
+  <!-- SemDeDup cluster halo in Gold Zone -->
+  <circle cx="348" cy="198" r="15" fill="none" stroke="#059669" stroke-width="1.2" stroke-dasharray="3 2"/>
+  <circle cx="344" cy="194" r="3" fill="#a7f3d0" stroke="#059669"/>
+  <circle cx="354" cy="202" r="3" fill="#a7f3d0" stroke="#059669"/>
+  <circle cx="348" cy="198" r="4.5" fill="#059669"/>
+  <!-- Other gold kept dots -->
+  <g fill="#059669">
+    <circle cx="312" cy="186" r="4.2"/><circle cx="386" cy="184" r="4.5"/><circle cx="418" cy="198" r="4.5"/>
+    <circle cx="444" cy="176" r="4.5"/><circle cx="402" cy="152" r="4.2"/><circle cx="446" cy="146" r="4.5"/>
+  </g>
+  <text x="366" y="211" font-size="9.5" fill="#065f46" font-weight="600">簇内去重留最优</text>
+
+  <!-- Axes -->
+  <line x1="92" y1="362" x2="472" y2="362" stroke="#334155" stroke-width="1.5" marker-end="url(#arr-slate)"/>
+  <line x1="92" y1="362" x2="92" y2="128" stroke="#334155" stroke-width="1.5" marker-end="url(#arr-slate)"/>
+  <text x="280" y="388" class="axis-lbl" text-anchor="middle">指令复杂度评分 C（约束数量 × 推理跳数 × 领域深度，1 → 6）</text>
+  <text x="54" y="250" class="axis-lbl" text-anchor="middle" transform="rotate(-90 54 250)">回复质量评分 Q（准确 × 完整 × 清晰）</text>
+  <text x="92" y="374" class="tick" text-anchor="middle">1</text>
+  <text x="186" y="374" class="tick" text-anchor="middle">2.5</text>
+  <text x="280" y="374" class="tick" text-anchor="middle">4</text>
+  <text x="374" y="374" class="tick" text-anchor="middle">5</text>
+  <text x="462" y="374" class="tick" text-anchor="middle">6</text>
+  <text x="84" y="362" class="tick" text-anchor="end">1</text>
+  <text x="84" y="247" class="tick" text-anchor="end">4</text>
+  <text x="84" y="138" class="tick" text-anchor="end">6</text>
+
+  <!-- Bottom summary pill inside Left Panel -->
+  <rect x="92" y="396" width="376" height="22" rx="6" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="280" y="411" font-size="10.5" font-weight="600" fill="#3730a3" text-anchor="middle">配合 Taxonomy 能力树配额补盲，杜绝高分样本向单一学科塌缩</text>
+
+  <!-- Right Panel: Long-CoT Rejection Sampling Cold-Start Pipeline -->
+  <rect x="508" y="74" width="376" height="352" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="516" y="84" width="4" height="28" rx="2" fill="#7c3aed"/>
+  <text x="528" y="98" class="panel-t">B. Long-CoT 冷启动拒绝采样（RFT）工厂</text>
+  <text x="528" y="113" class="panel-s">将强模型长思考提纯为无死循环、抗过度思考的冷启动燃料</text>
+
+  <!-- Stage 1 -->
+  <rect x="526" y="128" width="340" height="56" rx="8" fill="#f5f3ff" stroke="#c4b5fd"/>
+  <rect x="536" y="136" width="46" height="18" rx="9" fill="#7c3aed"/>
+  <text x="559" y="149" class="pill" fill="#ffffff">STEP 1</text>
+  <text x="590" y="149" class="step-t">多样种子与演化扩增（10K 种子题）</text>
+  <text x="536" y="170" class="step-s">Evol-Instruct 升维 / Persona 角色驱动 / 严格去污（防基准泄漏）</text>
+
+  <line x1="696" y1="184" x2="696" y2="198" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-indigo)"/>
+
+  <!-- Stage 2 -->
+  <rect x="526" y="200" width="340" height="56" rx="8" fill="#eef2ff" stroke="#a5b4fc"/>
+  <rect x="536" y="208" width="46" height="18" rx="9" fill="#4f46e5"/>
+  <text x="559" y="221" class="pill" fill="#ffffff">STEP 2</text>
+  <text x="590" y="221" class="step-t">强教师并行采样（K = 8 条 / 题 → 80K 轨迹）</text>
+  <text x="536" y="242" class="step-s">统一 &lt;think&gt;...&lt;/think&gt; 思考块格式；保留反思、回溯与验证模式</text>
+
+  <line x1="696" y1="256" x2="696" y2="270" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-indigo)"/>
+
+  <!-- Stage 3 -->
+  <rect x="526" y="272" width="340" height="68" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+  <rect x="536" y="280" width="46" height="18" rx="9" fill="#ea580c"/>
+  <text x="559" y="293" class="pill" fill="#ffffff">STEP 3</text>
+  <text x="590" y="293" class="step-t">双重拒绝闸门（答案验证 × 思维链体检）</text>
+  <text x="536" y="313" class="step-s">① 符号/单测硬验证（过滤 55% 错解）→ 仅留正确轨迹</text>
+  <text x="536" y="329" class="step-s">② 杀复读死循环、中英混杂漂移、过度思考（&gt;3×中位长）</text>
+
+  <line x1="696" y1="340" x2="696" y2="354" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-indigo)"/>
+
+  <!-- Stage 4 -->
+  <rect x="526" y="356" width="340" height="58" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <rect x="536" y="364" width="46" height="18" rx="9" fill="#059669"/>
+  <text x="559" y="377" class="pill" fill="#ffffff">OUTPUT</text>
+  <text x="590" y="377" class="step-t">高质量 Long-CoT 冷启动包（η_pass ≈ 29%）</text>
+  <text x="536" y="398" class="step-s">每题择优保留最短清晰路径；激活推理结构并交棒 Ch 10 RLVR</text>
+
+  <!-- Footer -->
+  <text x="460" y="443" text-anchor="middle" font-size="11" fill="#64748b">第 8 章核心心法：SFT 负责“对齐格式、注入范式与唤醒潜能”，规模服从高信噪比而非盲目堆量。</text>
+</svg>

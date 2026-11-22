@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480" role="img" aria-label="LLM 与 Agent 数据工程：原理、配方与迭代飞轮 封面">
+  <defs>
+    <linearGradient id="dataCoverBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1114"/>
+      <stop offset="52%" stop-color="#29171c"/>
+      <stop offset="100%" stop-color="#182030"/>
+    </linearGradient>
+    <linearGradient id="dataAccentLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fb7185"/>
+      <stop offset="52%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="dataFunnelFill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fb7185" stop-opacity="0.30"/>
+      <stop offset="55%" stop-color="#f97316" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0.32"/>
+    </linearGradient>
+    <pattern id="dataGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#94a3b8" stroke-opacity="0.09" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Card base -->
+  <rect width="360" height="480" rx="14" fill="url(#dataCoverBg)"/>
+  <rect width="360" height="480" rx="14" fill="url(#dataGrid)"/>
+
+  <!-- Spine accent -->
+  <rect x="0" y="0" width="8" height="480" rx="2" fill="url(#dataAccentLine)"/>
+
+  <!-- Top kicker -->
+  <text x="32" y="44" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="1.9">DATA ENGINE · VOL. 04</text>
+  <rect x="246" y="29" width="84" height="22" rx="11" fill="#2b1720" stroke="#f97316" stroke-opacity="0.58"/>
+  <text x="288" y="44" text-anchor="middle" fill="#fdba74" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10.5">25 章 · 28 图</text>
+
+  <!-- Title block -->
+  <text x="32" y="102" fill="#f8fafc" font-family="system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="29.5" font-weight="700" letter-spacing="-0.5">LLM 与 Agent 数据工程</text>
+  <text x="32" y="138" fill="#cbd5e1" font-family="system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="21" font-weight="500">原理、配方与迭代飞轮</text>
+  <rect x="32" y="156" width="88" height="3" rx="1.5" fill="url(#dataAccentLine)"/>
+
+  <!-- Data Distillation Funnel & Production Flywheel geometric visual -->
+  <g transform="translate(32, 192)">
+    <rect x="0" y="0" width="296" height="168" rx="10" fill="#120d11" fill-opacity="0.86" stroke="#472834" stroke-width="1"/>
+
+    <!-- Yield funnel polygon -->
+    <polygon points="22,22 106,38 178,52 246,60 246,96 178,104 106,118 22,134" fill="url(#dataFunnelFill)" stroke="#fb7185" stroke-opacity="0.55" stroke-width="1.2"/>
+
+    <!-- Stage vertical dividers -->
+    <line x1="106" y1="32" x2="106" y2="124" stroke="#f97316" stroke-opacity="0.45" stroke-dasharray="3 3"/>
+    <line x1="178" y1="46" x2="178" y2="110" stroke="#fbbf24" stroke-opacity="0.45" stroke-dasharray="3 3"/>
+    <line x1="246" y1="54" x2="246" y2="102" stroke="#2dd4bf" stroke-opacity="0.65" stroke-width="1.3"/>
+
+    <!-- Funnel stage dots & labels -->
+    <circle cx="42" cy="78" r="3.6" fill="#fb7185"/>
+    <text x="42" y="66" text-anchor="middle" fill="#fda4af" font-family="ui-monospace, Menlo, monospace" font-size="8.8">RAW 100%</text>
+    <text x="42" y="96" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, Menlo, monospace" font-size="8.2">Web/MM</text>
+
+    <circle cx="142" cy="78" r="3.6" fill="#f97316"/>
+    <text x="142" y="66" text-anchor="middle" fill="#fdba74" font-family="ui-monospace, Menlo, monospace" font-size="8.8">FILTER/DEDUP</text>
+    <text x="142" y="96" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, Menlo, monospace" font-size="8.2">η ≈ 12%</text>
+
+    <circle cx="212" cy="78" r="3.6" fill="#2dd4bf"/>
+    <text x="212" y="66" text-anchor="middle" fill="#5eead4" font-family="ui-monospace, Menlo, monospace" font-size="8.8">D_eff</text>
+    <text x="212" y="96" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, Menlo, monospace" font-size="8.2">RLVR/Agent</text>
+
+    <!-- Flywheel feedback arc from output back to synthesis/gold pool -->
+    <path d="M 248 62 C 282 62, 282 18, 224 18 L 154 18 C 132 18, 130 28, 130 36" fill="none" stroke="#2dd4bf" stroke-width="1.8" stroke-linecap="round"/>
+    <polygon points="126,34 134,34 130,41" fill="#2dd4bf"/>
+    <text x="206" y="13.5" text-anchor="middle" fill="#5eead4" font-family="ui-monospace, Menlo, monospace" font-size="8.5">PROD FLYWHEEL · LINEAGE</text>
+
+    <!-- Bottom pipeline strip -->
+    <g transform="translate(22, 142)">
+      <rect x="0" y="0" width="16" height="10" rx="2" fill="#fb7185"/>
+      <rect x="20" y="0" width="16" height="10" rx="2" fill="#f97316"/>
+      <rect x="40" y="0" width="16" height="10" rx="2" fill="#fbbf24"/>
+      <rect x="60" y="0" width="16" height="10" rx="2" fill="#2dd4bf"/>
+      <rect x="80" y="0" width="16" height="10" rx="2" fill="#38bdf8"/>
+      <text x="106" y="9" fill="#94a3b8" font-family="ui-monospace, Menlo, monospace" font-size="9">Pre · Post · Omni · Agent</text>
+    </g>
+  </g>
+
+  <!-- Tech pillar badges -->
+  <g transform="translate(32, 384)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10">
+    <rect x="0" y="0" width="90" height="22" rx="4" fill="#2b1720" stroke="#472834"/>
+    <text x="45" y="14.5" text-anchor="middle" fill="#e2e8f0">Pre / Dedup</text>
+
+    <rect x="98" y="0" width="98" height="22" rx="4" fill="#2b1720" stroke="#472834"/>
+    <text x="147" y="14.5" text-anchor="middle" fill="#e2e8f0">Omni / Agent</text>
+
+    <rect x="204" y="0" width="92" height="22" rx="4" fill="#2b1720" stroke="#472834"/>
+    <text x="250" y="14.5" text-anchor="middle" fill="#e2e8f0">Synth / Loop</text>
+  </g>
+
+  <!-- Footer brand -->
+  <line x1="32" y1="428" x2="328" y2="428" stroke="#472834" stroke-width="1"/>
+  <text x="32" y="454" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="0.8">TDCCCCC'S ATLAS</text>
+  <text x="328" y="454" text-anchor="end" fill="#64748b" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10.5">Recipes · Traces · Flywheel</text>
+</svg>

@@ -12,6 +12,9 @@ import RlGroupAdvantageWidget from './components/RlGroupAdvantageWidget.vue'
 import EvalStatsPowerWidget from './components/EvalStatsPowerWidget.vue'
 import EvalPassKWidget from './components/EvalPassKWidget.vue'
 import EvalJudgeBiasWidget from './components/EvalJudgeBiasWidget.vue'
+import DataScalingWidget from './components/DataScalingWidget.vue'
+import DataMinHashWidget from './components/DataMinHashWidget.vue'
+import DataSynthesisRoiWidget from './components/DataSynthesisRoiWidget.vue'
 
 export default {
   extends: DefaultTheme,
@@ -30,5 +33,8 @@ export default {
     app.component('EvalStatsPowerWidget', EvalStatsPowerWidget)
     app.component('EvalPassKWidget', EvalPassKWidget)
     app.component('EvalJudgeBiasWidget', EvalJudgeBiasWidget)
+    app.component('DataScalingWidget', DataScalingWidget)
+    app.component('DataMinHashWidget', DataMinHashWidget)
+    app.component('DataSynthesisRoiWidget', DataSynthesisRoiWidget)
   },
 }

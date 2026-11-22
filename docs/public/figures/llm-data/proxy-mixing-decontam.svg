@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 450" role="img" aria-label="小模型代理寻优与微退火配比流程及训练侧多模态三层去污防火墙">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.6px; fill: #64748b; }
+    .sec-t { font-size: 13.5px; font-weight: 700; fill: #0f172a; }
+    .card-t { font-size: 11.8px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 10.2px; fill: #475569; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-ind" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arr-em" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+    <marker id="arr-ro" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="450" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">数据价值评估、配比寻优与训练侧全链路去污红线</text>
+  <text x="36" y="55" class="sub">先用千分之一算力在 Proxy 小模型与 Micro-annealing 上锁死最优配比 w_m，再以三层去污防火墙守住评测零泄漏底线。</text>
+
+  <!-- LEFT HALF: Mixing Optimization -->
+  <rect x="36" y="70" width="430" height="360" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="52" y="94" class="sec-t" fill="#3730a3">一、低成本配比寻优闭环（Proxy Scaling × Micro-annealing）</text>
+
+  <!-- Candidate Domain Pools -->
+  <rect x="52" y="108" width="398" height="54" rx="8" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="64" y="126" class="card-t">多域候选语料池（配比向量 w = (w₁, ..., w_M), Σ w_m = 1）</text>
+  <rect x="64" y="134" width="66" height="20" rx="4" fill="#e0f2fe"/>
+  <text x="97" y="148" class="pill" fill="#0369a1">Web 网页</text>
+  <rect x="136" y="134" width="62" height="20" rx="4" fill="#d1fae5"/>
+  <text x="167" y="148" class="pill" fill="#065f46">Code 代码</text>
+  <rect x="204" y="134" width="66" height="20" rx="4" fill="#ede9fe"/>
+  <text x="237" y="148" class="pill" fill="#5b21b6">Math/STEM</text>
+  <rect x="276" y="134" width="70" height="20" rx="4" fill="#ffedd5"/>
+  <text x="311" y="148" class="pill" fill="#9a3412">Books/Wiki</text>
+  <rect x="352" y="134" width="88" height="20" rx="4" fill="#ffe4e6"/>
+  <text x="396" y="148" class="pill" fill="#9f1239">Synthetic 改写</text>
+
+  <!-- Fork arrows down to 2 tracks -->
+  <line x1="150" y1="162" x2="150" y2="184" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-ind)"/>
+  <line x1="350" y1="162" x2="350" y2="184" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-ind)"/>
+
+  <!-- Track A: Small Proxy Scaling -->
+  <rect x="52" y="188" width="192" height="128" rx="8" fill="#eef2ff" stroke="#818cf8" stroke-width="1.3"/>
+  <rect x="62" y="197" width="110" height="19" rx="9" fill="#4f46e5"/>
+  <text x="117" y="210" class="pill" fill="#ffffff">路径 A：Proxy Scaling</text>
+  <text x="62" y="232" class="card-t">300M–1.5B 小模型矩阵</text>
+  <text x="62" y="250" class="card-s">• DoReMi：组 DRO 最小化超额损失</text>
+  <text x="62" y="266" class="card-s">• RegMix：百组配方回归拟合最优 w*</text>
+  <text x="62" y="282" class="card-s">• 三维探针：PPL 带 × 语义熵 × 梯度</text>
+  <text x="62" y="302" font-size="9.8" font-weight="700" fill="#b45309">盲区：&lt;1B 难测高阶推理涌现</text>
+
+  <!-- Track B: Micro-annealing -->
+  <rect x="256" y="188" width="194" height="128" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.3"/>
+  <rect x="266" y="197" width="122" height="19" rx="9" fill="#059669"/>
+  <text x="327" y="210" class="pill" fill="#ffffff">路径 B：Micro-annealing</text>
+  <text x="266" y="232" class="card-t">中间检查点短程微退火</text>
+  <text x="266" y="250" class="card-s">• 从 500B–1T 基座检查点分叉</text>
+  <text x="266" y="266" class="card-s">• 注入 20% 候选源 + 80% 锚定基准</text>
+  <text x="266" y="282" class="card-s">• 短跑 20B–50B 快速 LR 退火至零</text>
+  <text x="266" y="302" font-size="9.8" font-weight="700" fill="#047857">优势：1/50 算力灵敏测出真实涨点</text>
+
+  <!-- Merge arrows down to Production -->
+  <line x1="150" y1="316" x2="220" y2="342" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-ind)"/>
+  <line x1="350" y1="316" x2="280" y2="342" stroke="#059669" stroke-width="1.6" marker-end="url(#arr-em)"/>
+
+  <rect x="52" y="346" width="398" height="70" rx="8" fill="#1e293b"/>
+  <text x="251" y="370" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">锁定最优静态/动态配方 w_m*(t) → 投入 70B+ 主训练</text>
+  <text x="251" y="391" text-anchor="middle" font-size="10.8" fill="#cbd5e1">验证指标：小→大模型排序一致性 Spearman ρ &gt; 0.85</text>
+  <text x="251" y="407" text-anchor="middle" font-size="10.2" fill="#93c5fd">单次寻优算力仅占主训练 0.3%–1.5%，规避千万美元级配方误判</text>
+
+  <!-- RIGHT HALF: Multi-layer Decontamination Firewall -->
+  <rect x="480" y="70" width="404" height="360" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.3"/>
+  <text x="496" y="94" class="sec-t" fill="#9f1239">二、训练侧 TB/PB 级三层去污防火墙（防泄漏红线）</text>
+
+  <!-- Sealed Benchmark Vault -->
+  <rect x="496" y="108" width="372" height="52" rx="8" fill="#ffffff" stroke="#fb7185" stroke-width="1.4"/>
+  <rect x="506" y="116" width="94" height="19" rx="9" fill="#e11d48"/>
+  <text x="553" y="129" class="pill" fill="#ffffff">密封评测指纹库</text>
+  <text x="610" y="130" class="card-t" fill="#881337">仅暴露单向哈希 / 向量索引</text>
+  <text x="506" y="150" class="card-s">覆盖：公开基准（MMLU/GSM8K/SWE/MMMU）+ 企业私有留存黄金集</text>
+
+  <line x1="682" y1="160" x2="682" y2="178" stroke="#e11d48" stroke-width="1.6" marker-end="url(#arr-ro)"/>
+
+  <!-- Shield 1: Exact N-gram / Suffix Array -->
+  <rect x="496" y="182" width="372" height="56" rx="8" fill="#ffffff" stroke="#fecdd3"/>
+  <rect x="502" y="189" width="4" height="42" rx="2" fill="#e11d48"/>
+  <text x="516" y="205" class="card-t">第 1 层：精确 N-gram（13-gram）与 Suffix Array</text>
+  <text x="516" y="224" class="card-s">拦截逐字原题、代码题干与基准页面爬取拷贝（PB 级毫秒吞吐）。</text>
+
+  <line x1="682" y1="238" x2="682" y2="252" stroke="#e11d48" stroke-width="1.5" marker-end="url(#arr-ro)"/>
+
+  <!-- Shield 2: Semantic Embedding -->
+  <rect x="496" y="256" width="372" height="56" rx="8" fill="#ffffff" stroke="#fecdd3"/>
+  <rect x="502" y="263" width="4" height="42" rx="2" fill="#ea580c"/>
+  <text x="516" y="279" class="card-t">第 2 层：语义向量近邻检测（Embedding ANN）</text>
+  <text x="516" y="298" class="card-s">专杀同义改写、改数字套壳与中英跨语种翻译泄漏（余弦 &gt; 0.85 复核）。</text>
+
+  <line x1="682" y1="312" x2="682" y2="326" stroke="#e11d48" stroke-width="1.5" marker-end="url(#arr-ro)"/>
+
+  <!-- Shield 3: Multimodal pHash + CLIP -->
+  <rect x="496" y="330" width="372" height="52" rx="8" fill="#ffffff" stroke="#fecdd3"/>
+  <rect x="502" y="337" width="4" height="38" rx="2" fill="#7c3aed"/>
+  <text x="516" y="352" class="card-t">第 3 层：多模态视觉去污（pHash + CLIP 向量）</text>
+  <text x="516" y="370" class="card-s">拦截截图缩放、加水印与裁剪变体，阻断 VLM/GUI 基准图泄密。</text>
+
+  <!-- Output Badge -->
+  <rect x="496" y="392" width="372" height="26" rx="6" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="682" y="409" text-anchor="middle" font-size="10.8" font-weight="700" fill="#065f46">输出洁净训练集 + 去污审计报告（联动《LLM 与 Agent 评测》第 4 章）</text>
+</svg>

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="Visual CoT 视觉工具推理轨迹、统一生成式 DiT 数据筛选与三阶段跨模态防纯文本遗忘混配">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13.5px; font-weight: 700; fill: #1e293b; }
+    .card-t { font-size: 11.2px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 9.8px; fill: #475569; }
+    .bar-lbl { font-size: 9.6px; font-weight: 700; text-anchor: middle; fill: #ffffff; }
+    .stg-t { font-size: 11px; font-weight: 700; fill: #1e293b; }
+  </style>
+  <defs>
+    <marker id="arr-i" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arr-m" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#9333ea"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">Visual CoT 视觉工具轨迹、统一生成偏好与跨模态防遗忘混配</text>
+  <text x="36" y="56" class="sub">让模型“边看边算、动图推理”，用物理/美学偏好打磨生成质量，并用纯文本锚点守住通用推理不退化。</text>
+
+  <!-- Top-Left: Visual CoT & VLM-RLVR -->
+  <rect x="36" y="74" width="446" height="190" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="83" width="4" height="22" rx="2" fill="#4f46e5"/>
+  <text x="56" y="99" class="sec-t">A. Visual CoT（Thinking with Images）与 VLM-RLVR 循环</text>
+
+  <!-- 4-node reasoning loop -->
+  <rect x="52" y="114" width="124" height="54" rx="7" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="114" y="133" class="card-t" fill="#3730a3" text-anchor="middle">高分原图输入</text>
+  <text x="114" y="148" class="card-s" text-anchor="middle">几何/图表/空间题</text>
+  <text x="114" y="161" font-size="9.2" fill="#4f46e5" text-anchor="middle" class="mono">1120² → 1,600 tok</text>
+
+  <line x1="176" y1="141" x2="196" y2="141" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-i)"/>
+
+  <rect x="200" y="114" width="134" height="54" rx="7" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="267" y="133" class="card-t" fill="#9a3412" text-anchor="middle">视觉工具动作调用</text>
+  <text x="267" y="148" class="card-s" text-anchor="middle">crop / zoom / rotate</text>
+  <text x="267" y="161" class="card-s" text-anchor="middle">draw_aux_line / python</text>
+
+  <line x1="334" y1="141" x2="352" y2="141" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-i)"/>
+
+  <rect x="356" y="114" width="112" height="54" rx="7" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="412" y="133" class="card-t" fill="#065f46" text-anchor="middle">确定性 Verifier</text>
+  <text x="412" y="148" class="card-s" text-anchor="middle">精确数值 / 符号等价</text>
+  <text x="412" y="161" class="card-s" text-anchor="middle">坐标框 IoU 硬判分</text>
+
+  <!-- Loop back box: New Visual Observation -->
+  <path d="M 267 168 L 267 186" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#arr-i)"/>
+  <rect x="52" y="190" width="416" height="40" rx="7" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="260" y="207" font-size="10.5" font-weight="700" fill="#1e293b" text-anchor="middle">新局部视觉观测回插上下文（m_t = 0 掩码，仅对思考与工具调用算 Loss）</text>
+  <text x="260" y="222" font-size="9.6" fill="#475569" text-anchor="middle">账本收益：1600 + 3×256 = 2,368 视觉 tok，比暴力 2240² 全图（6,400 tok）省 63% 且更准</text>
+
+  <text x="260" y="251" font-size="9.8" font-weight="600" fill="#4338ca" text-anchor="middle">注：工具调用多步轨迹无缝衔接第五篇（Ch 15）Agent 统一轨迹 IR 与 Loss Mask 体系</text>
+
+  <!-- Top-Right: Generative Multimodal & Unified DiT Data -->
+  <rect x="498" y="74" width="386" height="190" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="506" y="83" width="4" height="22" rx="2" fill="#9333ea"/>
+  <text x="518" y="99" class="sec-t">B. 视觉生成与 Unified DiT 数据提纯工厂</text>
+
+  <!-- 3 stacked compact cards -->
+  <rect x="514" y="114" width="354" height="42" rx="7" fill="#faf5ff" stroke="#d8b4fe"/>
+  <text x="526" y="131" class="card-t" fill="#6b21a8">1. 三维质量硬过滤（进预训/精调池前）</text>
+  <text x="526" y="147" class="card-s">美学高分（Top 15%）× 物理重力/遮挡一致性 × 视频时序连贯性（杀闪烁变形）</text>
+
+  <rect x="514" y="164" width="354" height="42" rx="7" fill="#fff1f2" stroke="#fda4af"/>
+  <text x="526" y="181" class="card-t" fill="#9f1239">2. 生成偏好对（Diffusion-DPO / Visual RM）</text>
+  <text x="526" y="197" class="card-s">同 Prompt 下构造“文字拼写准/手指正常/遵从构图” vs “畸变伪影”对比对</text>
+
+  <rect x="514" y="214" width="354" height="42" rx="7" fill="#f0f9ff" stroke="#7dd3fc"/>
+  <text x="526" y="231" class="card-t" fill="#0369a1">3. 多轮可控编辑三元组 (I_{t-1}, e_t, I_t)</text>
+  <text x="526" y="247" class="card-s">强约束非编辑区像素保持（ID / 背景一致），精准监督局部修改与风格迁移</text>
+
+  <!-- Bottom Band: Stage-wise Cross-Modal Mixing to Prevent Pure-Text Forgetting -->
+  <rect x="36" y="278" width="848" height="156" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="287" width="4" height="22" rx="2" fill="#059669"/>
+  <text x="56" y="303" class="sec-t">C. 分阶段冻结/解冻与跨模态混配防纯文本遗忘账本（守住纯文本核心评测回退 &lt; 0.5 pp 红线）</text>
+
+  <!-- Stage 1 row -->
+  <text x="54" y="331" class="stg-t">Stage 1 · 投影对齐期</text>
+  <text x="54" y="346" font-size="9.5" fill="#64748b">Freeze LLM &amp; ViT，仅训 Projector</text>
+  <rect x="236" y="320" width="480" height="24" rx="5" fill="#7c3aed"/>
+  <text x="476" y="336" class="bar-lbl">高质图文对 &amp; 密集重打标 90%</text>
+  <rect x="718" y="320" width="54" height="24" rx="5" fill="#0284c7"/>
+  <text x="745" y="336" class="bar-lbl">文本10%</text>
+  <text x="782" y="336" font-size="9.8" font-weight="700" fill="#059669">纯文本 0 损伤</text>
+
+  <!-- Stage 2 row -->
+  <text x="54" y="369" class="stg-t">Stage 2 · 联合续训期</text>
+  <text x="54" y="384" font-size="9.5" fill="#64748b">全参数解冻，高风险遗忘区</text>
+  <rect x="236" y="358" width="214" height="24" rx="5" fill="#0284c7"/>
+  <text x="343" y="374" class="bar-lbl">纯文本锚点回放 40%（关键护栏）</text>
+  <rect x="452" y="358" width="240" height="24" rx="5" fill="#7c3aed"/>
+  <text x="572" y="374" class="bar-lbl">交错文档 / OCR / 密集图文 45%</text>
+  <rect x="694" y="358" width="78" height="24" rx="5" fill="#0d9488"/>
+  <text x="733" y="374" class="bar-lbl">音视频 15%</text>
+  <text x="782" y="374" font-size="9.8" font-weight="700" fill="#0284c7">保逻辑与代码</text>
+
+  <!-- Stage 3 row -->
+  <text x="54" y="407" class="stg-t">Stage 3 · 多模态后训练</text>
+  <text x="54" y="422" font-size="9.5" fill="#64748b">SFT + VLM-RLVR + 生成偏好</text>
+  <rect x="236" y="396" width="214" height="24" rx="5" fill="#0284c7"/>
+  <text x="343" y="412" class="bar-lbl">纯文本推理 / 指令 / 安全 40%</text>
+  <rect x="452" y="396" width="256" height="24" rx="5" fill="#4f46e5"/>
+  <text x="580" y="412" class="bar-lbl">Visual CoT / 多模态指令与 RLVR 48%</text>
+  <rect x="710" y="396" width="62" height="24" rx="5" fill="#9333ea"/>
+  <text x="741" y="412" class="bar-lbl">生成 12%</text>
+  <text x="782" y="412" font-size="9.8" font-weight="700" fill="#4f46e5">跨模态双赢</text>
+
+  <!-- Footer -->
+  <text x="460" y="453" text-anchor="middle" font-size="11" fill="#64748b">第 14 章收官第四篇：当视觉工具调用升级为跨终端多轮交互，便自然步入第五篇（Ch 15–20）Agent 数据工程高地。</text>
+</svg>

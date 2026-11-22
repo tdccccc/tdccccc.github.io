@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 470" role="img" aria-label="长程上下文压缩摘要、跨会话长期记忆 CRUD 与多智能体协作轨迹非对称掩码架构图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13px; font-weight: 700; }
+    .box-t { font-size: 11.4px; font-weight: 700; fill: #1e293b; }
+    .box-s { font-size: 10px; fill: #475569; }
+    .pill { font-size: 9.8px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-violet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="470" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">长程上下文压缩、跨会话长期记忆与多智能体协作轨迹数据范式</text>
+  <text x="30" y="54" class="sub">突破单会话短视窗与单兵作战上限：以续跑通过率检验上下文压缩无损性，以时序 CRUD 构造长期记忆，以非对称掩码防多智能体角色串台。</text>
+
+  <!-- Top Left: Context Compaction Data -->
+  <rect x="30" y="70" width="424" height="162" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+  <text x="46" y="93" class="sec-t" fill="#075985">① 上下文压缩摘要（Context Compaction）无损验真工厂</text>
+
+  <rect x="46" y="106" width="112" height="66" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="56" y="124" class="box-t">超长前缀轨迹</text>
+  <text x="56" y="141" class="box-s mono" fill="#0369a1">40K Tokens</text>
+  <text x="56" y="157" class="box-s">冗余日志与探索</text>
+
+  <line x1="158" y1="139" x2="176" y2="139" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arr-sky)"/>
+
+  <rect x="178" y="106" width="128" height="66" rx="7" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.4"/>
+  <text x="188" y="124" class="box-t" fill="#075985">结构化状态摘要</text>
+  <text x="188" y="141" class="box-s mono" fill="#0369a1">1.5K Tokens (26×)</text>
+  <text x="188" y="157" class="box-s">事实/已改文件/排雷/待办</text>
+
+  <line x1="306" y1="139" x2="324" y2="139" stroke="#059669" stroke-width="1.5" marker-end="url(#arr-emerald)"/>
+
+  <rect x="326" y="106" width="114" height="66" rx="7" fill="#ecfdf5" stroke="#34d399"/>
+  <text x="336" y="124" class="box-t" fill="#065f46">续跑通关验证</text>
+  <text x="336" y="141" class="box-s">替换前缀再续跑</text>
+  <text x="336" y="157" class="box-s mono" fill="#047857">通过率保持 ≥95%</text>
+
+  <rect x="46" y="182" width="394" height="38" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="58" y="198" class="box-s">核心原则：拒绝用 ROUGE 评摘要！仅保留注入后仍能跑通下游终态断言的高保真压缩样本</text>
+  <text x="58" y="213" class="box-s mono" fill="#0369a1">压缩比目标 8×–20× · 同步产出主策略“主动触发压缩”边界样本</text>
+
+  <!-- Top Right: Cross-Session Long-Term Memory CRUD -->
+  <rect x="468" y="70" width="422" height="162" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.4"/>
+  <text x="484" y="93" class="sec-t" fill="#5b21b6">② 跨会话长期记忆 CRUD 轨迹（模拟多周演进时间线）</text>
+
+  <rect x="484" y="106" width="190" height="52" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="494" y="123" class="box-t" fill="#6d28d9">WRITE · 选择性写入</text>
+  <text x="494" y="139" class="box-s">沉淀持久偏好/架构决策</text>
+  <text x="494" y="152" class="box-s">过滤一次性临时噪声对话</text>
+
+  <rect x="684" y="106" width="190" height="52" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="694" y="123" class="box-t" fill="#6d28d9">READ · 抗干扰精准召回</text>
+  <text x="694" y="139" class="box-s">跨 5 会话召回关键约束</text>
+  <text x="694" y="152" class="box-s">抵御相似干扰记忆条目</text>
+
+  <rect x="484" y="166" width="190" height="54" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="494" y="183" class="box-t" fill="#6d28d9">UPDATE · 时序冲突覆盖</text>
+  <text x="494" y="199" class="box-s">S3 决策 PG→ClickHouse</text>
+  <text x="494" y="212" class="box-s">显式废止旧事实防拼接矛盾</text>
+
+  <rect x="684" y="166" width="190" height="54" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="694" y="183" class="box-t" fill="#6d28d9">FORGET · 遗忘与合规擦除</text>
+  <text x="694" y="199" class="box-s">响应 TTL 过期与隐私删数</text>
+  <text x="694" y="212" class="box-s">验证后续会话彻底不再提及</text>
+
+  <!-- Bottom Half: Multi-Agent Collaboration & Asymmetric Loss Mask -->
+  <rect x="30" y="246" width="860" height="208" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+  <text x="46" y="269" class="sec-t" fill="#065f46">③ 多智能体协作（Planner–Worker–Reviewer）轨迹编排与非对称 Loss Mask 隔离</text>
+
+  <!-- Planner Box -->
+  <rect x="46" y="282" width="184" height="96" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.6"/>
+  <text x="58" y="301" class="box-t" fill="#065f46">Planner / Orchestrator</text>
+  <text x="58" y="319" class="box-s">• 任务拆解与并行派单</text>
+  <text x="58" y="335" class="box-s">• 编写自包含 Brief（显式边界）</text>
+  <text x="58" y="351" class="box-s">• 严禁隐含父上下文假设</text>
+  <text x="58" y="369" class="box-s mono" fill="#047857">dispatch(worker_A, worker_B)</text>
+
+  <!-- Delegation arrows -->
+  <line x1="230" y1="308" x2="268" y2="302" stroke="#059669" stroke-width="1.5" marker-end="url(#arr-emerald)"/>
+  <line x1="230" y1="350" x2="268" y2="356" stroke="#059669" stroke-width="1.5" marker-end="url(#arr-emerald)"/>
+
+  <!-- Worker A & Worker B -->
+  <rect x="270" y="280" width="214" height="44" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="282" y="298" class="box-t">Worker A（代码/检索执行者）</text>
+  <text x="282" y="314" class="box-s">独立沙箱工具循环 → 返回结构化交付物</text>
+
+  <rect x="270" y="334" width="214" height="44" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="282" y="352" class="box-t">Worker B / Reviewer（核验对抗）</text>
+  <text x="282" y="368" class="box-s">审查 Diff/引用缺陷 → 产出结构化驳回单</text>
+
+  <!-- Merge arrows -->
+  <line x1="484" y1="302" x2="522" y2="318" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr-violet)"/>
+  <line x1="484" y1="356" x2="522" y2="340" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr-violet)"/>
+
+  <!-- Conflict Resolution & Synthesis -->
+  <rect x="524" y="282" width="174" height="96" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="536" y="301" class="box-t" fill="#5b21b6">冲突仲裁与状态汇合</text>
+  <text x="536" y="319" class="box-s">• 解决多路证据或代码冲突</text>
+  <text x="536" y="335" class="box-s">• 按证据权重而非盲目折中</text>
+  <text x="536" y="351" class="box-s">• 触发定向返工或收敛答复</text>
+  <text x="536" y="369" class="box-s mono" fill="#6d28d9">联动 llm-rl Ch 15</text>
+
+  <line x1="698" y1="330" x2="720" y2="330" stroke="#059669" stroke-width="1.6" marker-end="url(#arr-emerald)"/>
+
+  <rect x="722" y="282" width="152" height="96" rx="8" fill="#d1fae5" stroke="#10b981" stroke-width="1.4"/>
+  <text x="734" y="301" class="box-t" fill="#065f46">多智能体终态验真</text>
+  <text x="734" y="319" class="box-s">• 全局任务断言通过</text>
+  <text x="734" y="335" class="box-s">• 通信轮数/Token 预算</text>
+  <text x="734" y="351" class="box-s">• 无踢皮球/死锁循环</text>
+  <text x="734" y="369" class="box-s mono" fill="#047857">协同增益 &gt; 单兵基线</text>
+
+  <!-- Asymmetric Loss Mask Guardrail Bar -->
+  <rect x="46" y="390" width="828" height="52" rx="7" fill="#fff1f2" stroke="#fda4af" stroke-width="1.4"/>
+  <text x="60" y="409" class="box-t" fill="#9f1239">角色专属非对称 Loss Mask 铁律（严防“编排者自演子智能体回复”或“执行者无限转包”）</text>
+  <text x="60" y="429" font-size="9.6" class="mono" fill="#1e293b">训 Planner：[Planner Think/Brief/Merge → m=1] [Worker 返回 → 观测 m=0]  ||  训 Worker：[Worker 动作 → m=1] [父 Brief/Obs → m=0]</text>
+</svg>

@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="On-policy 偏好去偏构造、开放任务 Rubric 原子检查项拆解与人类专家标注工厂质检闭环">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13.5px; font-weight: 700; fill: #1e293b; }
+    .card-t { font-size: 12px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 10.3px; fill: #475569; }
+    .pill { font-size: 9.8px; font-weight: 700; text-anchor: middle; }
+    .tbl-h { font-size: 10.5px; font-weight: 700; fill: #334155; }
+    .tbl-r { font-size: 10.2px; fill: #334155; }
+  </style>
+  <defs>
+    <marker id="arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arr-o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#ea580c"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">偏好数据去偏流水线、开放任务 Rubric 原子化与专家标注质检闭环</text>
+  <text x="36" y="56" class="sub">把主观模糊的“好坏”工程化为同策略分布、可核验检查项（Checklist）与可审计的人机协同质检工厂。</text>
+
+  <!-- Top Band: On-policy Preference Pair Debiasing -->
+  <rect x="36" y="74" width="848" height="126" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="83" width="4" height="22" rx="2" fill="#2563eb"/>
+  <text x="56" y="99" class="sec-t">A. On-policy 偏好对（y⁺, y⁻）构造与系统偏置清洗</text>
+  <rect x="642" y="82" width="228" height="22" rx="11" fill="#fee2e2" stroke="#fca5a5"/>
+  <text x="756" y="97" font-size="10.2" font-weight="700" fill="#b91c1c" text-anchor="middle">警惕：Off-policy 异构对易引发分布漂移</text>
+
+  <!-- 3 Flow Cards in Top Band -->
+  <rect x="54" y="114" width="248" height="72" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="68" y="133" class="card-t" fill="#1d4ed8">① 同策略多路径采样</text>
+  <text x="68" y="151" class="card-s">由当前策略 π_θ 采样 K=4–8 条候选</text>
+  <text x="68" y="168" class="card-s">保证正负样本共享相同词表与风格底座</text>
+
+  <line x1="302" y1="150" x2="328" y2="150" stroke="#2563eb" stroke-width="1.7" marker-end="url(#arr-b)"/>
+
+  <rect x="332" y="114" width="268" height="72" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="346" y="133" class="card-t" fill="#c2410c">② Margin 过滤与去偏闸门</text>
+  <text x="346" y="151" class="card-s">• 差额截断：Δs = s(y⁺) − s(y⁻) ≥ δ* 才入库</text>
+  <text x="346" y="168" class="card-s">• 长度平衡（控长/短比例）+ 剔除迎合谬误</text>
+
+  <line x1="600" y1="150" x2="626" y2="150" stroke="#2563eb" stroke-width="1.7" marker-end="url(#arr-b)"/>
+
+  <rect x="630" y="114" width="238" height="72" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="644" y="133" class="card-t" fill="#047857">③ 高信噪比偏好对产出</text>
+  <text x="644" y="151" class="card-s">精准区分“实质推理/事实优劣”</text>
+  <text x="644" y="168" class="card-s">阻断 DPO / RM 学成“堆字数机器”</text>
+
+  <!-- Bottom Left: Open-ended Rubric Decomposition -->
+  <rect x="36" y="216" width="438" height="218" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="225" width="4" height="22" rx="2" fill="#7c3aed"/>
+  <text x="56" y="241" class="sec-t">B. 开放任务 Rubric 原子检查项（Checklist）结构</text>
+
+  <!-- Rubric Prompt bar -->
+  <rect x="52" y="254" width="406" height="26" rx="6" fill="#f5f3ff" stroke="#c4b5fd"/>
+  <text x="64" y="271" font-size="10.5" font-weight="600" fill="#5b21b6">示例 Prompt：为中小 SaaS 企业起草一份 GDPR 数据泄漏 72 小时应急预案</text>
+
+  <!-- Rubric Table Header -->
+  <rect x="52" y="288" width="406" height="22" rx="4" fill="#f1f5f9"/>
+  <text x="62" y="303" class="tbl-h">检查项类型</text>
+  <text x="150" y="303" class="tbl-h">可二值核验原子条件（Eliminate Ambiguity）</text>
+  <text x="418" y="303" class="tbl-h" text-anchor="middle">权重</text>
+
+  <!-- Row 1 -->
+  <rect x="52" y="313" width="406" height="26" rx="4" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="62" y="330" font-size="10.2" font-weight="700" fill="#065f46">必达核心项</text>
+  <text x="150" y="330" class="tbl-r">明确区分监管通报（72h）与受影响用户告知条件</text>
+  <text x="418" y="330" font-size="10.5" font-weight="700" fill="#059669" text-anchor="middle" class="mono">+3</text>
+
+  <!-- Row 2 -->
+  <rect x="52" y="342" width="406" height="26" rx="4" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="62" y="359" font-size="10.2" font-weight="700" fill="#1e40af">区分度加分</text>
+  <text x="150" y="359" class="tbl-r">给出取证日志留存清单与法务/PR 角色分工表</text>
+  <text x="418" y="359" font-size="10.5" font-weight="700" fill="#2563eb" text-anchor="middle" class="mono">+2</text>
+
+  <!-- Row 3 -->
+  <rect x="52" y="371" width="406" height="26" rx="4" fill="#fef2f2" stroke="#fecaca"/>
+  <text x="62" y="388" font-size="10.2" font-weight="700" fill="#b91c1c">红线否决项</text>
+  <text x="150" y="388" class="tbl-r">伪造法条编号或建议隐瞒延迟上报（触发熔断）</text>
+  <text x="418" y="388" font-size="10.5" font-weight="700" fill="#dc2626" text-anchor="middle" class="mono">-5</text>
+
+  <!-- Formula bar -->
+  <text x="255" y="418" font-size="10.6" font-weight="600" fill="#475569" text-anchor="middle" class="mono">R(x, y) = Σ w_j · c_j(x, y)   →   同时驱动人工标注、LLM Judge 与 Rubrics-RL</text>
+
+  <!-- Bottom Right: Human Expert Annotation Factory -->
+  <rect x="490" y="216" width="394" height="218" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="498" y="225" width="4" height="22" rx="2" fill="#ea580c"/>
+  <text x="510" y="241" class="sec-t">C. 人类专家标注工厂：质检、仲裁与主动学习</text>
+
+  <!-- 4 vertical-ish or 2x2 grid with arrows -->
+  <rect x="506" y="256" width="174" height="62" rx="7" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="518" y="274" class="card-t" fill="#9a3412">1. 规范试标（Pilot）</text>
+  <text x="518" y="291" class="card-s">先标 50 题收敛歧义规则</text>
+  <text x="518" y="306" class="card-s">κ ≥ 0.75 才放行全量</text>
+
+  <line x1="680" y1="287" x2="696" y2="287" stroke="#ea580c" stroke-width="1.6" marker-end="url(#arr-o)"/>
+
+  <rect x="700" y="256" width="170" height="62" rx="7" fill="#fefce8" stroke="#fde047"/>
+  <text x="712" y="274" class="card-t" fill="#854d0e">2. 双盲 + 金标蜜罐</text>
+  <text x="712" y="291" class="card-s">混入 5%–10% 隐藏金标题</text>
+  <text x="712" y="306" class="card-s">跌破阈值自动踢除批次</text>
+
+  <line x1="785" y1="318" x2="785" y2="334" stroke="#ea580c" stroke-width="1.6" marker-end="url(#arr-o)"/>
+
+  <rect x="700" y="338" width="170" height="62" rx="7" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="712" y="356" class="card-t" fill="#3730a3">3. IAA 与分级仲裁</text>
+  <text x="712" y="373" class="card-s">监控 Cohen κ / Alpha</text>
+  <text x="712" y="388" class="card-s">高分歧题交资深专家裁决</text>
+
+  <line x1="700" y1="369" x2="684" y2="369" stroke="#ea580c" stroke-width="1.6" marker-end="url(#arr-o)"/>
+
+  <rect x="506" y="338" width="174" height="62" rx="7" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="518" y="356" class="card-t" fill="#065f46">4. 主动学习聚焦预算</text>
+  <text x="518" y="373" class="card-s">RM 不确定样本优先送标</text>
+  <text x="518" y="388" class="card-s">降本 60%+，保金标 ROI</text>
+
+  <!-- Cost Benchmark Bar inside Panel C -->
+  <rect x="506" y="407" width="364" height="20" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="688" y="421" font-size="10" font-weight="600" fill="#334155" text-anchor="middle">2026 成本账：常规精标 $5–$45/样本 · 医/法/代码专家 $80+ · 通过率 80%–90%</text>
+
+  <!-- Footer -->
+  <text x="460" y="453" text-anchor="middle" font-size="11" fill="#64748b">联动《LLM 强化学习》第 5 章（Rubrics-RL）与《LLM 与 Agent 评测》第 3 章（LLM Judge 偏置校准）。</text>
+</svg>

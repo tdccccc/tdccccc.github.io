@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 460" role="img" aria-label="Deep Research 与多模态企业 RAG 数据链路：跨 PDF 图表 SQL 检索、句级引用归因核验与诚实拒答配比">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13px; font-weight: 700; }
+    .box-t { font-size: 11.5px; font-weight: 700; fill: #1e293b; }
+    .box-s { font-size: 10.1px; fill: #475569; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-violet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="460" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">Deep Research 与多模态企业 RAG：跨源推理、句级引用核验与诚实拒答链路</text>
+  <text x="30" y="54" class="sub">开放知识工作流缺乏 0/1 编译器真值，必须依托冻结快照沙箱、跨模态证据链绑定与句级 NLI 归因闸门构建高信噪比轨迹。</text>
+
+  <!-- Left Panel: Frozen Multimodal Knowledge Sandbox -->
+  <rect x="30" y="70" width="222" height="270" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.4"/>
+  <text x="44" y="93" class="sec-t" fill="#5b21b6">① 冻结多模态知识沙箱</text>
+
+  <rect x="44" y="106" width="194" height="42" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="54" y="123" class="box-t">离线快照网页 / 研报库</text>
+  <text x="54" y="139" class="box-s">固定时间戳 · 可复现检索排序</text>
+
+  <rect x="44" y="156" width="194" height="42" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="54" y="173" class="box-t">扫描 PDF + 高分页面图</text>
+  <text x="54" y="189" class="box-s">版面框 BBox · 1,600 visual tok/页</text>
+
+  <rect x="44" y="206" width="194" height="42" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="54" y="223" class="box-t">复杂表格 / 图表 + SQL 库</text>
+  <text x="54" y="239" class="box-s">跨模态联合桥接（财报图×ERP）</text>
+
+  <!-- Injection sanitizer strip -->
+  <rect x="44" y="258" width="194" height="68" rx="7" fill="#fff1f2" stroke="#fda4af"/>
+  <text x="54" y="276" class="box-t" fill="#9f1239">间接提示注入消毒闸门</text>
+  <text x="54" y="293" class="box-s" fill="#881337">清洗隐藏 DOM / 白色小字指令</text>
+  <text x="54" y="309" class="box-s" fill="#881337">保留可控对抗样本测注入免疫</text>
+
+  <!-- Arrow 1 -> 2 -->
+  <line x1="252" y1="205" x2="274" y2="205" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arr-violet)"/>
+
+  <!-- Center Panel: Multi-Hop Research & MM-RAG Loop -->
+  <rect x="276" y="70" width="334" height="270" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.5"/>
+  <text x="292" y="93" class="sec-t" fill="#075985">② 多跳研究与跨模态推理轨迹合成</text>
+
+  <rect x="292" y="106" width="302" height="46" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="304" y="124" class="box-t">1. 问题分解与检索规划（抗参数记忆）</text>
+  <text x="304" y="141" class="box-s">淘汰无检索直答率 &gt;60% 题 · 构造 3–5 跳桥接/对比问句</text>
+
+  <line x1="443" y1="152" x2="443" y2="165" stroke="#0284c7" stroke-width="1.4" marker-end="url(#arr-sky)"/>
+
+  <rect x="292" y="167" width="302" height="46" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="304" y="185" class="box-t">2. 交替执行 Search / 视觉页览 / SQL 查询</text>
+  <text x="304" y="202" class="box-s">动态改写查询 · 视觉必要性校验（纯 OCR 无法独答）</text>
+
+  <line x1="443" y1="213" x2="443" y2="226" stroke="#0284c7" stroke-width="1.4" marker-end="url(#arr-sky)"/>
+
+  <rect x="292" y="228" width="302" height="46" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="304" y="246" class="box-t">3. 冲突源仲裁与口径对齐</text>
+  <text x="304" y="263" class="box-s">一手财报优先二手新闻 · 币种/合并口径/时间戳显式对齐</text>
+
+  <line x1="443" y1="274" x2="443" y2="286" stroke="#0284c7" stroke-width="1.4" marker-end="url(#arr-sky)"/>
+
+  <rect x="292" y="288" width="302" height="40" rx="7" fill="#e0f2fe" stroke="#38bdf8"/>
+  <text x="304" y="305" class="box-t" fill="#0369a1">4. 结构化长报告 + 证据锚点绑定</text>
+  <text x="304" y="321" class="box-s mono" fill="#075985">inline ref: [doc_id#p12:bbox4 | sql_row_9] + SHA256</text>
+
+  <!-- Arrow 2 -> 3 -->
+  <line x1="610" y1="205" x2="632" y2="205" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-green)"/>
+
+  <!-- Right Panel: Citation Grounding Verification Gate -->
+  <rect x="634" y="70" width="256" height="270" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="648" y="93" class="sec-t" fill="#065f46">③ 句级引用归因三段式核验</text>
+
+  <rect x="648" y="106" width="228" height="48" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="660" y="124" class="box-t">Stage A · 原子事实主张拆解</text>
+  <text x="660" y="141" class="box-s">长报告拆分为独立可证伪命题列表</text>
+
+  <line x1="762" y1="154" x2="762" y2="167" stroke="#059669" stroke-width="1.4" marker-end="url(#arr-green)"/>
+
+  <rect x="648" y="169" width="228" height="50" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="660" y="187" class="box-t">Stage B · 确定性数值与框体对齐</text>
+  <text x="660" y="204" class="box-s">校验 ID 存在性 · 核对表格单元格/数值</text>
+
+  <line x1="762" y1="219" x2="762" y2="232" stroke="#059669" stroke-width="1.4" marker-end="url(#arr-green)"/>
+
+  <rect x="648" y="234" width="228" height="94" rx="7" fill="#ffffff" stroke="#10b981" stroke-width="1.4"/>
+  <text x="660" y="253" class="box-t" fill="#065f46">Stage C · NLI 蕴含与 Rubric 终审</text>
+  <text x="660" y="270" class="box-s">拦截：伪造源 / 张冠李戴 / 以偏概全</text>
+  <text x="660" y="286" class="box-s mono" fill="#047857">准入红线：P_cite ≥ 95%, 无支撑 &lt;2%</text>
+  <rect x="660" y="296" width="204" height="22" rx="5" fill="#d1fae5"/>
+  <text x="762" y="311" class="pill mono" fill="#065f46">η_pass ≈ 22% · C_eff ≈ $0.48 / 条</text>
+
+  <!-- Bottom Strip: Honest Abstention & Uncertainty Mix -->
+  <rect x="30" y="354" width="860" height="90" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.4"/>
+  <rect x="36" y="362" width="4" height="74" rx="2" fill="#ea580c"/>
+  <text x="50" y="378" class="sec-t" fill="#9a3412">④ 诚实不确定性与负样本配比（建议占总训练集 15%–25%，根治“有问必编”幻觉）</text>
+
+  <rect x="50" y="388" width="198" height="44" rx="6" fill="#ffffff" stroke="#fed7aa"/>
+  <text x="60" y="405" class="box-t">空检索 / 无关文档</text>
+  <text x="60" y="422" class="box-s">明确说明库内缺失，严禁凭空捏造</text>
+
+  <rect x="258" y="388" width="198" height="44" rx="6" fill="#ffffff" stroke="#fed7aa"/>
+  <text x="268" y="405" class="box-t">过期快照 / 时效越界</text>
+  <text x="268" y="422" class="box-s">主动声明数据截止日，不冒充最新</text>
+
+  <rect x="466" y="388" width="198" height="44" rx="6" fill="#ffffff" stroke="#fed7aa"/>
+  <text x="476" y="405" class="box-t">不可消解证据冲突</text>
+  <text x="476" y="422" class="box-s">并列呈现多源差异与可信度依据</text>
+
+  <rect x="674" y="388" width="202" height="44" rx="6" fill="#ffffff" stroke="#fed7aa"/>
+  <text x="684" y="405" class="box-t">部分字段覆盖</text>
+  <text x="684" y="422" class="box-s">仅答已核实子集并标明缺失字段</text>
+</svg>

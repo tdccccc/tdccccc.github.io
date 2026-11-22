@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="VLM 网页图文净化与密集重打标漏斗及高精度 OCR 文档图表合成与 AnyRes 切片管线">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13.8px; font-weight: 700; fill: #1e293b; }
+    .box-t { font-size: 11.5px; font-weight: 700; fill: #1e293b; text-anchor: middle; }
+    .box-s { font-size: 9.8px; fill: #475569; text-anchor: middle; }
+    .yield { font-size: 9.8px; font-weight: 700; text-anchor: middle; }
+    .card-t { font-size: 12px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 10.2px; fill: #475569; }
+  </style>
+  <defs>
+    <marker id="arr-v" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">VLM 基础数据双引擎：图文过滤/密集重打标 × 高精度文档/AnyRes 工厂</text>
+  <text x="36" y="56" class="sub">左手用多级对齐与密集重打标替代噪声网页 Alt-text，右手用代码反向渲染与动态切片攻克高密小字与图表。</text>
+
+  <!-- Top Band: Web Image-Text + Interleaved + Dense Recaptioning -->
+  <rect x="36" y="74" width="848" height="172" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="84" width="4" height="22" rx="2" fill="#7c3aed"/>
+  <text x="56" y="100" class="sec-t">A. 网页图文对与交错文档（Interleaved）净化 → 密集重打标（Dense Recaptioning）流水线</text>
+
+  <!-- 5 Stage Boxes -->
+  <!-- Stage 0 -->
+  <rect x="52" y="116" width="144" height="90" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="86" y="123" width="76" height="17" rx="8.5" fill="#64748b"/>
+  <text x="124" y="135" class="yield" fill="#ffffff">原始池 100%</text>
+  <text x="124" y="156" class="box-t">网页图文 &amp; DOM</text>
+  <text x="124" y="173" class="box-s">LAION / OBELICS 源</text>
+  <text x="124" y="188" class="box-s">含死链、水印与噪声</text>
+  <text x="124" y="201" class="box-s">Alt-text 信息极贫乏</text>
+
+  <line x1="196" y1="161" x2="212" y2="161" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arr-v)"/>
+
+  <!-- Stage 1 -->
+  <rect x="216" y="116" width="148" height="90" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+  <rect x="252" y="123" width="76" height="17" rx="8.5" fill="#ea580c"/>
+  <text x="290" y="135" class="yield" fill="#ffffff">留存 ~45%</text>
+  <text x="290" y="156" class="box-t">物理与视觉体检</text>
+  <text x="290" y="173" class="box-s">分辨率 / 长宽比边界</text>
+  <text x="290" y="188" class="box-s">美学分 · 模糊/水印过滤</text>
+  <text x="290" y="201" class="box-s">剔除纯文字遮挡广告图</text>
+
+  <line x1="364" y1="161" x2="380" y2="161" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arr-v)"/>
+
+  <!-- Stage 2 -->
+  <rect x="384" y="116" width="152" height="90" rx="8" fill="#eef2ff" stroke="#a5b4fc"/>
+  <rect x="422" y="123" width="76" height="17" rx="8.5" fill="#4f46e5"/>
+  <text x="460" y="135" class="yield" fill="#ffffff">留存 ~15%</text>
+  <text x="460" y="156" class="box-t">语义对齐 &amp; 交错保真</text>
+  <text x="460" y="173" class="box-s">CLIP / SigLIP 阈值 + DFN</text>
+  <text x="460" y="188" class="box-s">pHash + 语义去重</text>
+  <text x="460" y="201" class="box-s">保留多图上下文指代序</text>
+
+  <line x1="536" y1="161" x2="552" y2="161" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arr-v)"/>
+
+  <!-- Stage 3 -->
+  <rect x="556" y="116" width="152" height="90" rx="8" fill="#f5f3ff" stroke="#c4b5fd"/>
+  <rect x="588" y="123" width="88" height="17" rx="8.5" fill="#7c3aed"/>
+  <text x="632" y="135" class="yield" fill="#ffffff">$0.15–$0.60/千图</text>
+  <text x="632" y="156" class="box-t">VLM 密集重打标</text>
+  <text x="632" y="173" class="box-s">主体/方位/颜色/材质/文字</text>
+  <text x="632" y="188" class="box-s">~500 in + ~250 out tok</text>
+  <text x="632" y="201" class="box-s">幻觉校验留存 60%–75%</text>
+
+  <line x1="708" y1="161" x2="724" y2="161" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arr-v)"/>
+
+  <!-- Stage 4 -->
+  <rect x="728" y="116" width="140" height="90" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <rect x="760" y="123" width="76" height="17" rx="8.5" fill="#059669"/>
+  <text x="798" y="135" class="yield" fill="#ffffff">多视图混配</text>
+  <text x="798" y="156" class="box-t">高密度图文库</text>
+  <text x="798" y="173" class="box-s">原 Alt-text 保世界实体</text>
+  <text x="798" y="188" class="box-s">重打标补细粒度视觉</text>
+  <text x="798" y="201" class="box-s">交错文档练多图推理</text>
+
+  <text x="460" y="232" font-size="10.4" font-weight="600" fill="#5b21b6" text-anchor="middle">黄金经验：不可 100% 抛弃原始 Alt-text（它携带地标/人名/专有实体名），须按比例与 Dense Caption 混合训练</text>
+
+  <!-- Bottom Band: Synthetic OCR / Chart / UI + Dynamic Resolution (AnyRes) -->
+  <rect x="36" y="262" width="848" height="172" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="272" width="4" height="22" rx="2" fill="#0284c7"/>
+  <text x="56" y="288" class="sec-t">B. 高精度文档 / 图表 / 蓝图 / UI 合成工厂与动态分辨率（AnyRes）视觉 Token 适配</text>
+
+  <!-- Left: Programmatic Rendering -->
+  <rect x="52" y="304" width="258" height="114" rx="8" fill="#f0f9ff" stroke="#7dd3fc"/>
+  <text x="66" y="324" class="card-t" fill="#0369a1">① 代码反向渲染（零错漏真值）</text>
+  <text x="66" y="344" class="card-s">• 文档表格：LaTeX / HTML / Typst 渲染</text>
+  <text x="66" y="362" class="card-s">• 统计图表：Matplotlib / ECharts 源码驱动</text>
+  <text x="66" y="380" class="card-s">• 工程/UI：SVG 蓝图与无头浏览器 DOM 截图</text>
+  <text x="66" y="400" font-size="10" font-weight="700" fill="#0284c7">→ 同步输出高清图 + 100% 精确 Markdown/JSON</text>
+
+  <line x1="310" y1="361" x2="332" y2="361" stroke="#0284c7" stroke-width="1.7" marker-end="url(#arr-c)"/>
+
+  <!-- Center: AnyRes Tiling Visualization -->
+  <rect x="336" y="304" width="276" height="114" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="350" y="324" class="card-t" fill="#1e293b">② 动态分辨率（AnyRes）切片示意</text>
+
+  <!-- 2x2 high-res grid + global thumbnail -->
+  <g transform="translate(352, 336)">
+    <rect x="0" y="0" width="36" height="30" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+    <text x="18" y="19" font-size="9" font-weight="700" fill="#1e40af" text-anchor="middle">T1</text>
+    <rect x="40" y="0" width="36" height="30" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+    <text x="58" y="19" font-size="9" font-weight="700" fill="#1e40af" text-anchor="middle">T2</text>
+    <rect x="0" y="34" width="36" height="30" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+    <text x="18" y="53" font-size="9" font-weight="700" fill="#1e40af" text-anchor="middle">T3</text>
+    <rect x="40" y="34" width="36" height="30" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+    <text x="58" y="53" font-size="9" font-weight="700" fill="#1e40af" text-anchor="middle">T4</text>
+    <text x="88" y="36" font-size="13" font-weight="700" fill="#64748b">+</text>
+    <rect x="102" y="15" width="36" height="34" rx="3" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.3"/>
+    <text x="120" y="35" font-size="8.8" font-weight="700" fill="#3730a3" text-anchor="middle">全局</text>
+  </g>
+  <!-- Token math next to tiles -->
+  <text x="502" y="352" font-size="9.8" font-weight="700" fill="#334155" class="mono">448² → 256 tok</text>
+  <text x="502" y="369" font-size="9.8" font-weight="700" fill="#0284c7" class="mono">1120² → 1,600 tok</text>
+  <text x="502" y="386" font-size="9.5" fill="#475569">按原比例保小字坐标</text>
+  <text x="502" y="402" font-size="9.5" fill="#475569">告别 336² 暴力压扁</text>
+
+  <line x1="612" y1="361" x2="634" y2="361" stroke="#0284c7" stroke-width="1.7" marker-end="url(#arr-c)"/>
+
+  <!-- Right: Augmentation & Output -->
+  <rect x="638" y="304" width="230" height="114" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="652" y="324" class="card-t" fill="#065f46">③ 真实退化增广与结构监督</text>
+  <text x="652" y="344" class="card-s">• 模拟扫描倾斜、折痕阴影、JPEG 压缩</text>
+  <text x="652" y="362" class="card-s">• 跨栏阅读顺序 + 合并单元格对齐</text>
+  <text x="652" y="380" class="card-s">• 归一化坐标框 (x1,y1,x2,y2) 定位</text>
+  <text x="652" y="400" font-size="10" font-weight="700" fill="#059669">→ 覆盖 DocVQA / ChartQA / GUI 底座</text>
+
+  <!-- Footer -->
+  <text x="460" y="453" text-anchor="middle" font-size="11" fill="#64748b">第 12 章核心账本：T_img(H, W) = ⌈H/p⌉·⌈W/p⌉ / s_pool² + T_meta，决定视觉清晰度与显存/吞吐的根本权衡。</text>
+</svg>

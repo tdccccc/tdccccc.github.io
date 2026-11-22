@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 530" role="img" aria-label="LLM 与 Agent 数据工程全栈地图：自上而下打通规模化合成与生产飞轮、Agent 多轮轨迹高地、多模态与后训练燃料库、预训练洗数与有效数据底座四层">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 22px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13.5px; fill: #64748b; }
+    .layer-title { font-size: 14.5px; font-weight: 700; }
+    .layer-hint { font-size: 11.2px; }
+    .ch-pill { font-size: 10.8px; font-weight: 700; text-anchor: middle; }
+    .chip-txt { font-size: 10.5px; font-weight: 600; fill: #1e293b; text-anchor: middle; }
+    .spine-title { font-size: 13.5px; font-weight: 700; fill: #9a3412; text-anchor: middle; }
+    .spine-card-t { font-size: 11.8px; font-weight: 700; fill: #1e293b; text-anchor: middle; }
+    .spine-card-s { font-size: 10px; fill: #64748b; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="data-arrow-spine" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#ea580c"/>
+    </marker>
+    <marker id="data-arrow-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="530" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="38" y="38" class="title">LLM 与 Agent 数据工程：原理、配方与迭代飞轮全栈地图</text>
+  <text x="38" y="62" class="sub">以「算清留存与成本账、打通全模态与 Agent 轨迹、沉淀资产化生产飞轮」为主轴，贯通 6 篇 25 章。</text>
+
+  <!-- Left Vertical Spine -->
+  <g>
+    <rect x="38" y="82" width="124" height="416" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+    <rect x="52" y="94" width="96" height="22" rx="11" fill="#ea580c"/>
+    <text x="100" y="109" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">贯穿全书主轴</text>
+
+    <text x="100" y="140" class="spine-title">有效数据账本与</text>
+    <text x="100" y="158" class="spine-title">血缘闭环治理</text>
+
+    <rect x="49" y="176" width="102" height="54" rx="7" fill="#ffffff" stroke="#fed7aa"/>
+    <text x="100" y="198" class="spine-card-t">Scaling 与漏斗账</text>
+    <text x="100" y="217" class="spine-card-s">D_eff · Yield · ROI</text>
+
+    <rect x="49" y="242" width="102" height="54" rx="7" fill="#ffffff" stroke="#fed7aa"/>
+    <text x="100" y="264" class="spine-card-t">严守去污与隔离</text>
+    <text x="100" y="283" class="spine-card-s">双轨隔离 · 血缘 DAG</text>
+
+    <rect x="49" y="308" width="102" height="54" rx="7" fill="#ffffff" stroke="#fed7aa"/>
+    <text x="100" y="330" class="spine-card-t">外部锚定防坍缩</text>
+    <text x="100" y="349" class="spine-card-s">Verifier · 沙箱真值</text>
+
+    <rect x="49" y="378" width="102" height="106" rx="7" fill="#ffedd5" stroke="#fdba74"/>
+    <text x="100" y="400" font-size="11" font-weight="700" fill="#9a3412" text-anchor="middle">第一篇 Ch 1–3</text>
+    <text x="100" y="418" font-size="10.2" fill="#c2410c" text-anchor="middle">Scaling · 打包 · 去污</text>
+    <line x1="62" y1="430" x2="138" y2="430" stroke="#fdba74" stroke-dasharray="3 2"/>
+    <text x="100" y="448" font-size="11" font-weight="700" fill="#9a3412" text-anchor="middle">参考工具箱</text>
+    <text x="100" y="466" font-size="10" fill="#c2410c" text-anchor="middle">公式账本 · 15项红线</text>
+  </g>
+
+  <!-- Spine connectors -->
+  <line x1="162" y1="120" x2="180" y2="120" stroke="#ea580c" stroke-width="1.6" marker-end="url(#data-arrow-spine)"/>
+  <line x1="162" y1="210" x2="180" y2="210" stroke="#ea580c" stroke-width="1.6" marker-end="url(#data-arrow-spine)"/>
+  <line x1="162" y1="300" x2="180" y2="300" stroke="#ea580c" stroke-width="1.6" marker-end="url(#data-arrow-spine)"/>
+  <line x1="162" y1="390" x2="180" y2="390" stroke="#ea580c" stroke-width="1.6" marker-end="url(#data-arrow-spine)"/>
+  <line x1="162" y1="468" x2="180" y2="468" stroke="#ea580c" stroke-width="1.6" marker-end="url(#data-arrow-spine)"/>
+
+  <!-- Layer 1: 第六篇 合成、资产化与生产飞轮层 -->
+  <g>
+    <rect x="182" y="82" width="700" height="74" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+    <rect x="188" y="91" width="4" height="56" rx="2" fill="#059669"/>
+    <text x="202" y="106" class="layer-title" fill="#065f46">① 规模化合成引擎、企业数据湖与生产回流飞轮</text>
+    <text x="530" y="106" class="layer-hint" fill="#047857">资产化沉淀、合规脱敏与全周期归因</text>
+    <rect x="734" y="89" width="136" height="22" rx="11" fill="#d1fae5" stroke="#6ee7b7"/>
+    <text x="802" y="104" class="ch-pill" fill="#065f46">第六篇 Ch 21–25</text>
+
+    <rect x="202" y="118" width="160" height="28" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="282" y="136" class="chip-txt">批合成成本账与防坍缩</text>
+    <rect x="372" y="118" width="160" height="28" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="452" y="136" class="chip-txt">多模态数据湖与血缘 DAG</text>
+    <rect x="542" y="118" width="160" height="28" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="622" y="136" class="chip-txt">线上 Tracing 与双轨飞轮</text>
+    <rect x="712" y="118" width="158" height="28" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="791" y="136" class="chip-txt">全模态 PII/版权与归因树</text>
+  </g>
+
+  <line x1="532" y1="168" x2="532" y2="158" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#data-arrow-up)"/>
+
+  <!-- Layer 2: 第五篇 Agent 数据工程高地（全书核心加厚） -->
+  <g>
+    <rect x="182" y="170" width="700" height="80" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.5"/>
+    <rect x="188" y="180" width="4" height="60" rx="2" fill="#e11d48"/>
+    <text x="202" y="195" class="layer-title" fill="#9f1239">② Agent 数据工程高地（核心加厚 · 24% 篇幅）</text>
+    <text x="518" y="195" class="layer-hint" fill="#be123c">环境即数据 × 精确 Loss Mask × 反事实修复</text>
+    <rect x="734" y="178" width="136" height="22" rx="11" fill="#ffe4e6" stroke="#fda4af"/>
+    <text x="802" y="193" class="ch-pill" fill="#9f1239">第五篇 Ch 15–20</text>
+
+    <rect x="202" y="208" width="126" height="30" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="265" y="227" class="chip-txt">Trajectory IR &amp; 环境</text>
+    <rect x="336" y="208" width="126" height="30" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="399" y="227" class="chip-txt">Tool / MCP 多轮合成</text>
+    <rect x="470" y="208" width="126" height="30" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="533" y="227" class="chip-txt">SWE / Terminal 工厂</text>
+    <rect x="604" y="208" width="128" height="30" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="668" y="227" class="chip-txt">Research · GUI 多模态</text>
+    <rect x="740" y="208" width="130" height="30" rx="6" fill="#ffffff" stroke="#fecdd3"/>
+    <text x="805" y="227" class="chip-txt">筛选修复 · 长记忆协作</text>
+  </g>
+
+  <line x1="532" y1="262" x2="532" y2="252" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#data-arrow-up)"/>
+
+  <!-- Layer 3: 第四篇 多模态数据工程 -->
+  <g>
+    <rect x="182" y="264" width="700" height="74" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.4"/>
+    <rect x="188" y="273" width="4" height="56" rx="2" fill="#7c3aed"/>
+    <text x="202" y="288" class="layer-title" fill="#5b21b6">③ 多模态数据工程全栈（图文 · 文档 · 视频 · 语音）</text>
+    <text x="538" y="288" class="layer-hint" fill="#6d28d9">密集重打标 × 原生全模态 × 视觉推理</text>
+    <rect x="734" y="271" width="136" height="22" rx="11" fill="#ede9fe" stroke="#c4b5fd"/>
+    <text x="802" y="286" class="ch-pill" fill="#5b21b6">第四篇 Ch 12–14</text>
+
+    <rect x="202" y="300" width="214" height="28" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+    <text x="309" y="318" class="chip-txt">图文过滤 · 交错文档 · OCR/重打标</text>
+    <rect x="426" y="300" width="216" height="28" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+    <text x="534" y="318" class="chip-txt">视频切分采样 · 全双工语音 · I/O 账</text>
+    <rect x="652" y="300" width="218" height="28" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+    <text x="761" y="318" class="chip-txt">Visual CoT · 生成偏好 · 跨模态混配</text>
+  </g>
+
+  <line x1="532" y1="350" x2="532" y2="340" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#data-arrow-up)"/>
+
+  <!-- Layer 4: 第三篇 后训练数据工程 -->
+  <g>
+    <rect x="182" y="352" width="700" height="74" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+    <rect x="188" y="361" width="4" height="56" rx="2" fill="#4f46e5"/>
+    <text x="202" y="376" class="layer-title" fill="#3730a3">④ 后训练燃料库（SFT · 偏好 · Rubric · RLVR）</text>
+    <text x="520" y="376" class="layer-hint" fill="#4338ca">少而精高信噪比 × 零作弊可验证题池</text>
+    <rect x="734" y="359" width="136" height="22" rx="11" fill="#e0e7ff" stroke="#a5b4fc"/>
+    <text x="802" y="374" class="ch-pill" fill="#3730a3">第三篇 Ch 8–11</text>
+
+    <rect x="202" y="388" width="160" height="28" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="282" y="406" class="chip-txt">SFT 复杂度与 Long-CoT</text>
+    <rect x="372" y="388" width="160" height="28" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="452" y="406" class="chip-txt">On-policy 偏好与 Rubric</text>
+    <rect x="542" y="388" width="160" height="28" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="622" y="406" class="chip-txt">RLVR 题库与甜点区课程</text>
+    <rect x="712" y="388" width="158" height="28" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="791" y="406" class="chip-txt">负迁移与防过度拒绝配比</text>
+  </g>
+
+  <line x1="532" y1="438" x2="532" y2="428" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#data-arrow-up)"/>
+
+  <!-- Layer 5: 第二篇 预训练与中期训练数据工程 -->
+  <g>
+    <rect x="182" y="440" width="700" height="58" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+    <rect x="188" y="448" width="4" height="42" rx="2" fill="#0284c7"/>
+    <text x="202" y="464" class="layer-title" fill="#075985">⑤ 预训练与中期训练数据底座</text>
+    <text x="412" y="464" class="layer-hint" fill="#0284c7">HTML/PDF 解析 · 模型过滤与 MinHash/Suffix 去重 · Mid-training 退火 · 10T+ 基建</text>
+    <rect x="734" y="458" width="136" height="22" rx="11" fill="#e0f2fe" stroke="#7dd3fc"/>
+    <text x="802" y="473" class="ch-pill" fill="#0369a1">第二篇 Ch 4–7</text>
+    <text x="202" y="486" font-size="10.5" fill="#475569">基石输入：第一篇 Ch 1–3（Scaling 有效数据账 · 文本/多模态打包与掩码 · 小模型代理寻优与全链路去污）</text>
+  </g>
+
+  <!-- Footer legend -->
+  <text x="460" y="516" text-anchor="middle" font-size="11" fill="#64748b">联动《LLM 推理工程》（离线批合成算力）·《LLM 强化学习》（后训练优化）·《LLM 与 Agent 评测》（标尺与黄金集）</text>
+</svg>

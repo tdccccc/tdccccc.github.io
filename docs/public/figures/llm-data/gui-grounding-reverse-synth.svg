@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="GUI 与 Computer-Use 数据工厂：截图与 A11y Tree 双模对齐、归一化定位与好奇心探索逆向任务合成">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13.2px; font-weight: 700; }
+    .box-t { font-size: 11.4px; font-weight: 700; fill: #1e293b; }
+    .box-s { font-size: 10.1px; fill: #475569; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">GUI / Computer-Use 跨端数据工厂：UI Grounding 与逆向任务合成</text>
+  <text x="30" y="54" class="sub">先以跨端双模对齐与归一化坐标夯实视觉定位底座，再通过「探索随机游走 + 状态 Diff 逆向合成 + 终态断言」突破人工录屏产能上限。</text>
+
+  <!-- Stage 1: Cross-Platform Capture & UI Grounding -->
+  <rect x="30" y="70" width="860" height="150" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+  <rect x="36" y="78" width="4" height="134" rx="2" fill="#4f46e5"/>
+  <text x="50" y="94" class="sec-t" fill="#3730a3">① 阶段一：跨端双模对齐与 UI Grounding 预训练/精调数据工厂</text>
+  <rect x="700" y="77" width="176" height="20" rx="10" fill="#e0e7ff" stroke="#818cf8"/>
+  <text x="788" y="91" class="pill" fill="#3730a3">模态 Dropout：60%纯图 + 40%双模</text>
+
+  <!-- Box 1.1: Capture -->
+  <rect x="50" y="106" width="188" height="100" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="62" y="124" class="box-t">跨端采集栈</text>
+  <text x="62" y="142" class="box-s">• Web: CDP / DOM / AXTree</text>
+  <text x="62" y="159" class="box-s">• OS: AT-SPI / UIA / AXUI</text>
+  <text x="62" y="176" class="box-s">• Mobile: UIAutomator XML</text>
+  <text x="62" y="194" class="box-s mono" fill="#4338ca">操作前后稳定帧 + 事件流</text>
+
+  <line x1="238" y1="156" x2="256" y2="156" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-indigo)"/>
+
+  <!-- Box 1.2: Alignment & Sanitization -->
+  <rect x="258" y="106" width="194" height="100" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="270" y="124" class="box-t">双模时空校准与脱敏</text>
+  <text x="270" y="142" class="box-s">• 消除渲染延迟与过渡动画帧</text>
+  <text x="270" y="159" class="box-s">• 校准 DPI 缩放 / iframe 偏移</text>
+  <text x="270" y="176" class="box-s">• OCR 框自动模糊 PII 像素</text>
+  <text x="270" y="194" class="box-s mono" fill="#4338ca">统一归一化坐标 [0, 1]²</text>
+
+  <line x1="452" y1="156" x2="470" y2="156" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-indigo)"/>
+
+  <!-- Box 1.3: 4 Grounding Tasks -->
+  <rect x="472" y="106" width="404" height="100" rx="7" fill="#ffffff" stroke="#818cf8" stroke-width="1.4"/>
+  <text x="484" y="124" class="box-t" fill="#3730a3">四大 Grounding 任务数据（分辨率无关整数网格 [0..999]）</text>
+
+  <rect x="484" y="134" width="186" height="28" rx="5" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <text x="492" y="152" class="box-s">1. 指代表达定位（意图 → BBox/点）</text>
+
+  <rect x="680" y="134" width="186" height="28" rx="5" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <text x="688" y="152" class="box-s">2. 无标签图标语义密集重打标</text>
+
+  <rect x="484" y="168" width="186" height="28" rx="5" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <text x="492" y="186" class="box-s">3. 表格/多栏相对空间关系推理</text>
+
+  <rect x="680" y="168" width="186" height="28" rx="5" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <text x="688" y="186" class="box-s">4. Next-State 动作结果预测</text>
+
+  <!-- Connector down -->
+  <line x1="460" y1="220" x2="460" y2="236" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-indigo)"/>
+
+  <!-- Stage 2: Exploration + Reverse Task Synthesis -->
+  <rect x="30" y="238" width="860" height="154" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+  <rect x="36" y="246" width="4" height="138" rx="2" fill="#059669"/>
+  <text x="50" y="262" class="sec-t" fill="#065f46">② 阶段二：好奇心探索 + 逆向任务合成（Reverse Task Synthesis）与终态验证闭环</text>
+
+  <rect x="50" y="274" width="176" height="104" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="60" y="292" class="box-t">1. 好奇心探索游走</text>
+  <text x="60" y="310" class="box-s">预置文件/邮件/表格沙箱</text>
+  <text x="60" y="326" class="box-s">优先点击未访问控件状态</text>
+  <text x="60" y="342" class="box-s">记录有效序列 (s_0…s_T)</text>
+  <text x="60" y="362" class="box-s mono" fill="#047857">+ 捕获 OS/DB/DOM Diff</text>
+
+  <line x1="226" y1="326" x2="244" y2="326" stroke="#059669" stroke-width="1.6" marker-end="url(#arr-green)"/>
+
+  <rect x="246" y="274" width="194" height="104" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="256" y="292" class="box-t" fill="#065f46">2. 状态 Diff 逆向反推</text>
+  <text x="256" y="310" class="box-s">强 VLM 审视关键帧与 ΔS</text>
+  <text x="256" y="326" class="box-s">反推自然语言用户任务指令</text>
+  <text x="256" y="342" class="box-s">剪除探索期无意义兜圈步</text>
+  <text x="256" y="362" class="box-s mono" fill="#047857">天然保证任务在环境中可达</text>
+
+  <line x1="440" y1="326" x2="458" y2="326" stroke="#059669" stroke-width="1.6" marker-end="url(#arr-green)"/>
+
+  <rect x="460" y="274" width="198" height="104" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="470" y="292" class="box-t">3. 重置回放 + 终态断言</text>
+  <text x="470" y="310" class="box-s">在洁净 VM 正向独立重跑</text>
+  <text x="470" y="326" class="box-s">核验 .xlsx 单元格/文件哈希</text>
+  <text x="470" y="342" class="box-s">核验浏览器存储/应用 SQLite</text>
+  <text x="470" y="362" class="box-s mono" fill="#047857">晋升 Tier 2 可验证金轨</text>
+
+  <line x1="658" y1="326" x2="676" y2="326" stroke="#e11d48" stroke-width="1.6" marker-end="url(#arr-rose)"/>
+
+  <rect x="678" y="274" width="198" height="104" rx="7" fill="#fff1f2" stroke="#fda4af" stroke-width="1.4"/>
+  <text x="688" y="292" class="box-t" fill="#9f1239">4. 高风险 UI 安全红线</text>
+  <text x="688" y="310" class="box-s" fill="#881337">• 支付转账 / 账号与文件永删</text>
+  <text x="688" y="326" class="box-s" fill="#881337">• 敏感凭据复制与外传拦截</text>
+  <text x="688" y="342" class="box-s" fill="#881337">• 识别伪装弹窗提示注入</text>
+  <text x="688" y="362" class="box-s mono" fill="#be123c">强制触发暂停并请求人工确认</text>
+
+  <!-- Bottom Visual Token Ledger Bar -->
+  <rect x="30" y="406" width="860" height="44" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="460" y="424" font-size="11.4" font-weight="700" fill="#1e293b" text-anchor="middle">视觉 Token 预算优化：滑动高分窗口（近 2–3 帧 1,600 tok + 早期帧 256 tok/文字摘要）</text>
+  <text x="460" y="440" font-size="10.4" fill="#047857" class="mono" text-anchor="middle">15 轮轨迹视觉占用：24,000 → 7,680 tokens (-68%)  |  累计合成推理 Prefill 算力降 3.1×，点击定位精度无损</text>
+</svg>

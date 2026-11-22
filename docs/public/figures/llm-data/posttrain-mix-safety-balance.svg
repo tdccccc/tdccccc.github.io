@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="多任务后训练负迁移跷跷板、安全与反过度拒绝边界配对及多专家蒸馏整合">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .panel-t { font-size: 13.8px; font-weight: 700; fill: #1e293b; }
+    .panel-s { font-size: 10.6px; fill: #64748b; }
+    .chip { font-size: 10.2px; font-weight: 700; text-anchor: middle; }
+    .lbl { font-size: 10.5px; font-weight: 700; fill: #1e293b; }
+    .desc { font-size: 10px; fill: #475569; }
+  </style>
+  <defs>
+    <marker id="arr-p" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">多任务混配负迁移治理、安全边界配对与多专家蒸馏整合</text>
+  <text x="36" y="56" class="sub">后训练不是单点刷榜，而是在多能力跷跷板、精准拒绝与多专家融合之间寻找全局帕累托前沿。</text>
+
+  <!-- Left Panel: Multi-task Mixing & Specialist Consolidation -->
+  <rect x="36" y="74" width="424" height="360" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="84" width="4" height="28" rx="2" fill="#4f46e5"/>
+  <text x="56" y="98" class="panel-t">A. 多任务混配跷跷板与多专家蒸馏合流</text>
+  <text x="56" y="113" class="panel-s">Σ w_m = 1；防单域激进加权拖垮指令遵循与通用对话</text>
+
+  <!-- Stacked Proportion Bar -->
+  <text x="54" y="136" font-size="10.5" font-weight="700" fill="#334155">典型通才后训练配方锚点示例（w_m 占比）</text>
+  <rect x="54" y="144" width="96" height="24" rx="4" fill="#6366f1"/>
+  <text x="102" y="160" class="chip" fill="#ffffff">通用 25%</text>
+  <rect x="152" y="144" width="96" height="24" rx="4" fill="#0ea5e9"/>
+  <text x="200" y="160" class="chip" fill="#ffffff">数学 25%</text>
+  <rect x="250" y="144" width="76" height="24" rx="4" fill="#10b981"/>
+  <text x="288" y="160" class="chip" fill="#ffffff">代码 20%</text>
+  <rect x="328" y="144" width="46" height="24" rx="4" fill="#f59e0b"/>
+  <text x="351" y="160" class="chip" fill="#ffffff">IF 12%</text>
+  <rect x="376" y="144" width="38" height="24" rx="4" fill="#8b5cf6"/>
+  <text x="395" y="160" class="chip" fill="#ffffff">长文</text>
+  <rect x="416" y="144" width="26" height="24" rx="4" fill="#ef4444"/>
+  <text x="429" y="160" font-size="9" font-weight="700" fill="#ffffff" text-anchor="middle">安</text>
+
+  <!-- Seesaw Diagnosis Box -->
+  <rect x="54" y="180" width="388" height="92" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+  <text x="68" y="199" font-size="11.2" font-weight="700" fill="#991b1b">典型负迁移陷阱（Negative Transfer Seesaw）</text>
+  <!-- Tilted seesaw graphic -->
+  <line x1="90" y1="224" x2="232" y2="250" stroke="#dc2626" stroke-width="3" stroke-linecap="round"/>
+  <polygon points="161,238 151,258 171,258" fill="#ef4444"/>
+  <rect x="74" y="206" width="84" height="18" rx="4" fill="#fee2e2" stroke="#f87171"/>
+  <text x="116" y="219" font-size="9.2" font-weight="700" fill="#991b1b" text-anchor="middle">短对话/JSON 暴跌</text>
+  <rect x="178" y="226" width="88" height="18" rx="4" fill="#dbeafe" stroke="#60a5fa"/>
+  <text x="222" y="239" font-size="9.2" font-weight="700" fill="#1d4ed8" text-anchor="middle">长思考占比 &gt;60%</text>
+
+  <text x="278" y="222" class="desc" fill="#7f1d1d">• 简单问候也狂吐长思考</text>
+  <text x="278" y="238" class="desc" fill="#7f1d1d">• 严格 JSON/字数约束违背</text>
+  <text x="278" y="254" class="desc" fill="#7f1d1d">→ 对策：可控消融+护栏锚点</text>
+
+  <!-- Specialist-to-Generalist Distillation Consolidation -->
+  <rect x="54" y="286" width="388" height="134" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="68" y="305" font-size="11.2" font-weight="700" fill="#1e293b">多专家分治 → 统一通才蒸馏整合（DeepSeek / Qwen3 范式）</text>
+
+  <!-- 4 Specialists -->
+  <rect x="66" y="316" width="84" height="30" rx="6" fill="#e0f2fe" stroke="#7dd3fc"/>
+  <text x="108" y="335" class="chip" fill="#0369a1">推理 RL 专家</text>
+  <rect x="158" y="316" width="84" height="30" rx="6" fill="#d1fae5" stroke="#6ee7b7"/>
+  <text x="200" y="335" class="chip" fill="#065f46">代码 RL 专家</text>
+  <rect x="250" y="316" width="84" height="30" rx="6" fill="#ede9fe" stroke="#c4b5fd"/>
+  <text x="292" y="335" class="chip" fill="#5b21b6">通用对话专家</text>
+  <rect x="342" y="316" width="88" height="30" rx="6" fill="#ffe4e6" stroke="#fda4af"/>
+  <text x="386" y="335" class="chip" fill="#9f1239">安全边界专家</text>
+
+  <!-- Converging arrows -->
+  <line x1="108" y1="346" x2="210" y2="370" stroke="#4f46e5" stroke-width="1.3" marker-end="url(#arr-p)"/>
+  <line x1="200" y1="346" x2="232" y2="370" stroke="#4f46e5" stroke-width="1.3" marker-end="url(#arr-p)"/>
+  <line x1="292" y1="346" x2="264" y2="370" stroke="#4f46e5" stroke-width="1.3" marker-end="url(#arr-p)"/>
+  <line x1="386" y1="346" x2="288" y2="370" stroke="#4f46e5" stroke-width="1.3" marker-end="url(#arr-p)"/>
+
+  <!-- Unified Generalist box -->
+  <rect x="86" y="373" width="324" height="36" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="1.4"/>
+  <text x="248" y="390" font-size="11" font-weight="700" fill="#3730a3" text-anchor="middle">离线拒绝采样汇总 + 风格统一 → 通才融合 SFT / 轻量联合 RL</text>
+  <text x="248" y="403" font-size="9.6" fill="#4338ca" text-anchor="middle">化解在线多目标 RL 梯度冲突，平滑兼得深度思考与日常遵从</text>
+
+  <!-- Right Panel: Safety Alignment vs Anti-Overrefusal -->
+  <rect x="478" y="74" width="406" height="360" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="486" y="84" width="4" height="28" rx="2" fill="#e11d48"/>
+  <text x="498" y="98" class="panel-t">B. 安全对齐与反过度拒绝（Anti-Overrefusal）配对边界</text>
+  <text x="498" y="113" class="panel-s">将红队攻击与“含敏感词的良性请求”成对注入，把边界刻成手术刀</text>
+
+  <!-- 3-Zone Boundary Diagram -->
+  <rect x="496" y="128" width="114" height="196" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+  <text x="553" y="148" font-size="11.5" font-weight="700" fill="#b91c1c" text-anchor="middle">真实恶意 / 越狱</text>
+  <text x="553" y="164" font-size="9.8" fill="#dc2626" text-anchor="middle">Harmful / Jailbreak</text>
+  <rect x="505" y="176" width="96" height="44" rx="5" fill="#ffffff" stroke="#fecaca"/>
+  <text x="553" y="193" font-size="9.5" fill="#7f1d1d" text-anchor="middle">角色扮演越狱</text>
+  <text x="553" y="209" font-size="9.5" fill="#7f1d1d" text-anchor="middle">违法攻击/投毒</text>
+  <rect x="505" y="228" width="96" height="44" rx="5" fill="#ffffff" stroke="#fecaca"/>
+  <text x="553" y="245" font-size="9.5" fill="#7f1d1d" text-anchor="middle">多轮渐进诱导</text>
+  <text x="553" y="261" font-size="9.5" fill="#7f1d1d" text-anchor="middle">编码混淆绕过</text>
+  <rect x="507" y="286" width="92" height="26" rx="13" fill="#dc2626"/>
+  <text x="553" y="303" class="chip" fill="#ffffff">中性坚决拒绝</text>
+
+  <!-- Center Contrastive Borderline Belt -->
+  <rect x="618" y="128" width="138" height="196" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.6" stroke-dasharray="5 3"/>
+  <text x="687" y="148" font-size="11.5" font-weight="700" fill="#5b21b6" text-anchor="middle">高危边界对抗带</text>
+  <text x="687" y="164" font-size="9.8" fill="#6d28d9" text-anchor="middle">XSTest / OR-Bench 风格</text>
+  <rect x="627" y="176" width="120" height="44" rx="5" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="687" y="193" font-size="9.5" fill="#4c1d95" text-anchor="middle">“如何 kill 僵死进程”</text>
+  <text x="687" y="209" font-size="9.5" fill="#6d28d9" text-anchor="middle">敏感动词 × 合法运维</text>
+  <rect x="627" y="228" width="120" height="44" rx="5" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="687" y="245" font-size="9.5" fill="#4c1d95" text-anchor="middle">“科普钓鱼邮件原理”</text>
+  <text x="687" y="261" font-size="9.5" fill="#6d28d9" text-anchor="middle">安全防御 × 教育语境</text>
+  <rect x="633" y="286" width="108" height="26" rx="13" fill="#7c3aed"/>
+  <text x="687" y="303" class="chip" fill="#ffffff">1:1 配对必须作答</text>
+
+  <!-- Right Benign Zone -->
+  <rect x="764" y="128" width="104" height="196" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="816" y="148" font-size="11.5" font-weight="700" fill="#065f46" text-anchor="middle">常规良性请求</text>
+  <text x="816" y="164" font-size="9.8" fill="#047857" text-anchor="middle">Normal Helpful</text>
+  <rect x="772" y="176" width="88" height="44" rx="5" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="816" y="193" font-size="9.5" fill="#064e3b" text-anchor="middle">知识问答写作</text>
+  <text x="816" y="209" font-size="9.5" fill="#064e3b" text-anchor="middle">代码与逻辑推理</text>
+  <rect x="772" y="228" width="88" height="44" rx="5" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="816" y="245" font-size="9.5" fill="#064e3b" text-anchor="middle">双用途信息分析</text>
+  <text x="816" y="261" font-size="9.5" fill="#064e3b" text-anchor="middle">合规业务咨询</text>
+  <rect x="772" y="286" width="88" height="26" rx="13" fill="#059669"/>
+  <text x="816" y="303" class="chip" fill="#ffffff">有益高质回应</text>
+
+  <!-- Bottom Comparison Card in Panel B -->
+  <rect x="496" y="336" width="372" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="510" y="356" class="lbl">有无边界对抗配对的实测反差（安全数据占总配方 ~3%–5%）</text>
+  <text x="510" y="376" font-size="10.2" fill="#dc2626">✗ 仅灌纯拒绝样本：安全拦截 99.1%，但良性误拒率飙升至 21.8%（“变傻不敢答”）</text>
+  <text x="510" y="395" font-size="10.2" font-weight="700" fill="#059669">✓ 1:1 恶意×边界配对：拦截率保持 98.6%，良性误拒率压低至 2.1%，零说教语气</text>
+  <text x="510" y="411" font-size="9.8" fill="#64748b">提示：拒绝回复避免长篇道德说教，防止污染通用对话风格</text>
+
+  <!-- Footer -->
+  <text x="460" y="453" text-anchor="middle" font-size="11" fill="#64748b">第 11 章收官第三篇：文本后训练配方定型后，第四篇（Ch 12–14）全面迈入图文、文档、视频与语音多模态数据全栈。</text>
+</svg>

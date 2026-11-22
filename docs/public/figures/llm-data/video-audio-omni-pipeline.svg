@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="视频时空清洗、全双工语音对齐与多模态大对象零饥饿流式 I/O 架构">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13.5px; font-weight: 700; fill: #1e293b; }
+    .card-t { font-size: 11.4px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 9.8px; fill: #475569; }
+    .io-t { font-size: 11.4px; font-weight: 700; fill: #1e293b; text-anchor: middle; }
+    .io-s { font-size: 9.6px; fill: #475569; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0d9488"/>
+    </marker>
+    <marker id="arr-r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+    <marker id="arr-n" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">视频时空提纯、原生全双工语音对齐与多模态流式 I/O 架构</text>
+  <text x="36" y="56" class="sub">把时序冗余压成高密度视觉/声学 Token，并在毫秒级双工同步与大对象解码 I/O 上杜绝 GPU 算力空转。</text>
+
+  <!-- Top-Left: Video Pipeline -->
+  <rect x="36" y="74" width="424" height="206" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="83" width="4" height="22" rx="2" fill="#0d9488"/>
+  <text x="56" y="99" class="sec-t">A. 视频数据流水线与时空 Token 账本</text>
+
+  <!-- 2x2 Video Stages -->
+  <rect x="52" y="114" width="184" height="58" rx="7" fill="#f0fdfa" stroke="#5eead4"/>
+  <text x="64" y="132" class="card-t" fill="#0f766e">1. 镜头切分（Scene Detect）</text>
+  <text x="64" y="148" class="card-s">识别转场切为 3–30s 原子片段</text>
+  <text x="64" y="162" class="card-s">防跨场景语义割裂与幻觉描述</text>
+
+  <line x1="236" y1="143" x2="254" y2="143" stroke="#0d9488" stroke-width="1.6" marker-end="url(#arr-t)"/>
+
+  <rect x="258" y="114" width="186" height="58" rx="7" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="270" y="132" class="card-t" fill="#c2410c">2. 运动光流与信息熵过滤</text>
+  <text x="270" y="148" class="card-s">剔除静态 PPT、黑屏、纯字幕图</text>
+  <text x="270" y="162" class="card-s">过滤剧烈模糊抖动与低码率片段</text>
+
+  <line x1="351" y1="172" x2="351" y2="186" stroke="#0d9488" stroke-width="1.6" marker-end="url(#arr-t)"/>
+
+  <rect x="258" y="190" width="186" height="58" rx="7" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="270" y="208" class="card-t" fill="#3730a3">3. 视听对齐 &amp; Dense Caption</text>
+  <text x="270" y="224" class="card-s">时间戳绑定事件起止 [t_s, t_e]</text>
+  <text x="270" y="238" class="card-s">联合画面动作 + 字幕/音轨生成描述</text>
+
+  <line x1="258" y1="219" x2="240" y2="219" stroke="#0d9488" stroke-width="1.6" marker-end="url(#arr-t)"/>
+
+  <rect x="52" y="190" width="184" height="58" rx="7" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="64" y="208" class="card-t" fill="#065f46">4. 自适应时空采样账</text>
+  <text x="64" y="224" font-size="9.8" font-weight="700" fill="#047857" class="mono">T_vid = L_sec·f_fps·T_frame</text>
+  <text x="64" y="238" class="card-s">1分钟 @1fps×128 = 7,680 tok</text>
+
+  <text x="248" y="268" font-size="9.8" font-weight="600" fill="#0f766e" text-anchor="middle">长视频策略：关键帧高清 + 非关键帧时空池化，将 10 分钟压至 ~19K Token</text>
+
+  <!-- Top-Right: Speech & Full-duplex Omni -->
+  <rect x="476" y="74" width="408" height="206" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="484" y="83" width="4" height="22" rx="2" fill="#e11d48"/>
+  <text x="496" y="99" class="sec-t">B. 语音清洗与全双工（Full-duplex）毫秒对齐</text>
+
+  <!-- Top mini pipeline -->
+  <rect x="492" y="114" width="84" height="44" rx="6" fill="#fff1f2" stroke="#fda4af"/>
+  <text x="534" y="133" class="io-t" fill="#9f1239">VAD 切段</text>
+  <text x="534" y="148" class="io-s">去静音/噪</text>
+
+  <line x1="576" y1="136" x2="588" y2="136" stroke="#e11d48" stroke-width="1.4" marker-end="url(#arr-r)"/>
+
+  <rect x="592" y="114" width="88" height="44" rx="6" fill="#fff1f2" stroke="#fda4af"/>
+  <text x="636" y="133" class="io-t" fill="#9f1239">说话人分离</text>
+  <text x="636" y="148" class="io-s">Diarization</text>
+
+  <line x1="680" y1="136" x2="692" y2="136" stroke="#e11d48" stroke-width="1.4" marker-end="url(#arr-r)"/>
+
+  <rect x="696" y="114" width="84" height="44" rx="6" fill="#fff1f2" stroke="#fda4af"/>
+  <text x="738" y="133" class="io-t" fill="#9f1239">ASR 过滤</text>
+  <text x="738" y="148" class="io-s">杀复读幻觉</text>
+
+  <line x1="780" y1="136" x2="792" y2="136" stroke="#e11d48" stroke-width="1.4" marker-end="url(#arr-r)"/>
+
+  <rect x="796" y="114" width="74" height="44" rx="6" fill="#fef2f2" stroke="#f87171"/>
+  <text x="833" y="133" class="io-t" fill="#991b1b">副语言标</text>
+  <text x="833" y="148" class="io-s">情绪/笑/叹</text>
+
+  <!-- Full-duplex Dual-Channel Timeline -->
+  <rect x="492" y="168" width="378" height="84" rx="7" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="504" y="184" font-size="10.2" font-weight="700" fill="#334155">双声道全双工时序对齐（帧步长 40 ms @ 25 Hz Codec）</text>
+
+  <!-- User track -->
+  <text x="504" y="207" font-size="9.8" font-weight="700" fill="#2563eb">User 轨</text>
+  <line x1="552" y1="203" x2="858" y2="203" stroke="#cbd5e1" stroke-width="1.2"/>
+  <rect x="556" y="194" width="76" height="18" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="594" y="207" font-size="9.2" font-weight="700" fill="#1e40af" text-anchor="middle">提问陈述</text>
+  <rect x="706" y="194" width="96" height="18" rx="4" fill="#fee2e2" stroke="#ef4444" stroke-width="1.3"/>
+  <text x="754" y="207" font-size="9.2" font-weight="700" fill="#b91c1c" text-anchor="middle">Barge-in 突发打断</text>
+
+  <!-- Assistant track -->
+  <text x="504" y="236" font-size="9.8" font-weight="700" fill="#059669">Bot 轨</text>
+  <line x1="552" y1="232" x2="858" y2="232" stroke="#cbd5e1" stroke-width="1.2"/>
+  <rect x="596" y="223" width="34" height="18" rx="4" fill="#d1fae5" stroke="#10b981"/>
+  <text x="613" y="236" font-size="9" font-weight="700" fill="#065f46" text-anchor="middle">嗯</text>
+  <rect x="640" y="223" width="84" height="18" rx="4" fill="#d1fae5" stroke="#10b981"/>
+  <text x="682" y="236" font-size="9.2" font-weight="700" fill="#065f46" text-anchor="middle">流式播报中</text>
+  <rect x="726" y="223" width="44" height="18" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="748" y="236" font-size="9" font-weight="700" fill="#92400e" text-anchor="middle">静默收口</text>
+  <rect x="804" y="223" width="52" height="18" rx="4" fill="#d1fae5" stroke="#10b981"/>
+  <text x="830" y="236" font-size="9.2" font-weight="700" fill="#065f46" text-anchor="middle">改口应答</text>
+
+  <!-- Vertical alignment dashed indicator at barge-in -->
+  <line x1="706" y1="192" x2="706" y2="245" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="3 2"/>
+
+  <text x="680" y="268" font-size="9.8" font-weight="600" fill="#9f1239" text-anchor="middle" class="mono">T_aud = L_sec · f_codec  →  60s @ 25Hz = 1,500 tok（K 码本并行为 K×1,500）</text>
+
+  <!-- Bottom Band: Multimodal Large-Binary Storage & Zero-Starvation I/O -->
+  <rect x="36" y="294" width="848" height="140" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="44" y="303" width="4" height="22" rx="2" fill="#4f46e5"/>
+  <text x="56" y="319" class="sec-t">C. 多模态大二进制存储与零 GPU 饥饿解码 I/O 链路（8×H100 节点 1,920 frames/s 实战账）</text>
+
+  <!-- 4 I/O Stages -->
+  <rect x="52" y="334" width="184" height="72" rx="8" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="144" y="353" class="io-t">1. 对象存储大分片</text>
+  <text x="144" y="370" class="io-s">WebDataset TAR 顺序流</text>
+  <text x="144" y="385" class="io-s">Lance 列式随机读 + 向量索引</text>
+  <text x="144" y="399" font-size="9.2" font-weight="700" fill="#475569" text-anchor="middle">消除百万小文件元数据风暴</text>
+
+  <line x1="236" y1="370" x2="256" y2="370" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-n)"/>
+
+  <rect x="260" y="334" width="188" height="72" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="354" y="353" class="io-t" fill="#9a3412">2. 解码瓶颈破局</text>
+  <text x="354" y="370" class="io-s">离线转低 GOP 720p/480p</text>
+  <text x="354" y="385" class="io-s">NVDEC 硬件解码替代纯 CPU</text>
+  <text x="354" y="399" font-size="9.2" font-weight="700" fill="#c2410c" text-anchor="middle">避免 1080p 软解吃满 120 核</text>
+
+  <line x1="448" y1="370" x2="468" y2="370" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-n)"/>
+
+  <rect x="472" y="334" width="188" height="72" rx="8" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="566" y="353" class="io-t" fill="#3730a3">3. 异步预取与特征缓存</text>
+  <text x="566" y="370" class="io-s">双缓冲 Ring Buffer 隐藏延迟</text>
+  <text x="566" y="385" class="io-s">冻结编码器期直读 BF16 特征</text>
+  <text x="566" y="399" font-size="9.2" font-weight="700" fill="#4338ca" text-anchor="middle">带宽从 11.9 GB/s 降至 0.49 GB/s</text>
+
+  <line x1="660" y1="370" x2="680" y2="370" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arr-n)"/>
+
+  <rect x="684" y="334" width="184" height="72" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="776" y="353" class="io-t" fill="#065f46">4. GPU 满载流水线</text>
+  <text x="776" y="370" class="io-s">音/视/文按动态桶均匀打包</text>
+  <text x="776" y="385" class="io-s">消除跨卡长度长尾木桶效应</text>
+  <text x="776" y="399" font-size="9.2" font-weight="700" fill="#059669" text-anchor="middle">训练 MFU 从 &lt;35% 恢复至 55%+</text>
+
+  <text x="460" y="424" font-size="9.8" fill="#64748b" text-anchor="middle">工程警示：多模态训练慢，八成不是显卡算力不够，而是小文件随机读与 CPU 视频解码把训练循环饿死。</text>
+
+  <!-- Footer -->
+  <text x="460" y="453" text-anchor="middle" font-size="11" fill="#64748b">第 13 章衔接文本与图像底座，将视频与全双工音频纳入统一原生多模态数据流。</text>
+</svg>

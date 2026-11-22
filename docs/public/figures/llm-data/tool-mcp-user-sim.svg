@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 455" role="img" aria-label="MCP 工具依赖 DAG、用户角色模拟器与确定性 Stateful Mock 多轮人机交互合成闭环架构图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .col-t { font-size: 13.2px; font-weight: 700; }
+    .box-t { font-size: 11.8px; font-weight: 700; fill: #1e293b; }
+    .box-s { font-size: 10.2px; fill: #475569; }
+    .badge { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#ea580c"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="455" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">工具调用、MCP 依赖图与用户模拟器多轮交互数据合成引擎</text>
+  <text x="30" y="54" class="sub">拒绝 LLM 幻觉伪造返回：以规范化 MCP Schema、工具依赖 DAG、Stateful Mock 沙箱与受控用户模拟器联合构造真实多轮轨迹。</text>
+
+  <!-- Column 1: MCP Harvesting & DAG -->
+  <rect x="30" y="70" width="230" height="312" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+  <text x="46" y="94" class="col-t" fill="#075985">① MCP 工具库与依赖 DAG</text>
+
+  <rect x="44" y="106" width="202" height="58" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="56" y="125" class="box-t">OpenAPI / MCP 收割清洗</text>
+  <text x="56" y="142" class="box-s">补齐 enum / regex / 必填约束</text>
+  <text x="56" y="156" class="box-s">修正隐式类型与歧义字段描述</text>
+
+  <line x1="145" y1="164" x2="145" y2="180" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arr-sky)"/>
+
+  <rect x="44" y="182" width="202" height="96" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="56" y="201" class="box-t">工具依赖图（2–6 跳采样）</text>
+  <!-- Mini DAG nodes -->
+  <rect x="56" y="212" width="54" height="22" rx="4" fill="#e0f2fe" stroke="#38bdf8"/>
+  <text x="83" y="227" class="badge mono" fill="#0369a1">lookup</text>
+  <line x1="110" y1="223" x2="128" y2="223" stroke="#0284c7" stroke-width="1.4" marker-end="url(#arr-sky)"/>
+  <rect x="130" y="212" width="54" height="22" rx="4" fill="#e0f2fe" stroke="#38bdf8"/>
+  <text x="157" y="227" class="badge mono" fill="#0369a1">verify</text>
+  <line x1="184" y1="223" x2="196" y2="223" stroke="#0284c7" stroke-width="1.4" marker-end="url(#arr-sky)"/>
+  <rect x="198" y="212" width="40" height="22" rx="4" fill="#ffe4e6" stroke="#fb7185"/>
+  <text x="218" y="227" class="badge mono" fill="#be123c">write</text>
+  <text x="56" y="252" class="box-s">按输入/输出实体字段拓扑连边</text>
+  <text x="56" y="267" class="box-s">注入 15–40 个干扰工具模拟噪声</text>
+
+  <line x1="145" y1="278" x2="145" y2="294" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arr-sky)"/>
+
+  <rect x="44" y="296" width="202" height="72" rx="7" fill="#ffffff" stroke="#bae6fd"/>
+  <text x="56" y="315" class="box-t">任务种子与业务政策包</text>
+  <text x="56" y="332" class="box-s">生成 DB 初始状态 + 隐含约束</text>
+  <text x="56" y="347" class="box-s">定义退款/权限/写前确认政策红线</text>
+  <text x="56" y="361" class="box-s mono" fill="#0369a1">schema_hash 写入血缘</text>
+
+  <!-- Arrow Col 1 to Col 2 -->
+  <line x1="260" y1="226" x2="282" y2="226" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#arr-indigo)"/>
+
+  <!-- Column 2: Multi-Turn Simulation Arena -->
+  <rect x="284" y="70" width="374" height="312" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.5"/>
+  <text x="300" y="94" class="col-t" fill="#3730a3">② 三方闭环多轮仿真竞技场（Multi-turn Arena）</text>
+
+  <!-- User Persona Simulator (Top) -->
+  <rect x="316" y="106" width="310" height="74" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.4"/>
+  <rect x="526" y="113" width="90" height="18" rx="9" fill="#ea580c"/>
+  <text x="571" y="125" class="badge" fill="#ffffff">严禁泄露工具名</text>
+  <text x="328" y="126" class="box-t" fill="#9a3412">用户角色模拟器（User Persona Simulator）</text>
+  <text x="328" y="145" class="box-s">• 模糊诉求 / 隐含条件分轮透露 / 中途变更需求</text>
+  <text x="328" y="162" class="box-s">• 追问澄清 / 越权试探 / 对写操作给予明确确认或取消</text>
+
+  <!-- Bidirectional arrows User <-> Agent -->
+  <line x1="390" y1="180" x2="390" y2="210" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arr-orange)"/>
+  <line x1="414" y1="212" x2="414" y2="182" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#arr-indigo)"/>
+  <text x="344" y="200" font-size="9.8" fill="#c2410c">需求/追问</text>
+  <text x="422" y="200" font-size="9.8" fill="#4338ca">澄清/HITL 写前确认</text>
+
+  <!-- Target Agent (Bottom Left) -->
+  <rect x="300" y="214" width="166" height="154" rx="8" fill="#ffffff" stroke="#6366f1" stroke-width="1.6"/>
+  <text x="312" y="234" class="box-t" fill="#3730a3">待合成 / 目标 Agent</text>
+  <text x="312" y="253" class="box-s">• 选工具 + 并行批调用</text>
+  <text x="312" y="270" class="box-s">• 写操作前摘要并请求确认</text>
+  <text x="312" y="287" class="box-s">• 读懂 4xx/5xx 报错自愈</text>
+  <text x="312" y="304" class="box-s">• 遇超长截断改用过滤分页</text>
+  <text x="312" y="321" class="box-s">• 违规/不可行时诚实拒绝</text>
+  <rect x="312" y="334" width="142" height="22" rx="5" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="383" y="349" class="badge mono" fill="#4338ca">Think + Action (m=1)</text>
+
+  <!-- Bidirectional arrows Agent <-> Stateful Mock -->
+  <line x1="466" y1="274" x2="486" y2="274" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#arr-indigo)"/>
+  <line x1="488" y1="302" x2="468" y2="302" stroke="#059669" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+  <!-- Deterministic Stateful Mock MCP Server (Bottom Right) -->
+  <rect x="488" y="214" width="156" height="154" rx="8" fill="#ecfdf5" stroke="#34d399" stroke-width="1.5"/>
+  <text x="500" y="234" class="box-t" fill="#065f46">确定性 Stateful Mock</text>
+  <text x="500" y="253" class="box-s">• 内存 SQLite 真读写</text>
+  <text x="500" y="270" class="box-s">• 固定时钟与幂等规则</text>
+  <text x="500" y="287" class="box-s">• 可控故障注入层：</text>
+  <text x="504" y="303" class="box-s mono" fill="#b45309">400 / 429 / 503</text>
+  <text x="500" y="320" class="box-s">• 超长 JSON 分页截断</text>
+  <rect x="500" y="334" width="132" height="22" rx="5" fill="#d1fae5" stroke="#6ee7b7"/>
+  <text x="566" y="349" class="badge mono" fill="#065f46">Obs (严格 m=0)</text>
+
+  <!-- Arrow Col 2 to Col 3 -->
+  <line x1="658" y1="226" x2="680" y2="226" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-green)"/>
+
+  <!-- Column 3: Verification & Cost Funnel -->
+  <rect x="682" y="70" width="208" height="312" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="696" y="94" class="col-t" fill="#065f46">③ 终态验收与留存漏斗</text>
+
+  <rect x="696" y="106" width="180" height="58" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="708" y="124" class="box-t">DB 终态断言校验</text>
+  <text x="708" y="140" class="box-s">比对订单/余额/日志终态</text>
+  <text x="708" y="155" class="box-s mono" fill="#047857">assert db_diff == gold</text>
+
+  <line x1="786" y1="164" x2="786" y2="178" stroke="#059669" stroke-width="1.4" marker-end="url(#arr-green)"/>
+
+  <rect x="696" y="180" width="180" height="64" rx="7" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="708" y="198" class="box-t">策略与防泄题审计</text>
+  <text x="708" y="214" class="box-s">检查写前是否获用户授权</text>
+  <text x="708" y="229" class="box-s">剔除模拟器泄题与无故误拒</text>
+
+  <line x1="786" y1="244" x2="786" y2="258" stroke="#059669" stroke-width="1.4" marker-end="url(#arr-green)"/>
+
+  <rect x="696" y="260" width="180" height="108" rx="7" fill="#ffffff" stroke="#34d399" stroke-width="1.4"/>
+  <text x="708" y="279" class="box-t" fill="#065f46">教材留存与成本账本</text>
+  <text x="708" y="298" class="box-s">100K 种子 → 78% Schema 合法</text>
+  <text x="708" y="314" class="box-s">→ 68% 跑通 → 42% 终态通过</text>
+  <text x="708" y="330" class="box-s">→ 65% 策略审计过关</text>
+  <text x="708" y="352" class="box-t mono" fill="#059669">η_pass=14.5% · $0.74/轨</text>
+
+  <!-- Bottom Summary Banner -->
+  <rect x="30" y="396" width="860" height="44" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="460" y="415" font-size="11.5" font-weight="700" fill="#1e293b" text-anchor="middle">核心配方配比建议：常规多跳 45% · 模糊澄清/需求变更 20% · 4xx/5xx/截断恢复 15% · HITL 写前确认 10% · 合规拒答 10%</text>
+  <text x="460" y="432" font-size="10.5" fill="#64748b" text-anchor="middle">联动《LLM 与 Agent 评测》第 9 章 Stateful 工具评测体系；同构沙箱既产训练轨迹，也做离线回归断言。</text>
+</svg>

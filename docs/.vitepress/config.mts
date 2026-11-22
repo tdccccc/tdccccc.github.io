@@ -279,10 +279,111 @@ const llmEvalSidebar = [
   },
 ]
 
+const llmDataSidebar = [
+  {
+    text: '← 返回 Tdccccc\'s Atlas 书架',
+    link: '/',
+  },
+  {
+    text: '《LLM 与 Agent 数据工程：原理、配方与迭代飞轮》',
+    items: [
+      { text: '全书导览', link: '/books/llm-data/' },
+    ],
+  },
+  {
+    text: '第一篇 · 数据第一性原理与度量底座',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-data/part-1' },
+      { text: '第 1 章 Scaling Law 与有效数据账本', link: '/books/llm-data/chapters/chapter-01' },
+      { text: '第 2 章 分词、多模态序列与样本打包', link: '/books/llm-data/chapters/chapter-02' },
+      { text: '第 3 章 价值评估、配比寻优与训练侧去污', link: '/books/llm-data/chapters/chapter-03' },
+    ],
+  },
+  {
+    text: '第二篇 · 预训练与中期训练数据工程',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-data/part-2' },
+      { text: '第 4 章 预训练数据源与高保真解析', link: '/books/llm-data/chapters/chapter-04' },
+      { text: '第 5 章 启发式过滤、模型打分与多尺度去重', link: '/books/llm-data/chapters/chapter-05' },
+      { text: '第 6 章 预训练改写与 Mid-training 退火', link: '/books/llm-data/chapters/chapter-06' },
+      { text: '第 7 章 万亿 Token 分布式数据处理基建', link: '/books/llm-data/chapters/chapter-07' },
+    ],
+  },
+  {
+    text: '第三篇 · 后训练数据工程（SFT / 偏好 / RLVR）',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-data/part-3' },
+      { text: '第 8 章 SFT 多样性、复杂度与长思维链', link: '/books/llm-data/chapters/chapter-08' },
+      { text: '第 9 章 偏好数据、Rubric 与人类标注工厂', link: '/books/llm-data/chapters/chapter-09' },
+      { text: '第 10 章 RLVR 提示词库与可验证任务工厂', link: '/books/llm-data/chapters/chapter-10' },
+      { text: '第 11 章 多任务混配、负迁移与安全对齐', link: '/books/llm-data/chapters/chapter-11' },
+    ],
+  },
+  {
+    text: '第四篇 · 多模态数据工程全栈',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-data/part-4' },
+      { text: '第 12 章 VLM 图文、交错文档与密集重打标', link: '/books/llm-data/chapters/chapter-12' },
+      { text: '第 13 章 视频、语音与原生全模态数据', link: '/books/llm-data/chapters/chapter-13' },
+      { text: '第 14 章 多模态推理、生成与跨模态混配', link: '/books/llm-data/chapters/chapter-14' },
+    ],
+  },
+  {
+    text: '第五篇 · Agent 数据工程（核心加厚）',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-data/part-5' },
+      { text: '第 15 章 轨迹全景、Trajectory IR 与环境即数据', link: '/books/llm-data/chapters/chapter-15' },
+      { text: '第 16 章 工具调用、MCP 与多轮交互合成', link: '/books/llm-data/chapters/chapter-16' },
+      { text: '第 17 章 Coding / SWE 与终端运维工厂', link: '/books/llm-data/chapters/chapter-17' },
+      { text: '第 18 章 Deep Research 与多模态企业 RAG', link: '/books/llm-data/chapters/chapter-18' },
+      { text: '第 19 章 GUI、Computer-Use 与多模态操控', link: '/books/llm-data/chapters/chapter-19' },
+      { text: '第 20 章 轨迹筛选、反事实修复与多智能体', link: '/books/llm-data/chapters/chapter-20' },
+    ],
+  },
+  {
+    text: '第六篇 · 规模化合成、数据积累与迭代飞轮',
+    collapsed: false,
+    items: [
+      { text: '本篇导览', link: '/books/llm-data/part-6' },
+      { text: '第 21 章 批合成成本账本与模型坍缩防治', link: '/books/llm-data/chapters/chapter-21' },
+      { text: '第 22 章 企业多模态数据湖与全血缘追踪', link: '/books/llm-data/chapters/chapter-22' },
+      { text: '第 23 章 线上生产回流与 Agent 数据飞轮', link: '/books/llm-data/chapters/chapter-23' },
+      { text: '第 24 章 隐私脱敏、投毒防御与版权合规', link: '/books/llm-data/chapters/chapter-24' },
+      { text: '第 25 章 团队演进与全周期归因方法论', link: '/books/llm-data/chapters/chapter-25' },
+    ],
+  },
+  {
+    text: '进阶专题库',
+    collapsed: true,
+    items: [
+      { text: '专题 A：经典开源数据集与基座配方档案', link: '/books/llm-data/topics/dataset-archive' },
+      { text: '专题 B：合成数据与模型坍缩的理论边界', link: '/books/llm-data/topics/model-collapse-theory' },
+      { text: '专题 C：具身智能 VLA 与世界模型数据', link: '/books/llm-data/topics/embodied-vla-data' },
+      { text: '专题 D：垂直行业私有数据工程实战', link: '/books/llm-data/topics/vertical-industry-data' },
+    ],
+  },
+  {
+    text: '参考手册与工具箱',
+    collapsed: true,
+    items: [
+      { text: '核心公式、数据账本与成本速查卡', link: '/books/llm-data/toolkit/formulas-and-ledgers' },
+      { text: '数据入库与上线红线清单', link: '/books/llm-data/toolkit/data-checklist' },
+      { text: '最小可运行 Python 数据工具箱', link: '/books/llm-data/toolkit/reference-code' },
+      { text: '术语表', link: '/books/llm-data/glossary' },
+      { text: '来源、口径与许可', link: '/books/llm-data/colophon' },
+    ],
+  },
+]
+
 export default defineConfig({
   lang: 'zh-CN',
   title: "Tdccccc's Atlas",
-  description: 'Never stop learning AI. — 面向工程师的技术读物与学习笔记，覆盖 AI Infra、强化学习、模型与 Agent 评测及更多方向',
+  description: 'Never stop learning AI. — 面向工程师的技术读物与学习笔记，覆盖 AI Infra、强化学习、模型与 Agent 评测、数据工程及更多方向',
   cleanUrls: true,
   lastUpdated: true,
 
@@ -314,6 +415,7 @@ export default defineConfig({
       '/books/llm-inference/': llmInferenceSidebar,
       '/books/llm-rl/': llmRlSidebar,
       '/books/llm-eval/': llmEvalSidebar,
+      '/books/llm-data/': llmDataSidebar,
     },
 
     outline: {

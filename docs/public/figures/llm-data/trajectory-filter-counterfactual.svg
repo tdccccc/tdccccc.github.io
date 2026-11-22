@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 465" role="img" aria-label="Agent 轨迹去伪过滤与失败反事实回滚修复（Counterfactual Repair）构造 Step-DPO/PRM 对架构图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-t { font-size: 13.2px; font-weight: 700; }
+    .box-t { font-size: 11.4px; font-weight: 700; fill: #1e293b; }
+    .box-s { font-size: 10.1px; fill: #475569; }
+    .node-t { font-size: 10.6px; font-weight: 700; text-anchor: middle; }
+    .pill { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-rose" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+    <marker id="arr-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+    <marker id="arr-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="465" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="30" y="34" class="title">Agent 轨迹去伪过滤与反事实回滚修复（Counterfactual Repair）双引擎</text>
+  <text x="30" y="54" class="sub">一边严厉清除 20% 通过轨迹中的 Lucky Hacks 毒样本，一边把 80% 昂贵失败轨迹在关键分叉步回滚修复，直接产出 Step-DPO / PRM 金对。</text>
+
+  <!-- Left Panel: False Positive Purifier -->
+  <rect x="30" y="70" width="320" height="278" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.4"/>
+  <text x="46" y="93" class="sec-t" fill="#9f1239">① 表面通过轨迹去伪净化（~20% 原始通过）</text>
+
+  <rect x="46" y="106" width="288" height="48" rx="7" fill="#ffffff" stroke="#fecdd3"/>
+  <text x="58" y="124" class="box-t">闸门 1 · 静态 Diff 与命令审计</text>
+  <text x="58" y="141" class="box-s">拦截篡改单测、硬编码特判、危险命令与越权副作用</text>
+
+  <line x1="190" y1="154" x2="190" y2="167" stroke="#e11d48" stroke-width="1.4" marker-end="url(#arr-rose)"/>
+
+  <rect x="46" y="169" width="288" height="48" rx="7" fill="#ffffff" stroke="#fecdd3"/>
+  <text x="58" y="187" class="box-t">闸门 2 · 循环检测与步效剪枝</text>
+  <text x="58" y="204" class="box-s">剔除连续重复报错 ≥3 次、超过 2.5× 中位步数的瞎蒙轨</text>
+
+  <line x1="190" y1="217" x2="190" y2="230" stroke="#e11d48" stroke-width="1.4" marker-end="url(#arr-rose)"/>
+
+  <rect x="46" y="232" width="288" height="48" rx="7" fill="#ffffff" stroke="#fecdd3"/>
+  <text x="58" y="250" class="box-t">闸门 3 · 思维-动作一致性裁判</text>
+  <text x="58" y="267" class="box-s">校验 &lt;think&gt; 与工具参数一致、无格式退化/语言混杂</text>
+
+  <rect x="46" y="294" width="288" height="40" rx="7" fill="#ffe4e6" stroke="#fb7185"/>
+  <text x="190" y="311" class="pill" fill="#9f1239">拦截 ~15%–30% Lucky Hacks 假成功样本</text>
+  <text x="190" y="326" class="pill mono" fill="#be123c">杜绝 SFT/RLVR 学会投机作弊</text>
+
+  <!-- Right Panel: Counterfactual / Backtracking Repair Tree -->
+  <rect x="366" y="70" width="524" height="278" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.5"/>
+  <text x="382" y="93" class="sec-t" fill="#3730a3">② 失败轨迹反事实回滚修复引擎（盘活 ~80% 沉没 Rollout 算力）</text>
+
+  <!-- Shared Valid Prefix -->
+  <rect x="382" y="114" width="60" height="34" rx="6" fill="#ffffff" stroke="#6366f1" stroke-width="1.4"/>
+  <text x="412" y="135" class="node-t mono" fill="#3730a3">s_0</text>
+  <line x1="442" y1="131" x2="460" y2="131" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#arr-indigo)"/>
+
+  <rect x="462" y="114" width="60" height="34" rx="6" fill="#ffffff" stroke="#6366f1" stroke-width="1.4"/>
+  <text x="492" y="135" class="node-t mono" fill="#3730a3">s_1…s_k</text>
+  <line x1="522" y1="131" x2="540" y2="131" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#arr-indigo)"/>
+
+  <!-- Critical Divergence Node s_t* -->
+  <rect x="542" y="108" width="92" height="46" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="588" y="127" class="node-t mono" fill="#92400e">分叉点 s_t*</text>
+  <text x="588" y="144" font-size="9.5" fill="#b45309" text-anchor="middle">首个偏航状态</text>
+
+  <!-- Original Failed Branch (Upper right) -->
+  <path d="M 634 122 L 668 122" stroke="#e11d48" stroke-width="1.6" stroke-dasharray="4 2" marker-end="url(#arr-rose)"/>
+  <rect x="670" y="105" width="96" height="34" rx="6" fill="#fff1f2" stroke="#e11d48"/>
+  <text x="718" y="121" class="node-t mono" fill="#be123c">原错误动作 a-</text>
+  <text x="718" y="134" font-size="9" fill="#9f1239" text-anchor="middle">y(t*) = 0</text>
+  <line x1="766" y1="122" x2="788" y2="122" stroke="#e11d48" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#arr-rose)"/>
+  <rect x="790" y="105" width="84" height="34" rx="6" fill="#fecdd3" stroke="#e11d48"/>
+  <text x="832" y="126" class="node-t" fill="#9f1239">终态 Fail ✗</text>
+
+  <!-- Rollback curved arrow from Fail to s_t* -->
+  <path d="M 832 140 C 832 164, 588 170, 588 156" fill="none" stroke="#d97706" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arr-amber)"/>
+  <rect x="650" y="152" width="160" height="19" rx="9" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="730" y="165" class="pill" fill="#92400e">错误归因 + CoW 沙箱回滚至 s_t*</text>
+
+  <!-- Repaired Passing Branch (Lower right) -->
+  <path d="M 588 156 L 588 214 L 622 214" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-emerald)"/>
+  <rect x="624" y="192" width="134" height="44" rx="7" fill="#ecfdf5" stroke="#059669" stroke-width="1.6"/>
+  <text x="691" y="210" class="node-t" fill="#065f46">专家/强模型修正 a+</text>
+  <text x="691" y="226" font-size="9.5" class="mono" fill="#047857" text-anchor="middle">注入 1–2 步纠偏 · y=1</text>
+
+  <line x1="758" y1="214" x2="778" y2="214" stroke="#059669" stroke-width="1.6" marker-end="url(#arr-emerald)"/>
+  <rect x="780" y="192" width="94" height="44" rx="7" fill="#d1fae5" stroke="#059669" stroke-width="1.6"/>
+  <text x="827" y="210" class="node-t" fill="#065f46">目标策略续跑</text>
+  <text x="827" y="226" class="node-t" fill="#047857">终态 Pass ✓</text>
+
+  <!-- Step-DPO / PRM Extraction Box inside Right Panel -->
+  <rect x="382" y="252" width="492" height="82" rx="8" fill="#ffffff" stroke="#818cf8" stroke-width="1.4"/>
+  <text x="396" y="272" class="box-t" fill="#3730a3">自动抽取高信噪比 Step-level 偏好对与过程奖励标签（同前缀零分布偏移）</text>
+  <text x="396" y="292" class="box-s mono" fill="#1e293b">Step-DPO Pair:  ( shared_prefix τ_&lt;t* ,   chosen = a_t*^+ ,   rejected = a_t*^- )</text>
+  <text x="396" y="310" class="box-s mono" fill="#047857">Step-PRM Label: P(pass | τ_&lt;t*, a^+) = 1.0   vs   P(pass | τ_&lt;t*, a^-) = 0.0</text>
+  <text x="396" y="326" class="box-s">相比整条轨迹粗粒度对比，精准定位到单步决策分水岭，梯度方差大幅下降。</text>
+
+  <!-- Bottom ROI Ledger Strip -->
+  <rect x="30" y="362" width="860" height="88" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <text x="46" y="384" class="sec-t" fill="#065f46">③ 反事实修复经济账（教材统一算例：修复 40% 中后程险败轨迹）</text>
+
+  <rect x="46" y="394" width="262" height="44" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="58" y="411" class="box-t">有效正轨留存率 η_pass</text>
+  <text x="58" y="428" class="box-s mono" fill="#047857">20.0% → 44.0%（产出提升 2.2×）</text>
+
+  <rect x="324" y="394" width="266" height="44" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="336" y="411" class="box-t">单条正轨有效成本 C_eff</text>
+  <text x="336" y="428" class="box-s mono" fill="#047857">$0.55 → $0.34（单位降本 38%）</text>
+
+  <rect x="606" y="394" width="268" height="44" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+  <text x="618" y="411" class="box-t">附赠资产红利</text>
+  <text x="618" y="428" class="box-s">零额外边际成本获赠同策略 Step-DPO 对</text>
+</svg>

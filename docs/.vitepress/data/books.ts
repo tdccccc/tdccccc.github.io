@@ -51,4 +51,16 @@ export const books: BookItem[] = [
     stats: ['5 篇 20 章', '4 专题', '25 机制图', '3 交互实验'],
     featured: true,
   },
+  {
+    id: 'llm-data',
+    title: 'LLM 与 Agent 数据工程：原理、配方与迭代飞轮',
+    category: '数据工程',
+    status: '已完结',
+    description:
+      '从 Data-Constrained Scaling 与有效数据账本出发，打通万亿预训练退火、SFT / RLVR 燃料库、图文视频语音多模态全栈、Agent 轨迹合成工厂与企业数据飞轮。',
+    cover: '/covers/llm-data.svg',
+    link: '/books/llm-data/',
+    stats: ['6 篇 25 章', '4 专题', '28 机制图', '3 交互实验'],
+    featured: true,
+  },
 ]

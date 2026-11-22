@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 460" role="img" aria-label="统一轨迹中间表示 Trajectory IR、逐 Token Loss Mask 机制与未掩码灾难对照图">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 20px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 12.5px; fill: #64748b; }
+    .sec-title { font-size: 13.5px; font-weight: 700; fill: #1e293b; }
+    .card-t { font-size: 12px; font-weight: 700; fill: #1e293b; }
+    .card-s { font-size: 10.5px; fill: #475569; }
+    .tok-t { font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .tok-s { font-size: 9.8px; text-anchor: middle; }
+    .pill { font-size: 10.2px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#e11d48"/>
+    </marker>
+    <marker id="arr-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="460" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="32" y="34" class="title">统一轨迹中间表示（Trajectory IR）与精确 Token 级 Loss Mask 机制</text>
+  <text x="32" y="54" class="sub">多轮 POMDP 轨迹中 75%–88% 的 Token 来自环境观测；只有精确屏蔽观测梯度并保留动作与 EOS 梯度，监督训练才不会幻觉伪造返回。</text>
+
+  <!-- Section 1: Unified Trajectory IR Container -->
+  <rect x="32" y="68" width="856" height="92" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.4"/>
+  <rect x="38" y="76" width="4" height="76" rx="2" fill="#4f46e5"/>
+  <text x="52" y="92" class="sec-title" fill="#3730a3">① 统一轨迹中间表示（Trajectory IR · Parquet + 外部对象存储 Blob）</text>
+  <rect x="742" y="75" width="134" height="20" rx="10" fill="#e0e7ff" stroke="#a5b4fc"/>
+  <text x="809" y="89" class="pill" fill="#3730a3">跨 Tool / SWE / GUI 通用</text>
+
+  <rect x="52" y="102" width="196" height="48" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="64" y="120" class="card-t mono" fill="#4338ca">env_spec &amp; lineage</text>
+  <text x="64" y="138" class="card-s">镜像哈希 · 工具 Schema 版本 · 随机种子</text>
+
+  <rect x="260" y="102" width="204" height="48" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="272" y="120" class="card-t mono" fill="#4338ca">turns[] &amp; mask_spans</text>
+  <text x="272" y="138" class="card-s">think / tool_call / obs / EOS 边界索引</text>
+
+  <rect x="476" y="102" width="196" height="48" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="488" y="120" class="card-t mono" fill="#4338ca">media_refs (URI)</text>
+  <text x="488" y="138" class="card-s">截图/PDF 页外置存储 · 像素宽高与哈希</text>
+
+  <rect x="684" y="102" width="192" height="48" rx="7" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="696" y="120" class="card-t mono" fill="#4338ca">assertions &amp; outcome</text>
+  <text x="696" y="138" class="card-s">DB/单测/OS 终态断言结果 · 轨迹成本</text>
+
+  <!-- Connector down -->
+  <line x1="460" y1="160" x2="460" y2="176" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr-slate)"/>
+
+  <!-- Section 2: Token-Level Loss Mask Ribbon -->
+  <rect x="32" y="178" width="856" height="128" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+  <text x="48" y="200" class="sec-title">② 多轮交互序列 Token 级 Loss Mask（15 轮典型序列 L = 24,600 tokens，模型生成仅占 ~15%）</text>
+  <rect x="650" y="185" width="106" height="20" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="703" y="199" class="pill" fill="#475569">m_t = 0（不计损）</text>
+  <rect x="764" y="185" width="110" height="20" rx="10" fill="#ffe4e6" stroke="#fda4af"/>
+  <text x="819" y="199" class="pill" fill="#be123c">m_t = 1（算梯度）</text>
+
+  <!-- Token segments ribbon -->
+  <!-- System -->
+  <rect x="48" y="216" width="88" height="46" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="92" y="235" class="tok-t" fill="#334155">System</text>
+  <text x="92" y="251" class="tok-s mono" fill="#64748b">Schema · m=0</text>
+
+  <!-- User -->
+  <rect x="142" y="216" width="82" height="46" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="183" y="235" class="tok-t" fill="#334155">User</text>
+  <text x="183" y="251" class="tok-s mono" fill="#64748b">指令 · m=0</text>
+
+  <!-- Think + ToolCall + EOS -->
+  <rect x="230" y="216" width="144" height="46" rx="6" fill="#fff1f2" stroke="#e11d48" stroke-width="1.6"/>
+  <text x="302" y="235" class="tok-t" fill="#9f1239">&lt;think&gt; + ToolCall</text>
+  <text x="302" y="251" class="tok-s mono" fill="#be123c">+ &lt;|im_end|&gt; · m=1</text>
+
+  <!-- Tool Obs (Dominant width!) -->
+  <rect x="380" y="216" width="246" height="46" rx="6" fill="#e2e8f0" stroke="#64748b" stroke-dasharray="4 2"/>
+  <text x="503" y="235" class="tok-t" fill="#1e293b">Tool Obs / Stdout / DOM / 截图 (o_t)</text>
+  <text x="503" y="251" class="tok-s mono" fill="#475569">占全序列 75%–88% Token · 严格 m=0</text>
+
+  <!-- Think + ToolCall 2 -->
+  <rect x="632" y="216" width="106" height="46" rx="6" fill="#fff1f2" stroke="#e11d48" stroke-width="1.6"/>
+  <text x="685" y="235" class="tok-t" fill="#9f1239">迭代修正 a_t</text>
+  <text x="685" y="251" class="tok-s mono" fill="#be123c">含 EOS · m=1</text>
+
+  <!-- Final Answer -->
+  <rect x="744" y="216" width="128" height="46" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.6"/>
+  <text x="808" y="235" class="tok-t" fill="#065f46">Final Answer</text>
+  <text x="808" y="251" class="tok-s mono" fill="#047857">+ &lt;|im_end|&gt; · m=1</text>
+
+  <!-- Formula bar inside section 2 -->
+  <rect x="48" y="272" width="824" height="24" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="460" y="288" class="mono" font-size="10.4" fill="#334155" text-anchor="middle">L_Agent(θ) = -[Σ m_t·log π_θ(x_t|x_&lt;t)] / [Σ m_t]  |  铁律：角色前缀 &lt;|im_start|&gt;assistant 置 0，动作末尾 EOS 置 1</text>
+
+  <!-- Section 3: Disaster vs Environment-as-Data comparison -->
+  <!-- Left: Disaster Case -->
+  <rect x="32" y="320" width="418" height="122" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.4"/>
+  <rect x="38" y="328" width="4" height="106" rx="2" fill="#e11d48"/>
+  <text x="54" y="346" class="sec-title" fill="#9f1239">③ 工程灾难：观测 Token 漏掩码（m_t 误置 1）</text>
+  <text x="54" y="368" class="card-s" fill="#881337">• 幻觉伪造返回：吐完 tool_call 后自行续写伪造的 pytest PASSED</text>
+  <text x="54" y="388" class="card-s" fill="#881337">• 梯度信噪比崩塌：85% 算力耗在背诵不可预测堆栈、UUID 与时间戳</text>
+  <text x="54" y="408" class="card-s" fill="#881337">• 停止符失效：EOS 若误置 0，推理无法交还控制权给运行时而死循环</text>
+  <text x="54" y="428" class="card-s mono" fill="#be123c">CI 红线：入库前对 Tokenizer 编解码边界执行 100% 掩码对齐单测</text>
+
+  <!-- Right: Environment-as-Data Loop -->
+  <rect x="470" y="320" width="418" height="122" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+  <rect x="476" y="328" width="4" height="106" rx="2" fill="#059669"/>
+  <text x="492" y="346" class="sec-title" fill="#065f46">④ 环境即数据（Environment-as-Data）底座</text>
+  <text x="492" y="368" class="card-s" fill="#064e3b">• 秒级重置：CoW OverlayFS / MicroVM / SQLite 支撑千路并发</text>
+  <text x="492" y="388" class="card-s" fill="#064e3b">• 确定性断言：校验 DB 行变更、文件哈希、单测退出码而非主观打分</text>
+  <text x="492" y="408" class="card-s" fill="#064e3b">• 版本锚定：镜像哈希 + Schema 版本写入 IR，阻断轨迹老化</text>
+  <text x="492" y="428" class="card-s mono" fill="#047857">资产复用：1 个高保真可重置沙箱可孵化 50–200 条可验证轨迹</text>
+</svg>
