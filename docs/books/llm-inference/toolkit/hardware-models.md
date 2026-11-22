@@ -2,7 +2,7 @@
 
 <p class="chapter-summary">全书唯一规格事实源：统一主流 GPU/NPU 峰值算力与脊点、核心模型权重与 KV 容量账本，以及最容易踩坑的单位换算。</p>
 
-推理性能工程的第一步，永远是在打开终端之前先拿纸笔算出物理上下界。为了保证全书 23 章与 5 篇专题的所有算例、公式和图表口径完全自洽，本手册收敛了全站统一的硬件公开规格、代表性模型几何账本与常用速算公式。阅读 [第 1 章](../chapters/chapter-01.md)、[第 2 章](../chapters/chapter-02.md)、[第 8 章](../chapters/chapter-08.md) 或 [专题 A](../topics/advanced-architectures.md) 时，可随时折返本页查表核对。
+推理性能工程的第一步，永远是在打开终端之前先拿纸笔算出物理上下界。为了保证全书 24 章与 5 篇专题的所有算例、公式和图表口径完全自洽，本手册收敛了全站统一的硬件公开规格、代表性模型几何账本与常用速算公式。阅读 [第 1 章](../chapters/chapter-01.md)、[第 2 章](../chapters/chapter-02.md)、[第 8 章](../chapters/chapter-08.md) 或 [专题 A](../topics/advanced-architectures.md) 时，可随时折返本页查表核对。
 
 ---
 

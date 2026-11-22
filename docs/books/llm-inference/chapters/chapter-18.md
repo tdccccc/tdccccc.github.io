@@ -1,177 +1,250 @@
-# 第 18 章 国产芯片全景与软件栈地图
+# 第 18 章 把自定义算子接入推理引擎
 
-<p class="chapter-summary">脱离单看峰值算力的参数表陷阱，用「四面墙」与「五层软件栈」建立评估国产 AI 芯片推理能力的统一坐标系，看清平台插件与统一算子层两条生态接入路线。</p>
+<p class="chapter-summary">单测快 2 倍的自定义 Kernel 接进 vLLM 后，端到端延迟却纹丝不动——这往往卡在“注册、启用、分发”三道静默失效的门，或撞上了 Amdahl 定律的份额天花板。打通接入链路并做好归因，算子优化才算闭环。</p>
 
-前面三篇围绕 NVIDIA GPU 构建了完整的推理性能直觉、引擎架构与底层算子方法论。当同一套大语言模型业务走向国产加速卡（昇腾、海光、摩尔线程、沐曦等）时，工程师最先遇到的往往不是芯片本身的物理极限，而是**缺少坐标系**——厂商规格书各标各的算力口径，支持状态散落在社区追踪表、镜像仓库与发行说明里；同一句“支持 vLLM”，可能意味着服务刚能拉起来，也可能意味着全套融合算子与多卡并行都已打磨成熟。
+经过[第 13–17 章](chapter-13.md)的训练，我们已经能自己写出高效、数值对齐的 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>Kernel，也能读懂工业级 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>库的流水线设计。但在真实推理工程里，把一个 standalone 单测跑得飞快的 Kernel 塞进 vLLM 等推理引擎时，最常见的结局却是：**服务顺利启动、输出语义完全正确、日志干干净净，可 <a class="term-ref" href="/books/llm-inference/glossary#ttft" title="Time to First Token，首 token 延迟：从发出请求到收到首个非空生成内容的时间，包含排队与 prefill">TTFT</a>、<a class="term-ref" href="/books/llm-inference/glossary#itl" title="Inter-Token Latency，token 间延迟：同一请求相邻两个输出 token 之间的时间间隔，决定流式输出是否卡顿">ITL</a>和吞吐一丝不动。**
 
-本章先画出这张评估与排障的总地图：用「四面墙」判断一块芯片能否扛起目标推理负载，用「五层软件栈」将模糊的报错收敛到精确的工程层，再拆解平台级插件与统一算子层两种主流生态接入范式。
+比“报错崩溃”更折磨人的是**静默回退（Silent Fallback）**：你甚至不知道自己的 Kernel 到底有没有上过 GPU。本章用 vLLM 的 `CustomOp` 机制解剖自定义算子的完整接入链路，再以 Amdahl 定律拆解端到端收益归因，最后给出推理引擎三大扩展接口的全景地图。
 
-## 18.1 脱离参数表陷阱：用「四面墙」评估国产芯片
+## 18.1 为什么“单测更快”不等于“引擎生效”：vLLM `CustomOp` 的三道门
 
-拿到一块新的国产加速卡，最容易犯的错误是直接拿规格书里的 FP16 峰值 TFLOPS 与 HBM 容量去和 A100 / H100 做除法，从而得出“算力相当，性能应该差不多”的草率判断。正如[第 1 章](chapter-01.md)用 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>揭示的那样，纸面峰值只是物理上限；在国产芯片推理落地中，能否真正触及这个上限，取决于由开源社区追踪表 [awesome-china-gpu](https://github.com/bytetora/awesome-china-gpu) 提炼出的**四面墙（Four Walls）**：生态墙、显存墙、通信墙与精度墙。
-
-### 显存墙：先算清权重、KV 与量化的硬算术
-
-四面墙里最像算术、最容易一票否决的是**显存墙**。推理服务能否启动，首先要看单卡显存装不装得下“模型权重 + <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>+ 中间激活 + 框架开销”。
-
-以全书主线模型 **Llama-3.1-8B**（8.03B 参数，32 层，8 个 KV 头，头维 128）与 32B 级别模型为例，按十进制容量（$1\,\text{GB} = 10^9\,\text{B}$）和二进制缓存（$1\,\text{GiB} = 2^{30}\,\text{B}$）直接算账：
-
-- **FP16/BF16 权重（每参数 2 字节）**：Llama-3.1-8B 仅权重就需要 $8.03 \times 10^9 \times 2\,\text{B} \approx 16.06\,\text{GB}$；32B 模型权重高达 $32 \times 10^9 \times 2\,\text{B} = 64\,\text{GB}$。一块 64 GB HBM 的昇腾 Ascend 910B 单卡放 Llama-3.1-8B 绰绰有余，但若直接塞 FP16 的 32B 模型，仅权重就把显存占满，连 1 个 token 的 KV 缓存都分不出来。
-- **权重<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>折半（INT8 / FP8，每参数 1 字节）**：把权重压到 8 bit 后，Llama-3.1-8B 权重降至约 $8\,\text{GB}$，32B 权重降至约 $32\,\text{GB}$，单张 64 GB 卡立刻腾出一半空间给 KV 缓存与运行时激活。
-- **KV 缓存随上下文与并发线性膨胀**：Llama-3.1-8B 每 token 的 FP16 KV 占用为 $2 \times 32 \times 8 \times 128 \times 2\,\text{B} = 128\,\text{KiB}$，单条 8K 上下文请求即消耗 $1\,\text{GiB}$；如果 32 条 8K 请求并发在途，仅 KV 缓存就需要 $32\,\text{GiB}$，直接成为比权重更大的显存消费者。
-
-权重规模翻倍，显存刚性翻倍；量化把权重折半，但省下的空间需要去精度墙兑现代价。
-
-### 生态墙、通信墙与精度墙
-
-越过显存墙之后，另外三面墙决定服务能不能跑顺、跑大、跑准：
-
-| 评估维度 | 核心追问 | 工程落点与决定因素 | 典型短板症状 |
-|---|---|---|---|
-| **生态墙** | 能否无缝接入主流推理引擎？ | 平台插件（如 `vllm-ascend`）、官方容器镜像、原生推理框架三种接入形态 | 版本咬合困难、新模型架构长期滞后、社区优化特性用不上 |
-| **显存墙** | 权重、KV 与激活能否放下并跑满带宽？ | HBM 容量、实际可用显存带宽、分页 KV 缓存与内存池碎片管理 | 权重加载即 OOM、并发稍高就频繁抢占、Decode 延迟卡死在低有效带宽 |
-| **通信墙** | 单卡不够时，多卡并行能否线性扩展？ | 卡间互联拓扑（如 HCCS / PCIe）、集合通信库（HCCL / MCCL 等）与计算通信重叠 | 单卡吞吐尚可，切到 TP=4/8 后 AllReduce 占比飙升、扩展效率骤降 |
-| **精度墙** | 量化与底层算子替换后，输出质量是否守住底线？ | 低比特算子支持、scale 粒度（per-channel / per-token）、累加精度与舍入方式 | 标称支持 INT8/FP8，实跑数学与代码评测准确率断崖下跌或长文重复乱码 |
-
-其中，**生态墙**的接入方式比单季度的算力榜单稳定得多。目前国产芯片接入推理引擎主要呈现三种形态：
-
-1. **引擎平台插件**（如 `vllm-ascend`、`vllm-metax`）：复用 vLLM 等主流引擎的调度、<a class="term-ref" href="/books/llm-inference/glossary#paged_attention" title="Paged Attention，分页注意力：将 KV 缓存切为固定大小 block，通过块表映射到非连续物理显存的注意力管理机制">PagedAttention</a>块管理与模型代码，只需对齐引擎与插件版本，生态迭代最快。
-2. **厂商预装容器镜像**：一次性打包用户态 SDK、框架与推理引擎，显著降低环境搭建门槛，但**容器镜像锁的是用户态，锁不住宿主机驱动与内核固件**，跨机器迁移仍需核对宿主机版本。
-3. **独立原生推理框架**（如厂商自研推理引擎）：能针对自家硬件做激进的整图编译与定制融合，但新模型适配周期和业务接入门槛相对更高。
-
-::: tip 核心直觉
-评估一块国产芯片时，永远不要笼统地问“它比 A100 慢多少”，而要按**四面墙**逐项拆问：当前卡住的是显存装不下（显存墙）、多卡通信拖后腿（通信墙）、插件缺热点融合算子（生态墙），还是量化误差超标（精度墙）？四面墙呈木桶短板效应，任意一面没过关，其余三面的纸面优势都无法兑现。
-:::
-
-## 18.2 五层软件栈与自下而上的排障直觉
-
-如果说四面墙是**选型评估的横轴**，那么**五层软件栈**就是**工程排障的纵轴**。无论底层是昇腾、海光、摩尔线程还是沐曦，一套能跑通大语言模型服务的软件栈都由自底向上的五个层次咬合而成。
+在 vLLM 中，模型前向里的逐元素算子（如 `SiluAndMul`、`RMSNorm`、`RotaryEmbedding`）并不是写死的函数调用，而是继承自 `vllm/model_executor/custom_op.py` 的 `CustomOp` 基类。一个自定义替换想真正跑到 GPU 上，必须依次打通三道门：**注册（Registration）→ 启用（Enablement）→ 分发（Dispatch）**，如图 18-1 所示。
 
 <figure class="book-figure">
-  <img src="/figures/llm-inference/chip-stack.svg" alt="国产芯片五层软件栈：自底向上依次为驱动与固件、SDK 与运行时、算子库、框架插件、推理引擎" loading="lazy">
-  <figcaption><span class="book-figure__label">图 18-1</span>从底部驱动/固件逐层向上读至推理引擎。核心结论：适配建设按“先跑通（驱动/SDK）→ 再覆盖（算子/插件）→ 再调优（调度/显存）”推进；排障则必须遵循同一条自下而上的顺序。</figcaption>
+  <img src="/figures/llm-inference/vllm-customop-dispatch.svg" alt="vLLM CustomOp 注册、启用与分发三道门流程图：启动时通过 entry point 注册进 op_registry_oot，层初始化时依据 compilation_config.custom_ops 判定启用，随后按平台分发到 forward_cuda 或 forward_oot，任意一环未命中则静默回退到 forward_native 或父类实现" loading="lazy">
+  <figcaption><span class="book-figure__label">图 18-1</span>沿着从左到右的执行生命周期读图：进程启动时经插件入口完成“注册”（写入 <code>op_registry_oot</code>），层对象构造时依编译配置判定“启用”，随后按硬件平台完成“分发”并缓存为 <code>_forward_method</code>。结论：三道门任何一道未打通，引擎都会静默走回退路径而不抛错，必须逐门核验并用 Profiler 查实 GPU Kernel 名单。</figcaption>
 </figure>
 
-### 五层职责与失效画像
+### 18.1.1 三道门的生命周期拆解
 
-将庞杂的组件收束到 5 个确定层次后，任何一个报错的候选根因就不再是大海捞针：
+很多接入事故的根源在于把三件发生在不同时间点的事混为一谈：
 
-| 软件栈层级 | 核心职责 | 代表组件示例 | 缺失或版本错位时的典型症状 |
-|---|---|---|---|
-| **第 5 层：推理引擎** | 模型结构表达、连续批处理调度、KV 缓存管理、采样与 API 服务 | vLLM、SGLang | 看似应用层问题：并发排队异常、配置参数未生效、请求超时 |
-| **第 4 层：框架插件** | 把芯片接进引擎：注册平台类、算子分发、注意力后端、图捕获与通信适配 | `vllm-ascend`、`vllm-metax`、`vllm-plugin-FL` | 引擎启动失败、日志未激活目标平台、或静默落入 PyTorch 原生慢路径 |
-| **第 3 层：算子库** | 芯片侧基础算子与融合算子实现（MatMul、Attention、RMSNorm、SwiGLU） | AscendC / AOL / TBE、muBLAS、mcBLAS、FlagGems | 吞吐远低于预期、部分算子静默走通用实现或回退 CPU、数值精度偏差 |
-| **第 2 层：SDK / 运行时** | 厂商核心工具链：编译器、运行时调度、显存管理、集合通信库 | CANN、DTK、MUSA Toolkit、MACA SDK | 算子编译失败、`undefined symbol`、找不到动态库或集合通信建链卡死 |
-| **第 1 层：驱动 / 固件** | 硬件识别、设备节点暴露、物理显存分配与底层指令下发 | NPU/DCU/GPU 宿主机驱动与固件 | `npu-smi` 等管理工具看不到卡、容器内设备不可见、上层全部无法启动 |
+| 环节 | 触发时机 | 内部机制（`vllm/model_executor/custom_op.py`） | 静默失效表现 | 核心排查手段 |
+|---|---|---|---|---|
+| **1. 注册（Registration）** | 引擎启动调用 `load_general_plugins()` 并 import 插件子模块时 | `@TargetOp.register_oot` 将子类按**被替换类的类名**写入 `op_registry_oot`；构造时 `CustomOp.__new__` 用 `cls.__name__` 查表替换实例类型 | 表中查无此类，全程构造原版类，无任何报错 | 检查 `op_registry_oot.get("SiluAndMul")` 是否为你的子类 |
+| **2. 启用（Enablement）** | 模型层 `__init__` 构造、读取全局 `compilation_config` 时 | `CustomOp.default_on()` 检查 `compilation_config.custom_ops`（`all` / `none` 基底叠加 `+name` / `-name`） | 类已替换，但 `dispatch_forward` 落入未启用分支，静默执行 `forward_native` | 打印层实例的 `op.name` 与 `op._forward_method.__name__` |
+| **3. 分发（Dispatch）** | 层 `__init__` 中一次性绑定 `self._forward_method`，每次 `forward()` 直接调用 | 按当前平台选择 `forward_cuda`（NVIDIA）、`forward_hip`（ROCm）、`forward_cpu`、`forward_tpu`、`forward_xpu` 或 `forward_oot`（树外硬件） | 覆写了错误平台方法，悄悄继承执行父类默认 CUDA 实现 | 抓取 Torch Profiler / Nsight Systems，核对 GPU Kernel 名单与调用次数 |
 
-### 症状在上，根因在下
+### 18.1.2 三个最隐蔽的静默失效陷阱
 
-推理排障最反直觉的一条规律是：**症状出现的位置与根因所在的位置经常错开两到三层**。
-
-例如，算子库漏掉了一个融合激活实现，用户在第 5 层（推理引擎）观察到的现象是“<a class="term-ref" href="/books/llm-inference/glossary#itl" title="Inter-Token Latency，token 间延迟：同一请求相邻两个输出 token 之间的时间间隔，决定流式输出是否卡顿">ITL</a>偏高、吞吐上不去”；宿主机驱动与容器设备节点没映射全，用户在第 5 层看到的报错是“vLLM 初始化 Worker 超时退出”。正因如此，排查顺序**绝不能倒过来**：先在最底层确认硬件设备可见且健康，再确认 SDK 运行时与 PyTorch 后端能正常执行张量运算，再确认算子库与插件成功激活，最后才去怀疑推理引擎的调度参数或模型代码。
-
-把 18.1 节的「四面墙」叠加到五层栈上，可以迅速将模糊症状收敛到一两个格子：
-
-| 四面墙 | 主要落点层级 | 排查时的分叉追问 |
-|---|---|---|
-| **生态墙** | 框架插件、推理引擎 | 平台插件是否激活？算子是否命中专用分发路径？ |
-| **显存墙** | 驱动 / 固件、SDK / 运行时 | 是底层根本分不出来（驱动/硬件上限），还是分配器碎片与 KV 管理不当（SDK/引擎）？ |
-| **通信墙** | SDK / 运行时、框架插件 | 是底层集合通信库（如 HCCL）拓扑与带宽受限，还是插件通信切分与重叠配置未生效？ |
-| **精度墙** | 算子库、框架插件 | 是底层量化/融合 kernel 数值行为偏差，还是插件层 cast 顺序与量化路由选错？ |
-
-### 切半排查范围的黄金边界
-
-在框架插件（第 4 层）与推理引擎（第 5 层）之间，有一条极好用的二分界线——每次遇到怪异故障时，先问自己一句：
-
-> **把完全相同的模型、输入和启动参数换到另一块芯片（如 NVIDIA GPU）上，这个问题还会不会出现？**
-
-如果换卡后问题依然复现，根因大概率落在推理引擎的配置、调度逻辑、tokenizer 或模型权重本身；如果换卡后问题立刻消失，就可以放心把怀疑范围瞬间砍半，直接锁定在插件层及以下的四层栈里。下一章在昇腾实战中，我们会把这条思路固化成可一键执行的三层诊断探针。
-
-::: warning 常见误区
-层与层之间的**接口 ABI 与版本号**是最隐蔽的故障温床。引擎调插件的平台接口、插件调 PyTorch/算子库的绑定符号、算子库调 SDK 的运行时接口，任意相邻两层跨大版本混搭，都会在完全意想不到的位置抛出符号未定义或段错误。不要靠“把某个包升级到最新版”去碰运气，必须整组核对兼容矩阵。
+::: warning 常见误区：最容易踩中的三大静默失效陷阱
+1. **陷阱 1：安装了插件包，但注册装饰器从未执行**。vLLM 通过 Python 打包元数据中的 `vllm.general_plugins` 入口点发现插件，并在启动时调用入口函数 `register()`。如果仅安装了包却漏写入口点，或者 `register()` 没有 `import` 包含 `@SiluAndMul.register_oot` 的子模块，装饰器根本不会运行——一个“写好了但没被触发”的插件，从模型输出上看与不存在毫无差别。
+2. **陷阱 2：`torch.compile` / Inductor 默认 `custom_ops=none`，且开关名写错大小写**。启用 TorchInductor 图编译时，由于自定义算子对图编译器而言是无法拆解融合的黑盒，vLLM 默认将基底设为 `none`（全部关闭，必须用 `--compilation_config.custom_ops '["+名称"]'` 显式打开）。更隐蔽的坑在于**注册名变了**：树内默认 `SiluAndMul` 的属性 `name` 是小写 `"silu_and_mul"`，但被 `@SiluAndMul.register_oot` 替换后，装饰器会把子类的 `name` 改写为**被替换类的类名 `"SiluAndMul"`**！如果你凭印象传入 `"+silu_and_mul"`，开关匹配落空，引擎会直接退回 PyTorch `forward_native`——数值完全正确，速度悄悄掉档。
+3. **陷阱 3：在 NVIDIA GPU 上覆写了 `forward_oot` 而非 `forward_cuda`**。名称里的 `oot`（out-of-tree）极具迷惑性：`register_oot` 指的是“树外代码插件替换”，但 `dispatch_forward` 里的 `forward_oot` 只服务于**自报为树外硬件平台**的后端（例如[第 20 章](chapter-20.md)的昇腾 `vllm-ascend`）。在 NVIDIA CUDA 平台上，引擎始终路由到 `forward_cuda`；只写 `forward_oot` 意味着你写的代码永远不会被调用，父类内置的 C++ CUDA Kernel 照常接管。
 :::
 
-## 18.3 两种生态接入范式：平台插件 vs 统一算子层
+## 18.2 端到端接入解剖：`SiluAndMul` 插件完整链路
 
-面对十余家架构各异的国产芯片，推理引擎社区不可能为每家芯片维护一套独立的 vLLM 分支——一旦上游重构调度器或新增模型架构，分叉仓库很快就会沦为孤岛。为了实现“**一份引擎与模型代码跑遍多家芯片**”，业界演化出了两种互补的接入范式。
+为什么选 `SiluAndMul` 作为接入载体？在 Llama-3.1-8B 与 Qwen3-8B 的 SwiGLU MLP 中，门控投影与上投影合并输出形状为 `[M, 2d]` 的张量，紧接着由 `SiluAndMul` 完成：
 
-### 范式一：平台级插件（以 `vllm-ascend` 为代表）
+$$
+y = \operatorname{SiLU}(x_{[:d]}) \odot x_{[d:]}, \qquad \operatorname{SiLU}(u) = u \cdot \sigma(u)
+$$
 
-初学者很容易把[第 17 章](chapter-17.md)讲的 `CustomOp` 与平台级插件混为一谈，实际上两者的抽象粒度相差一个数量级：
+它严格落在 `CustomOp` 的<strong>“无状态、单 `forward`”边界</strong>内——不需要管理 Paged <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>，也不需要离线重排权重。
 
-- **算子级替换（`CustomOp`）**：仅把单个算子（例如 `SiluAndMul`）换成自定义 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>或 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>实现，引擎其余部分纹丝不动。
-- **平台级插件（Hardware Plugin）**：面向整块芯片提供一整套平行适配实现，涵盖设备识别（`Platform`）、工作进程（`Worker`）、执行器（`ModelRunner`）、算子库（`ops/`）、注意力后端（`attention/`）、多卡通信（`distributed/`）与图编译封装（`compilation/`）。
+先算清它的访存账（FP16，每元素 2 字节）：
 
-从推理引擎的视角看，平台级插件靠一条简洁的四步注册链运转：
+- **PyTorch Eager 两步版（`forward_native`）**：第一步 `silu` 读 $2Md$、写 $2Md$；第二步乘法读中间结果 $2Md$、读后半段 $2Md$、写输出 $2Md$，合计 **$10Md$ 字节**。
+- **融合单遍版（Triton 或 vLLM 内置 C++）**：一次读入完整输入 `[M, 2d]`（$4Md$ 字节），片上算完直接写出 `[M, d]`（$2Md$ 字节），合计 **$6Md$ 字节**——相对 Eager 省去 **$40\%$** 的 HBM 往返。
 
-1. **自动发现与加载**：引擎启动时扫描 Python 打包元数据中的插件入口点（如 `vllm.platform_plugins`）。
-2. **注册平台类**：插件向引擎返回自己的 `Platform` 子类（例如昇腾的 `NPUPlatform`）。
-3. **按硬件激活平台**：引擎检测当前可用设备，选中对应平台，将设备类型、可见性环境变量、PyTorch 分发键（`PrivateUse1`）一并定死。
-4. **按平台分发组件**：平台选定之后，注意力后端、集合通信器、图捕获封装与各 `CustomOp` 的芯片实现自动挂接生效。
+但有一个关键前提必须提前看透：**vLLM 默认的 `SiluAndMul.forward_cuda` 调的是树内 C++ 融合算子 `torch.ops._C.silu_and_mul`，它的访存本来就已经是 $6Md$ 字节！** 因此，自定义 Triton Kernel 相对 Eager 省的是访存遍数，而相对 vLLM 引擎基线争的只是向量化宽度、grid 映射与启动开销的常数项。微基准测试必须同时测齐 **Eager / vLLM C++ / Triton** 三条基线，缺一条都会产生错觉。
 
-这套机制的精髓在于把“与芯片无关的公共复杂性”（连续批处理调度、PagedAttention 块表管理、模型前向结构、采样逻辑）留在上游引擎里只写一份，把“与芯片强绑定的底层实现”全部收口到独立插件仓库。模型代码里不需要出现任何 `if is_ascend():` 分支；新增一家芯片的工程门槛，从“重写一座推理引擎”降级为“实现一个标准硬件插件”。
+### 18.2.1 打包入口与延迟注册：`pyproject.toml` 与 `__init__.py`
 
-### 范式二：统一算子与通信层（FlagGems + FlagCX + `vllm-plugin-FL`）
+最小可安装的插件包（`silu_plugin`）只需三份小文件，第一环是在 `pyproject.toml` 中声明 `vllm.general_plugins` 入口点：
 
-平台级插件解决了引擎复用问题，但如果 10 家芯片厂商各自维护一套插件，仍然意味着常见的几十上百个算子和集合通信原语要被重复写 10 遍。以 FlagOS 生态为代表的**统一算子与通信层**（`FlagGems` + `FlagCX` + `vllm-plugin-FL`）试图再向下抽象一层：
-
-- **FlagGems（统一算子库）**：基于 Triton 编写通用算子源码（同时也支持针对特定后端的专用实现与调参），注册进 PyTorch ATen 分发体系，运行时交由各家芯片对应的 Triton 后端编译器降维生成目标指令。
-- **FlagCX（统一集合通信库）**：抽象跨卡通信原语（AllReduce、AllGather、ReduceScatter 等），向下桥接各厂商原生通信库（NCCL、HCCL、MCCL 等），解决多卡<a class="term-ref" href="/books/llm-inference/glossary#tensor_parallelism" title="tensor parallelism：将单层权重矩阵切分到多张加速卡上并行计算并通过集合通信汇总的并行策略">张量并行</a>时的通信墙接入问题。
-- **`vllm-plugin-FL`（统一引擎插件）**：把 FlagGems 与 FlagCX 接入 vLLM 的平台插件框架，形成一条覆盖多芯片（包括 NVIDIA、昇腾、海光、摩尔线程、沐曦、天数智芯、昆仑芯、燧原等十余家平台）的**三级优先级分发链**：
-
-```text
-模型发起算子调用
-   │
-   ▼
-[第一级] FlagGems 统一实现 ── 命中 ──► 走统一（或后端特化）Triton Kernel
-   │ 未覆盖
-   ▼
-[第二级] 厂商原生 / 插件实现 ── 命中 ──► 走芯片专用算子库（如 aclnn / muBLAS）
-   │ 未覆盖
-   ▼
-[第三级] PyTorch 参考实现兜底 ── 可执行 ──► 在目标设备或 CPU 兜底执行（最慢，缺底层原语则报错）
+```toml
+# pyproject.toml
+[project.entry-points."vllm.general_plugins"]
+my_plugin = "my_plugin:register"
 ```
 
-### 量化关键路径回退的代价
+在包的入口 `__init__.py` 中，用 `register()` 延迟导入真正带装饰器的子模块，避免普通 `import my_plugin` 产生意外副作用：
 
-三级分发链极大提升了“跑得起来”的速度，但也藏着一个致命隐患：当某个算子掉到第三级兜底（或未融合的通用慢路径）时，服务往往**不会报错**，只会默默变慢。那么，一次回退究竟有多致命？
+```python
+# my_plugin/__init__.py
+def register() -> None:
+    # vLLM 启动时调用此入口；Python 的模块导入缓存保证装饰器不会重复执行
+    from . import silu_and_mul_plugin  # noqa: F401
+```
 
-设某个算子在理想芯片实现下，占一次前向总耗时的比例为 $p$；当它回退到慢 $s$ 倍的实现且其余部分保持不变时，新的端到端耗时 $T'$ 与原耗时 $T$ 的比值为：
+### 18.2.2 Triton Kernel 核心实现与精度契约
+
+第二环是在 `my_plugin/kernel.py` 中编写语义严丝合缝的 Triton 算子（上线前应配合多维/空张量单元测试与三基线微基准验证）：
+
+```python
+# my_plugin/kernel.py（核心 Kernel 与入口）
+import torch
+import triton
+import triton.language as tl
+
+
+@triton.jit
+def _silu_and_mul_kernel(
+    x_ptr, y_ptr, x_row_stride, y_row_stride, d, BLOCK: tl.constexpr
+):
+    row = tl.program_id(0)
+    cols = tl.program_id(1) * BLOCK + tl.arange(0, BLOCK)
+    mask = cols < d
+    x1 = tl.load(x_ptr + row * x_row_stride + cols, mask=mask, other=0.0)
+    x2 = tl.load(x_ptr + row * x_row_stride + d + cols, mask=mask, other=0.0)
+    x1_f32 = x1.to(tl.float32)
+    # 先在 FP32 中计算 SiLU，再 cast 回输入精度与 x2 相乘，与树内语义对齐
+    silu = (x1_f32 * tl.sigmoid(x1_f32)).to(x1.dtype)
+    tl.store(y_ptr + row * y_row_stride + cols, silu * x2, mask=mask)
+
+
+def silu_and_mul_triton(x: torch.Tensor, BLOCK: int = 1024) -> torch.Tensor:
+    if x.ndim < 1 or x.shape[-1] % 2:
+        raise ValueError("last dimension must be even")
+    if not x.is_cuda or x.dtype not in (torch.float16, torch.bfloat16):
+        raise TypeError("expected CUDA FP16/BF16 input")
+    if not x.is_contiguous():
+        raise ValueError("contiguous input is required; do not hide a copy in the timing")
+    if BLOCK <= 0 or BLOCK & (BLOCK - 1) or BLOCK > 2**20:
+        raise ValueError("BLOCK must be a supported power of two")
+
+    output_shape = x.shape[:-1] + (x.shape[-1] // 2,)
+    if x.numel() == 0:
+        return torch.empty(output_shape, dtype=x.dtype, device=x.device)
+
+    x_2d = x.reshape(-1, x.shape[-1])
+    m, n = x_2d.shape
+    d = n // 2
+    y = torch.empty((m, d), dtype=x.dtype, device=x.device)
+    grid = (m, triton.cdiv(d, BLOCK))
+    _silu_and_mul_kernel[grid](x_2d, y, x_2d.stride(0), y.stride(0), d, BLOCK=BLOCK)
+    return y.reshape(output_shape)
+```
+
+实现中有三处极易出错的“承重墙”细节：
+
+1. **行跨度是整行 $2d$**：`x1` 的偏移是 `row * x_row_stride + cols`，`x2` 是 `row * x_row_stride + d + cols`。一旦把行跨度错写成 `d`，读到的就会是错行数据。
+2. **精度转换顺序不可颠倒**：必须先转 FP32 算完 `x1_f32 * tl.sigmoid(x1_f32)`，**先截断回输入精度（FP16/BF16）再与 `x2` 相乘**，才能与 `SiluAndMul.forward_native` 保持逐语义一致。
+3. **显式拒绝隐式拷贝**：Wrapper 不偷偷调用 `.contiguous()`，防止把一次隐藏的全局显存拷贝混进算子计时里；同时通过 `reshape(-1, x.shape[-1])` 兼容模型可能传入的 3D `[batch, seq, 2d]` 或 2D `[tokens, 2d]` 张量。
+
+### 18.2.3 `@SiluAndMul.register_oot` 覆写与三层递进验真
+
+第三环是用 `@SiluAndMul.register_oot` 继承并覆写目标类（注意必须装饰在被替换类 `SiluAndMul` 上，而非 `CustomOp` 上；子类继承 `SiluAndMul` 以保留父类的 `__init__` 与 `forward_native` 后备路径）：
+
+```python
+# my_plugin/silu_and_mul_plugin.py
+import torch
+from vllm.model_executor.layers.activation import SiluAndMul
+
+from .kernel import silu_and_mul_triton
+
+
+@SiluAndMul.register_oot
+class TritonSiluAndMul(SiluAndMul):
+    def forward_cuda(self, x: torch.Tensor) -> torch.Tensor:
+        return silu_and_mul_triton(x)
+```
+
+相比粗暴的 Monkey Patch，`register_oot` 走的是引擎官方注册表：既不篡改引擎源码文件、升级抗干扰能力更强，又完整保留了按配置开关优雅退回 `forward_native` 的保险丝。
+
+把插件以可编辑模式安装（`pip install --no-deps --no-build-isolation -e docs/modules/part3-operators/examples/silu_plugin`）后，按**从便宜到昂贵的三层递进验真**即可彻底消灭“到底跑没跑”的悬念：
+
+```python
+# 第 1 层（裸进程查表）：确认装饰器已写入 op_registry_oot
+import my_plugin
+from vllm.model_executor.custom_op import op_registry_oot
+
+my_plugin.register()
+assert op_registry_oot.get("SiluAndMul") is my_plugin.silu_and_mul_plugin.TritonSiluAndMul
+
+# 第 2 层（引擎配置初始化后查分发）：把“注册了”与“启用了”彻底分开
+from vllm.model_executor.layers.activation import SiluAndMul
+from my_plugin.silu_and_mul_plugin import TritonSiluAndMul
+
+op = SiluAndMul()
+assert type(op) is TritonSiluAndMul
+assert op.name == "SiluAndMul"
+assert op._forward_method.__name__ == "forward_cuda"
+```
+
+注意不要在 REPL 中反复手工调用 `register_oot` 注册同名类，否则 vLLM 会触发 `Duplicate op name` 断言。通过前两层后，再用严格的 A/B 启动配置做**第 3 层验证（Profiler 实锤）**：
+
+```bash
+# 基线 A：关闭示例插件，跑引擎默认内置 C++ 融合路径
+VLLM_PLUGINS='' vllm serve meta-llama/Llama-3.1-8B-Instruct --dtype float16 --max-num-seqs 32
+
+# 实验 B：加载插件并按实际 op.name 显式开启（切勿在基线 A 中用 -SiluAndMul，那会退回 native）
+VLLM_PLUGINS=my_plugin vllm serve meta-llama/Llama-3.1-8B-Instruct --dtype float16 --max-num-seqs 32 \
+  --compilation_config.custom_ops '["+SiluAndMul"]'
+```
+
+独立运行一次 Torch Profiler（不要与压测计时混跑，避免探针扭曲延迟），只要 GPU Kernel 名单里出现 `_silu_and_mul_kernel` 且调用次数严格等于 `层数 × 步数`（Llama-3.1-8B 每步前向恰好 32 次），替换即确凿生效。
+
+## 18.3 端到端收益的 Amdahl 归因
+
+假设三层验证全部绿灯，你的自定义 Kernel 稳稳地跑在 GPU 上，单测甚至比原生 Eager 快了 $2\times$，可端到端压测 TTFT 和 ITL 却几乎没有变化——这是算子工程师必经的清醒一课，背后的铁律就是 **Amdahl 定律（Amdahl's Law）**：
 
 $$
-\frac{T'}{T} = (1 - p) + p \cdot s = 1 + p(s - 1)
+\text{Speedup} = \frac{1}{(1 - p) + \frac{p}{s}}
 $$
 
-代入两组数字，直觉立刻分明：
+其中 $p \in [0, 1]$ 是目标算子在端到端总耗时中的占比，$s$ 是该算子自身的加速比。**决定端到端上限的从来不是 $s$ 有多惊艳，而是 $p$ 有多大。**
 
-- **落在关键路径上**：若某算子占前向总时间的 $p = 20\%$，回退后变慢 $s = 5$ 倍，则总耗时放大为 $0.80 + 0.20 \times 5 = 1.80$ 倍，端到端凭空慢了 **80%**。
-- **落在长尾边缘上**：若某算子只占 $p = 1\%$，同样变慢 $s = 5$ 倍，总耗时仅为 $0.99 + 0.01 \times 5 = 1.04$ 倍，端到端仅慢 **4%**。
+### 18.3.1 用 Llama-3.1-8B 算清 `SiluAndMul` 的真实占比
 
-由此可见，**回退本身并不可怕，落在热点路径上的静默回退才致命**。评估回退影响永远要把“算子耗时占比 $p$”与“劣化倍数 $s$”相乘，绝不能只看算子清单里的“是否支持”布尔值。
+以 **Llama-3.1-8B（FP16 权重约 $16\text{ GB}$、32 层、`hidden = 4096`、`intermediate = 14336`）** 为例，手算一遍 `SiluAndMul` 的访存体量：
 
-::: info 工程取舍：先统一层拉覆盖，再原生算子冲峰值
-统一算子层与手写原生算子不是你死我活的替代关系，而是工程落地的两个阶段。**第一阶段用统一层或平台内置实现从 0 到 1 拉通服务**，避免团队陷入上百个长尾算子的无底洞；**第二阶段用 Profiler 揪出占比最高、且落在低效或回退路径上的少数热点算子**，集中人力做后端特化或手写原生实现（如 AscendC / 专用融合 kernel），向硬件带宽与算力上限冲刺。
+- **单层每 token 搬运量**：读 `[1, 2d]` + 写 `[1, d]` = $3 \times 14336 \times 2\text{ B} = 86,016\text{ B} = \mathbf{84\text{ KiB}}$。
+- **32 层每 token 总搬运量**：$32 \times 84\text{ KiB} = 2,688\text{ KiB} \approx \mathbf{2.62\text{ MiB}}$（约 $2.75\text{ MB}$）。
+- **对比 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>阶段权重搬运**：在 `batch = 1` 的 Decode 中，每生成一个 token 仅模型权重就要从 HBM 搬运约 **$16.06\text{ GB}$**（还不算历史 KV Cache 读取）。`SiluAndMul` 占总搬运量的比例仅约：
+
+$$
+\frac{2.75\text{ MB}}{16.06\text{ GB}} \approx 0.017\% \quad (\text{不足万分之二！})
+$$
+
+即便把 Decode 并发拉大到 `batch = 64`，全层 `SiluAndMul` 搬运总量也才约 $168\text{ MiB}$，占权重搬运仍仅 **$1.1\%$** 左右；而在 $N = 4096$ 的长 Prompt <a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>阶段，虽然 `SiluAndMul` 总搬运量线性涨到 $10.5\text{ GiB}$，但 Prefill 的时间大头被庞大的线性投影 <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>与 $O(N^2)$ 注意力牢牢占据，`SiluAndMul` 的真实时间占比依然只有约 $1\%\text{–}3\%$。
+
+把不同占比 $p$ 代入 Amdahl 公式，天花板瞬间显形：
+
+| 算子端到端时间占比 $p$ | 单算子提速 $s = 1.5\times$ | 单算子提速 $s = 2.0\times$ | 算子耗时归零极限（$s \to \infty$） | 工程投入价值判断 |
+|---:|---:|---:|---:|---|
+| **$0.5\%$** | $1.0017\times$ | $1.0025\times$ | $1.0050\times$ | 彻底淹没在压测噪声中，仅具教学或验证意义 |
+| **$1.0\%$** | $1.0033\times$ | $1.0050\times$ | $1.0101\times$ | 即使提速无穷大也最多省 $1\%$，不值重兵投入 |
+| **$5.0\%$** | $1.0169\times$ | $1.0256\times$ | $1.0526\times$ | 需严格控制变量的 A/B/A 压测才能稳定观测 |
+| **$20.0\%$** | $1.0714\times$ | $1.1111\times$ | $1.2500\times$ | 值得深度定制优化（如长上下文 Attention） |
+| **$50.0\%$** | $1.2000\times$ | $1.3333\times$ | $2.0000\times$ | 核心热点（如量化 Linear GEMM），收益直接兑现到 SLA |
+
+::: tip 核心直觉：分清“完全没变化”与“接上了但没变快”
+“完全没变化”可能是三道门断了、根本没走到你的代码；“接上了但没变快”则是 Profiler 确证你的 Kernel 已跑满 32 层，只是因为 $p < 1\%$ 且基线本就已是融合 C++ Kernel，Amdahl 上限本来就只有零点几个百分点。**前者是接入 Bug，后者是极其宝贵的系统归因结论**——它阻止你在占比 $1\%$ 的算子上白耗三周，把你及时拉回真正占 $70\%$ 耗时的 GEMM 与 Attention 战场上。
 :::
 
-## 18.4 主流国产芯片五层软件栈全景对照
+### 18.3.2 端到端不见效的五维排查清单
 
-为了让抽象的五层模型真正落地，下表选取当前大模型推理适配最活跃的四家代表性国产加速卡平台——<strong>华为昇腾（Ascend）</strong>、<strong>海光（DCU）</strong>、<strong>摩尔线程（MUSA）</strong>与<strong>沐曦（MetaX）</strong>——给出它们在五层软件栈上对应的核心组件参考地图。各组件名称、支持矩阵与默认通信路径随版本持续迭代，正式选型与部署时请核对对应软件栈当期发行说明，并养成“状态 + 版本 + 核实日期”三要素同步记录的习惯。
+在生产实践中，一旦遇到“单测很快、端到端不见效甚至变慢”，按以下五个维度逐一排查，几乎覆盖全部根因：
 
-| 平台代表 | 第 1 层：驱动 / 固件 | 第 2 层：SDK / 运行时 | 第 3 层：算子库与底层编程 | 第 4 层：框架适配与引擎插件 | 第 5 层：主流推理引擎 |
-|---|---|---|---|---|---|
-| **华为昇腾 Ascend**<br>（如 910B / Atlas A2） | HDK（NPU Driver / Firmware，`npu-smi`） | CANN（AscendCL / Runtime / GE / HCCL）+ NNAL（ATB） | AOL 预置算子库、AscendC、TBE、Triton-Ascend | `torch_npu` + `vllm-ascend`（亦支持 `vllm-plugin-FL`） | vLLM、SGLang、MindIE |
-| **海光 DCU**<br>（如 K100 / Z100 系列） | DCU 驱动与固件（`hy-smi` / 类 ROCm 管理工具） | DTK（DCU Toolkit，兼容 HIP 运行时与 RCCL/HCCL 通信） | rocBLAS / MIOpen / HIP 融合算子库 | PyTorch DTK/ROCm 适配 + vLLM DCU 官方镜像/插件（及 `vllm-plugin-FL`） | vLLM、SGLang |
-| **摩尔线程 MUSA**<br>（如 MTT S4000 等） | MUSA 驱动与固件（`mthreads-gmi`） | MUSA Toolkit（MCC 编译器 / MUSA Runtime / MCCL） | muBLAS、muDNN、MUSA 融合算子与 Triton-MUSA | `torch_musa` + `vllm-musa`（及 `vllm-plugin-FL`） | vLLM、llama.cpp |
-| **沐曦 MetaX**<br>（如曦云 C500 系列） | MetaX 驱动与固件（`mx-smi`） | MACA SDK（编译器 / 运行时 / MCCL 集合通信） | mcBLAS、mcDNN、FlashAttention 适配与融合算子 | PyTorch MACA 适配 + `vllm-metax`（及 `vllm-plugin-FL`） | vLLM、SGLang |
+| 排查维度 | 典型症状 | 根因机制 | 定位与化解手段 |
+|---|---|---|---|
+| **1. 未命中分发** | 延迟与基线零差异，Profiler 无自定义 Kernel 名 | 插件未注册、`custom_ops` 开关名错配、覆写错平台方法 | 查 `op_registry_oot`、打印 `op.name` / `_forward_method`、用 Profiler 核对调用次数 |
+| **2. 份额过小 / 基线已融合** | Profiler 命中，但端到端差值落入抖动噪声内 | Amdahl 上限过低（如 Decode 激活层），或树内默认已是 C++ 融合实现 | 用 Profiler 算子时间饼图确认 $p$，只在 $p \ge 5\%\text{–}10\%$ 的热点上投入定制开发 |
+| **3. 图捕获破坏融合** | 接入后反比 `torch.compile` 基线更慢 | 黑盒 CustomOp 阻断了 Inductor 跨算子融合（如把量化融进激活 Epilogue），或触发图断（Graph Break）破坏 CUDA Graph 捕获 | 检查 TorchCompile 融合图日志与 CUDA Graph 捕获状态；优先向算子上下游进一步做大融合 |
+| **4. 额外格式转换** | 算子本身快，但前后突然冒出 `aten::copy_` 或 `transpose` | 自定义 Kernel 强依赖连续布局或特定 dtype，隐藏的 `.contiguous()` / 格式转换吞掉全部收益 | 在 Wrapper 禁止静默拷贝，或把权重转置提前到模型加载期一次性完成 |
+| **5. 动态形状退化** | 离线固定形状快，线上真实流量 ITL 抖动甚至变慢 | Continuous Batching 下每步 `num_tokens` 动态变化，导致 Triton JIT 频繁重编或小形状下 `BLOCK` 尾块浪费严重 | 启动阶段按分桶形状预热、将 `autotune` 键离散化分桶，或为小/大 $M$ 分别派发不同分块策略 |
 
-读这张表时，请特别留意两个跨平台共性：第一，**类 CUDA 路线**（海光 DTK 走 HIP 兼容、摩尔线程 MUSA 与沐曦 MACA 均提供面向 CUDA 习惯的迁移工具链）能极大复用既有算子直觉，而**独立达芬奇架构路线**（华为昇腾 NPU 将矩阵核 AIC 与向量核 AIV 分离、片上引入显式 UB/L1/L0 层次）则在编程抽象上差异最显著，也最具剖析价值；第二，几乎所有主流厂商如今都同时押注“**自研 vLLM 平台插件 + 接入 FlagGems/FlagCX 统一层**”双轨并进。
+## 18.4 更广阔的扩展地图：从逐元素算子到 Attention 与量化 GEMM
 
-如需了解寒武纪（MLU）、昆仑芯（XPU）、天数智芯（Iluvatar）、壁仞（Biren）、燧原（Enflame）等更多国产平台的架构特色、生态切入点与版本记录范式，请查阅[专题 E：主流国产芯片生态速查](../topics/domestic-ecosystems.md)。接下来，[第 19 章](chapter-19.md)至[第 22 章](chapter-22.md)将以资料最透明、架构差异最具代表性的**华为昇腾 Ascend** 作为贯穿主线，带你走通“部署与插件 → <a class="term-ref" href="/books/llm-inference/glossary#cann" title="Compute Architecture for Neural Networks，昇腾神经网络计算架构：华为昇腾 NPU 的分层异构计算软件栈与算子开发平台">CANN</a>与 AscendC → <a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>分析 → 跨芯片算子迁移”的完整工程闭环。
+至此，我们已经看清了 `CustomOp` 的能力与边界：它专为**无状态、单 `forward`** 的逐元素算子而生。那么，前面花费重墨的[第 14/16 章 FlashAttention](chapter-15.md) 和[第 16 章量化 Matmul](chapter-16.md)，在 vLLM 这类工业推理引擎里又该插在什么位置？
 
-## 本章小结
+答案是推理引擎的**三层专业化扩展接口**——每一层都精准匹配对应算子的状态复杂度与生命周期：
 
-- **四面墙定坐标**：脱离单一 TFLOPS 参数表，用生态墙、显存墙、通信墙、精度墙综合评估推理可行性；先算清 FP16/量化权重与 KV 缓存的显存账，再核对接入方式、多卡通信与量化精度底线。
-- **五层栈定排障**：驱动/固件 → SDK/运行时 → 算子库 → 框架插件 → 推理引擎；牢记“症状在上、根因在下”，坚持自下而上排查，并用“换一块芯片问题是否消失”一键切分引擎层与底层芯片栈。
-- **双范式接生态**：平台级插件让一份引擎代码通过 `Platform` 与分发机制跑通多家芯片；统一算子与通信层（FlagGems + FlagCX + `vllm-plugin-FL`）通过三级优先级分发链加速多芯片覆盖，但必须警惕热点路径的静默回退（总耗时放大 $1 + p(s - 1)$ 倍）。
+| 引擎扩展接口 | 对应本书章节 | vLLM 核心抽象与代码位置 | 状态边界与核心职责 | 典型定制目标 |
+|---|---|---|---|---|
+| **逐元素 `CustomOp`** | 本章（[第 18 章](chapter-18.md)） | `CustomOp` / `@Op.register_oot`（`vllm/model_executor/custom_op.py`） | 无状态、单 `forward`，仅关心输入/输出张量语义与平台分发 | `SiluAndMul`、`RMSNorm`、`RotaryEmbedding` |
+| **Attention Backend** | [第 15 章](chapter-15.md)、[第 17 章](chapter-17.md) | `AttentionBackend` + `AttentionImpl` + `AttentionMetadata`（`vllm/attention/backends/`） | 深度耦合 Paged KV 显存布局（`block_table`、`slot_mapping`）、Prefill/Decode 混合元数据与 Chunked Prefill 切分 | FlashAttention-2/3、FlashInfer、Triton Paged Attention、DeepSeek MLA 后端 |
+| **Quantization `LinearMethod`** | [第 8 章](chapter-08.md)、[第 16 章](chapter-16.md) | `QuantizationConfig` + `LinearMethodBase`（`create_weights` / `process_weights_after_loading` / `apply`） | 管辖离线权重打包、硬件专属重排（如 Marlin / FP8 布局）、scale 参数注册，以及运行时按 $M$ 动态派发 W8A8 / W8A16 / W4A16 Kernel | FP8 W8A8 GEMM、SmoothQuant INT8、AWQ / GPTQ / Marlin W4A16 |
 
-**延伸阅读**：[awesome-china-gpu 社区追踪表](https://github.com/bytetora/awesome-china-gpu)、[vllm-ascend 官方仓库](https://github.com/vllm-project/vllm-ascend)、[vllm-plugin-FL 架构文档](https://docs.flagos.io/projects/vllm-plugin-FL/en/latest/overview/features.html)、[FlagGems 统一算子库](https://github.com/flagos-ai/FlagGems)、[专题 E：主流国产芯片生态速查](../topics/domestic-ecosystems.md)。
+把这三层接口与前面五章拼在一起，第三篇的完整工程闭环正式落成：
+
+1. 用 **GPU 执行模型与 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>**（[第 13 章](chapter-13.md)）诊断算子瓶颈；
+2. 用 **Triton**（[第 14–16 章](chapter-14.md)）快速构建 Fused Attention 与<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>Matmul，或在极端热点下沉 **<a class="term-ref" href="/books/llm-inference/glossary#cutlass" title="CUDA Templates for Linear Algebra Subroutines，CUTLASS 模板库：NVIDIA 开源的可组合高性能 GEMM 与流水线 C++/CuTe 模板库">CUTLASS</a>/ <a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>**（[第 17 章](chapter-17.md)）；
+3. 通过 **`CustomOp` / `AttentionBackend` / `LinearMethod`**（本章）将算子无缝接入推理引擎，用三层验证法确认生效，并用 **Amdahl 定律**客观归因端到端收益。
+
+下一篇（[第 19 章](chapter-19.md)起），我们将带着这套“硬件微架构 + 算子原理 + 引擎扩展接口”的完整方法论，跨出 NVIDIA 生态，走进国产 AI 芯片（以昇腾 Ascend 910B 与 `vllm-ascend` 为主线）的适配实战——你会看到，刚才在 18.1 节留下的伏笔 `forward_oot`，正是跨芯片算子接入的起点。
+
+**延伸阅读**：[vLLM CustomOp 官方设计文档](https://docs.vllm.ai/en/latest/design/custom_op/)、[`vllm/model_executor/custom_op.py`](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/custom_op.py)、[`vllm/model_executor/layers/activation.py`](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/activation.py)、[vLLM 插件系统文档](https://docs.vllm.ai/en/latest/design/plugin_system/)、[Amdahl 定律原论文（1967）](https://dl.acm.org/doi/10.1145/1465482.1465560)。

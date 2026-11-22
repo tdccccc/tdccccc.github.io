@@ -9,10 +9,10 @@
 ## 本篇章节
 
 <div class="part-card-grid">
-  <a class="part-card" href="/books/llm-inference/chapters/chapter-23">
+  <a class="part-card" href="/books/llm-inference/chapters/chapter-24">
     <div>
-      <div class="part-card__num">CHAPTER 23</div>
-      <div class="part-card__title">第 23 章 · 跨芯片精度回归、性能归因与分析报告范式</div>
+      <div class="part-card__num">CHAPTER 24</div>
+      <div class="part-card__title">第 24 章 · 跨芯片精度回归、性能归因与分析报告范式</div>
       <p class="part-card__desc">掌握配对精度检验、五步归因闭环、一篇完整的跨芯片对比分析范例，以及系统论文三遍阅读法。</p>
     </div>
   </a>

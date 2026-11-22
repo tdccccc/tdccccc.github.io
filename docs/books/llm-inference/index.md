@@ -12,7 +12,7 @@
 
 <figure class="book-figure">
   <img src="/figures/llm-inference/fullstack-map.svg" alt="LLM 推理工程四层全栈地图" loading="lazy">
-  <figcaption><span class="book-figure__label">全景图</span>从上层服务接入到底层异构硬件，贯穿一条「性能度量与 Profiling」主轴，对应全书 5 篇 23 章。</figcaption>
+  <figcaption><span class="book-figure__label">全景图</span>从上层服务接入到底层异构硬件，贯穿一条「性能度量与 Profiling」主轴，对应全书 5 篇 24 章。</figcaption>
 </figure>
 
 ## 按角色选择阅读路线 {#reading-paths}
@@ -22,21 +22,21 @@
 <div class="part-card-grid">
   <a class="part-card" href="/books/llm-inference/part-1">
     <div>
-      <div class="part-card__num">ROUTE 01 · 第 1–11 章</div>
+      <div class="part-card__num">ROUTE 01 · 第 1–12 章</div>
       <div class="part-card__title">推理框架与部署优化</div>
-      <p class="part-card__desc">掌握 Roofline 与模型账本、延迟分布与 Profiling 读法，吃透 vLLM / SGLang / TensorRT-LLM 核心机制、量化、投机解码、PD 解耦与成本路由。</p>
+      <p class="part-card__desc">掌握 Roofline 与模型账本、延迟分布与 Profiling 读法，吃透 vLLM / SGLang / TensorRT-LLM / DeepInfer 核心机制、量化、投机解码、PD 解耦与成本路由。</p>
     </div>
   </a>
   <a class="part-card" href="/books/llm-inference/part-3">
     <div>
-      <div class="part-card__num">ROUTE 02 · 第 1–4 + 12–17 章</div>
+      <div class="part-card__num">ROUTE 02 · 第 1–4 + 13–18 章</div>
       <div class="part-card__title">GPU 算子与底层 Kernel</div>
       <p class="part-card__desc">建立 GPU 执行模型与存储层级心智，走完 GEMM 四版优化阶梯、Triton Block 编程、FlashAttention 在线 Softmax、量化 Matmul、CUTLASS 与引擎注册分发。</p>
     </div>
   </a>
   <a class="part-card" href="/books/llm-inference/part-4">
     <div>
-      <div class="part-card__num">ROUTE 03 · 第 1–6 + 18–23 章</div>
+      <div class="part-card__num">ROUTE 03 · 第 1–6 + 19–24 章</div>
       <div class="part-card__title">国产芯片适配与跨芯片归因</div>
       <p class="part-card__desc">看懂国产芯片四面墙与五层软件栈，深入昇腾 CANN / AscendC、vllm-ascend 插件机制、算子覆盖与回退定位、跨芯片算子迁移与精度性能归因。</p>
     </div>
@@ -45,15 +45,15 @@
 
 ## 全书结构总览
 
-### 五篇 23 章主线
+### 五篇 24 章主线
 
 | 篇目 | 章节范围 | 核心问题 | 入口 |
 |---|---|---|---|
 | **第一篇 性能直觉与度量方法** | 第 1–4 章 | 为什么慢？显存与计算怎么算账？怎么正确量出延迟与切时间线？ | [进入第一篇](/books/llm-inference/part-1) |
-| **第二篇 推理引擎与部署优化** | 第 5–11 章 | vLLM / SGLang / TRT-LLM 怎么调度？量化、投机解码、PD 与路由何时生效？ | [进入第二篇](/books/llm-inference/part-2) |
-| **第三篇 GPU 算子优化与引擎接入** | 第 12–17 章 | CUDA 与 Triton 怎么压榨带宽和算力？Fused Attention 与量化核如何接进引擎？ | [进入第三篇](/books/llm-inference/part-3) |
-| **第四篇 国产芯片适配原理与方法** | 第 18–22 章 | 国产芯片软件栈怎么分层？昇腾 CANN / AscendC、`vllm-ascend` 与跨芯片算子怎么迁？ | [进入第四篇](/books/llm-inference/part-4) |
-| **第五篇 综合分析与方法收口** | 第 23 章 | 如何控制变量做跨芯片精度回归与性能归因，并写出经得起质疑的分析报告？ | [进入第五篇](/books/llm-inference/part-5) |
+| **第二篇 推理引擎与部署优化** | 第 5–12 章 | vLLM / SGLang / TRT-LLM / DeepInfer 怎么调度？量化、投机解码、PD 与路由何时生效？ | [进入第二篇](/books/llm-inference/part-2) |
+| **第三篇 GPU 算子优化与引擎接入** | 第 13–18 章 | CUDA 与 Triton 怎么压榨带宽和算力？Fused Attention 与量化核如何接进引擎？ | [进入第三篇](/books/llm-inference/part-3) |
+| **第四篇 国产芯片适配原理与方法** | 第 19–23 章 | 国产芯片软件栈怎么分层？昇腾 CANN / AscendC、`vllm-ascend` 与跨芯片算子怎么迁？ | [进入第四篇](/books/llm-inference/part-4) |
+| **第五篇 综合分析与方法收口** | 第 24 章 | 如何控制变量做跨芯片精度回归与性能归因，并写出经得起质疑的分析报告？ | [进入第五篇](/books/llm-inference/part-5) |
 
 ### 两个横切参考区
 

@@ -1,12 +1,12 @@
 # 第二篇：推理引擎与部署优化
 
-<p class="chapter-summary">打开主流推理引擎与生产架构：vLLM、SGLang、监控与容量评估、量化、投机解码、TensorRT-LLM 横评与 PD/路由。</p>
+<p class="chapter-summary">打开主流推理引擎与生产架构：vLLM、SGLang、监控与容量评估、量化、投机解码、TensorRT-LLM、DeepSeek DeepInfer 与四引擎横评，以及 PD/路由落地。</p>
 
 ## 本篇导览
 
 本篇拆解现代 LLM 推理引擎如何组织显存、调度和计算，并梳理生产环境的核心优化杠杆。
 
-第 5–6 章沿请求旅程精讲 vLLM（分页与连续批处理）与 SGLang（基数树前缀复用）；第 7 章串联监控指标与容量拐点；第 8–9 章深入量化、投机解码与 KV 淘汰的收益边界；第 10 章横向对比 vLLM、SGLang 与 TensorRT-LLM；第 11 章落地 PD 解耦、队列扩缩容与成本路由。大规模集群 PD 详见[专题 B](/books/llm-inference/topics/cluster-pd-mooncake)。
+第 5–6 章沿请求旅程精讲 vLLM（分页与连续批处理）与 SGLang（基数树前缀复用）；第 7 章串联监控指标与容量拐点；第 8–9 章深入量化、投机解码与 KV 淘汰的收益边界；第 10 章拆解 NVIDIA 原厂 TensorRT-LLM 的 PyTorch 后端与三预算账；第 11 章剖析 DeepSeek 开源的模型原厂垂直协同引擎 DeepInfer，并将 vLLM V1、SGLang、TensorRT-LLM 与 DeepInfer 放上同一张九维工程天平；第 12 章落地 PD 解耦、队列扩缩容与成本路由。大规模集群 PD 详见[专题 B](/books/llm-inference/topics/cluster-pd-mooncake)。
 
 ## 本篇章节
 
@@ -49,14 +49,21 @@
   <a class="part-card" href="/books/llm-inference/chapters/chapter-10">
     <div>
       <div class="part-card__num">CHAPTER 10</div>
-      <div class="part-card__title">第 10 章 · TensorRT-LLM 与三引擎架构横评</div>
-      <p class="part-card__desc">厘清 TensorRT-LLM PyExecutor 与三预算账，用一张完整架构总表横评 vLLM、SGLang 与 TRT-LLM。</p>
+      <div class="part-card__title">第 10 章 · TensorRT-LLM：PyTorch 后端与执行预算</div>
+      <p class="part-card__desc">破除静态编译刻板印象，厘清 TensorRT-LLM PyExecutor 执行循环、三预算账与原厂低精度/EAGLE-3 路径。</p>
     </div>
   </a>
   <a class="part-card" href="/books/llm-inference/chapters/chapter-11">
     <div>
       <div class="part-card__num">CHAPTER 11</div>
-      <div class="part-card__title">第 11 章 · 生产架构：PD 解耦、扩缩容与成本路由</div>
+      <div class="part-card__title">第 11 章 · DeepInfer：模型原厂垂直协同与四引擎横评</div>
+      <p class="part-card__desc">拆解 DeepSeek 开源的 DeepInfer 异步调度、Balanced CP、EPLB、五大算子栈、SWA 重放与 DSpark，并以九维总表横评四大引擎。</p>
+    </div>
+  </a>
+  <a class="part-card" href="/books/llm-inference/chapters/chapter-12">
+    <div>
+      <div class="part-card__num">CHAPTER 12</div>
+      <div class="part-card__title">第 12 章 · 生产架构：PD 解耦、扩缩容与成本路由</div>
       <p class="part-card__desc">算清 PD 解耦传输税与 K8s 排队深度扩缩容逻辑，建立单位 Token 经济学与多后端预算路由。</p>
     </div>
   </a>

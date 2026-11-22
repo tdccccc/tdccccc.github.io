@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 510" role="img" aria-label="DeepInfer 垂直协同全栈架构与开源边界：左侧为协议对齐、C++ 异步调度核、混合并行、五大定制算子栈与 SM100/昇腾 950 双一线硬件；右侧虚线框标出刻意剥离的分布式 KV 池、PD 解耦与副本负载均衡">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+    .title { font-size: 22px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13.5px; fill: #64748b; }
+    .band-t { font-size: 14.5px; font-weight: 700; }
+    .band-h { font-size: 11.5px; }
+    .card-t { font-size: 12px; font-weight: 700; fill: #1e293b; text-anchor: middle; }
+    .card-s { font-size: 10.5px; fill: #475569; text-anchor: middle; }
+    .ext-title { font-size: 13.5px; font-weight: 700; fill: #475569; text-anchor: middle; }
+    .ext-sub { font-size: 10.5px; fill: #64748b; text-anchor: middle; }
+    .note { font-size: 12px; fill: #334155; }
+  </style>
+  <defs>
+    <marker id="arr-down" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arr-dash" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="510" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="36" y="36" class="title">DeepInfer 垂直协同全栈架构与开源边界</text>
+  <text x="36" y="58" class="sub">面向 DeepSeek-V4.1-Flash（CED + CSA2 + 超大稀疏 MoE）自顶向下贯通协议层、C++ 异步核、混合并行、定制算子与双一线硬件。</text>
+
+  <!-- Band 1: 协议对齐与入口层 -->
+  <g>
+    <rect x="36" y="76" width="644" height="68" rx="10" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.4"/>
+    <rect x="42" y="85" width="4" height="50" rx="2" fill="#0284c7"/>
+    <text x="56" y="97" class="band-t" fill="#075985">① 协议对齐与入口层</text>
+    <text x="206" y="97" class="band-h" fill="#0284c7">保证社区自建与官方 API 行为严格对齐</text>
+
+    <rect x="56" y="106" width="302" height="30" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="207" y="125" class="card-t">deepseek-recipe (Rust + Py) · 控制 Token / 工具调用解析</text>
+    <rect x="368" y="106" width="300" height="30" rx="6" fill="#ffffff" stroke="#bae6fd"/>
+    <text x="518" y="125" class="card-t">deepinfer.entrypoints.LLM · 离线批处理 / 文法掩码</text>
+  </g>
+  <line x1="358" y1="144" x2="358" y2="154" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr-down)"/>
+
+  <!-- Band 2: C++ 零开销异步核心 -->
+  <g>
+    <rect x="36" y="156" width="644" height="72" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.4"/>
+    <rect x="42" y="165" width="4" height="54" rx="2" fill="#4f46e5"/>
+    <text x="56" y="177" class="band-t" fill="#3730a3">② C++ 零开销异步运行时（csrc/engine）</text>
+    <text x="348" y="177" class="band-h" fill="#4f46e5">CPU 乐观组批与设备执行重叠</text>
+
+    <rect x="56" y="186" width="218" height="34" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="165" y="201" class="card-t">scheduler.cpp 异步调度器</text>
+    <text x="165" y="215" class="card-s">步 N+1 预组批 · 跨 Rank 同步投票</text>
+
+    <rect x="284" y="186" width="218" height="34" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="393" y="201" class="card-t">block_manager.hpp 多态状态</text>
+    <text x="393" y="215" class="card-s">FP4 主 KV · 索引键 · SWA 环形窗</text>
+
+    <rect x="512" y="186" width="156" height="34" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+    <text x="590" y="201" class="card-t">确定性采样与归约</text>
+    <text x="590" y="215" class="card-s">BATCH_INVARIANT=1</text>
+  </g>
+  <line x1="358" y1="228" x2="358" y2="238" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr-down)"/>
+
+  <!-- Band 3: 混合并行与协同加速 -->
+  <g>
+    <rect x="36" y="240" width="644" height="72" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.4"/>
+    <rect x="42" y="249" width="4" height="54" rx="2" fill="#7c3aed"/>
+    <text x="56" y="261" class="band-t" fill="#5b21b6">③ 混合并行编排与模型协同加速</text>
+    <text x="292" y="261" class="band-h" fill="#7c3aed">消除 MoE 热点倾斜、长序列拖尾与解码重算</text>
+
+    <rect x="56" y="270" width="194" height="34" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+    <text x="153" y="285" class="card-t">Attention DP + Balanced CP</text>
+    <text x="153" y="299" class="card-s">首尾镜像切分 · cp_align 均衡</text>
+
+    <rect x="260" y="270" width="198" height="34" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+    <text x="359" y="285" class="card-t">MoE EP + EPLB + 双微批</text>
+    <text x="359" y="299" class="card-s">热专家冗余复制 · 通信计算重叠</text>
+
+    <rect x="468" y="270" width="200" height="34" rx="6" fill="#ffffff" stroke="#ddd6fe"/>
+    <text x="568" y="285" class="card-t">SWA 有界重放 + DSpark</text>
+    <text x="568" y="299" class="card-s">140-tok 截断重放 · 置信度投机</text>
+  </g>
+  <line x1="358" y1="312" x2="358" y2="322" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr-down)"/>
+
+  <!-- Band 4: 五大定制底层算子栈 -->
+  <g>
+    <rect x="36" y="324" width="644" height="68" rx="10" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.4"/>
+    <rect x="42" y="333" width="4" height="50" rx="2" fill="#059669"/>
+    <text x="56" y="345" class="band-t" fill="#065f46">④ 深度定制底层算子栈</text>
+    <text x="220" y="345" class="band-h" fill="#047857">全栈自研核直接压榨注意力、低比特乘、通信与路由</text>
+
+    <rect x="56" y="354" width="115" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="113.5" y="373" class="card-t">FlashMLA</text>
+
+    <rect x="179" y="354" width="115" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="236.5" y="373" class="card-t">DeepGEMM</text>
+
+    <rect x="302" y="354" width="115" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="359.5" y="373" class="card-t">DeepEP</text>
+
+    <rect x="425" y="354" width="115" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="482.5" y="373" class="card-t">DeepSelect</text>
+
+    <rect x="548" y="354" width="120" height="30" rx="6" fill="#ffffff" stroke="#a7f3d0"/>
+    <text x="608" y="373" class="card-t">TileLang (~100核)</text>
+  </g>
+  <line x1="358" y1="392" x2="358" y2="402" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr-down)"/>
+
+  <!-- Band 5: 双一线硬件底座 -->
+  <g>
+    <rect x="36" y="404" width="644" height="60" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+    <rect x="42" y="413" width="4" height="42" rx="2" fill="#d97706"/>
+    <text x="56" y="424" class="band-t" fill="#92400e">⑤ 双一线原生硬件底座</text>
+    <text x="218" y="424" class="band-h" fill="#b45309">首发同步支持（不以旧代 Hopper SM90 为主目标）</text>
+
+    <rect x="56" y="431" width="292" height="26" rx="5" fill="#ffffff" stroke="#fde68a"/>
+    <text x="202" y="448" class="card-t">NVIDIA SM100 (Blackwell) · CUDA 13 · CUDA Graph</text>
+
+    <rect x="354" y="434" width="18" height="20" rx="9" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="363" y="448" font-size="10.5" font-weight="700" fill="#b45309" text-anchor="middle">+</text>
+
+    <rect x="378" y="431" width="290" height="26" rx="5" fill="#ffffff" stroke="#fde68a"/>
+    <text x="523" y="448" class="card-t">华为昇腾 Ascend 950 · CANN 9.2 · ACLGraph</text>
+  </g>
+
+  <!-- Right Side: Open-source Boundary (Intentionally Decoupled Cluster Infra) -->
+  <g>
+    <rect x="702" y="76" width="182" height="388" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+    <rect x="720" y="90" width="146" height="22" rx="11" fill="#e2e8f0"/>
+    <text x="793" y="105" font-size="11" font-weight="700" fill="#334155" text-anchor="middle">开源刻意剥离的外围层</text>
+
+    <text x="793" y="132" class="ext-title">由生产基础设施自建</text>
+    <text x="793" y="148" class="ext-sub">与内部集群强耦合组件不入核</text>
+
+    <rect x="716" y="168" width="154" height="74" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <rect x="738" y="177" width="110" height="18" rx="9" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="793" y="189.5" font-size="10" font-weight="700" fill="#b91c1c" text-anchor="middle">未内置于开源仓库</text>
+    <text x="793" y="211" class="card-t">分布式 KV 持久化池</text>
+    <text x="793" y="229" class="card-s">如 3FS / Mooncake 跨机块存</text>
+
+    <rect x="716" y="256" width="154" height="74" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <rect x="738" y="265" width="110" height="18" rx="9" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="793" y="277.5" font-size="10" font-weight="700" fill="#b91c1c" text-anchor="middle">未内置于开源仓库</text>
+    <text x="793" y="299" class="card-t">实例级 PD 解耦编排</text>
+    <text x="793" y="317" class="card-s">跨机 P/D 路由与 KV 传输</text>
+
+    <rect x="716" y="344" width="154" height="74" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <rect x="738" y="353" width="110" height="18" rx="9" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="793" y="365.5" font-size="10" font-weight="700" fill="#b91c1c" text-anchor="middle">未内置于开源仓库</text>
+    <text x="793" y="387" class="card-t">多副本集群负载均衡</text>
+    <text x="793" y="405" class="card-s">大规模 DP 流量分发与扩缩</text>
+
+    <text x="793" y="446" class="ext-sub">→ 集群方案见第 12 章与专题 B</text>
+  </g>
+
+  <!-- Horizontal boundary connectors -->
+  <line x1="680" y1="196" x2="700" y2="196" stroke="#64748b" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr-dash)"/>
+  <line x1="680" y1="286" x2="700" y2="286" stroke="#64748b" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr-dash)"/>
+  <line x1="680" y1="364" x2="700" y2="364" stroke="#64748b" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr-dash)"/>
+
+  <!-- Bottom takeaway -->
+  <rect x="36" y="476" width="848" height="24" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="48" y="492" class="note"><tspan font-weight="700" fill="#1e293b">核心定位：</tspan>DeepInfer（Apache 2.0）聚焦高吞吐离线推理与单域极致执行核；在线化部署需外接分布式 KV 池、PD 编排与全局负载均衡。</text>
+</svg>

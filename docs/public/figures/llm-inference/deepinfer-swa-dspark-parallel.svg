@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 470" role="img" aria-label="DeepInfer 三大协同加速机制：左侧对比 Balanced CP 镜像切分消除因果注意力 1.75 倍拖尾与 MoE 双微批重叠；右侧展示 CED + SWA 仅重放末尾 140 token 与 DSpark 按置信度和负载动态截断验证长度">
+  <style>
+    text { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .title { font-size: 21px; font-weight: 700; fill: #1e293b; }
+    .sub { font-size: 13px; fill: #64748b; }
+    .sec { font-size: 14px; font-weight: 700; fill: #1e293b; }
+    .lbl { font-size: 11.5px; font-weight: 700; fill: #334155; }
+    .sm { font-size: 10.5px; fill: #475569; }
+    .val { font-size: 10.5px; font-weight: 700; }
+    .note { font-size: 12px; fill: #334155; }
+  </style>
+  <defs>
+    <marker id="arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#6366f1"/>
+    </marker>
+    <marker id="arr-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="920" height="470" fill="#fbfcfe" rx="8"/>
+
+  <!-- Header -->
+  <text x="34" y="36" class="title">DeepInfer 三大协同加速机制：Balanced CP、SWA 有界重放与 DSpark</text>
+  <text x="34" y="57" class="sub">针对超长因果注意力拖尾、CED 解码器重复预填充与高并发投机算力争抢，将算法结构与调度策略闭环耦合。</text>
+
+  <!-- LEFT PANEL: Balanced CP & Two-Batch Overlap -->
+  <g>
+    <rect x="34" y="74" width="414" height="350" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+    <rect x="34" y="74" width="414" height="34" rx="10" fill="#eef2ff"/>
+    <rect x="34" y="96" width="414" height="12" fill="#eef2ff"/>
+    <text x="48" y="96" class="sec" fill="#3730a3">① Balanced CP 镜像切分与双微批通信重叠</text>
+
+    <!-- Sub 1: Naive CP -->
+    <text x="48" y="128" class="lbl" fill="#b91c1c">朴素顺序切分（4 卡 CP）：尾 Rank 算力 1.75× 拖尾</text>
+    <text x="48" y="149" class="sm">Rank 0</text>
+    <rect x="96" y="138" width="38" height="15" rx="3" fill="#fecaca" stroke="#f87171"/>
+    <text x="142" y="149" class="val" fill="#991b1b">6.25%（空等）</text>
+
+    <text x="48" y="170" class="sm">Rank 1</text>
+    <rect x="96" y="159" width="114" height="15" rx="3" fill="#fca5a5" stroke="#f87171"/>
+    <text x="218" y="170" class="val" fill="#991b1b">18.75%</text>
+
+    <text x="48" y="191" class="sm">Rank 2</text>
+    <rect x="96" y="180" width="190" height="15" rx="3" fill="#f87171" stroke="#ef4444"/>
+    <text x="294" y="191" class="val" fill="#991b1b">31.25%</text>
+
+    <text x="48" y="212" class="sm">Rank 3</text>
+    <rect x="96" y="201" width="266" height="15" rx="3" fill="#dc2626"/>
+    <text x="370" y="212" class="val" fill="#dc2626">43.75% 瓶颈</text>
+
+    <!-- Sub 2: Balanced CP -->
+    <text x="48" y="242" class="lbl" fill="#047857">Balanced CP 镜像配对（8 块首尾配对）：四卡 100% 均衡</text>
+    <text x="48" y="263" class="sm">Rank 0</text>
+    <rect x="96" y="252" width="152" height="15" rx="3" fill="#10b981"/>
+    <text x="172" y="263" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">块 1 + 块 8</text>
+    <text x="256" y="263" class="val" fill="#047857">25.0%</text>
+
+    <text x="48" y="283" class="sm">Rank 1</text>
+    <rect x="96" y="272" width="152" height="15" rx="3" fill="#10b981"/>
+    <text x="172" y="283" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">块 2 + 块 7</text>
+    <text x="256" y="283" class="val" fill="#047857">25.0%</text>
+
+    <text x="48" y="303" class="sm">Rank 2</text>
+    <rect x="96" y="292" width="152" height="15" rx="3" fill="#10b981"/>
+    <text x="172" y="303" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">块 3 + 块 6</text>
+    <text x="256" y="303" class="val" fill="#047857">25.0%</text>
+
+    <text x="48" y="323" class="sm">Rank 3</text>
+    <rect x="96" y="312" width="152" height="15" rx="3" fill="#10b981"/>
+    <text x="172" y="323" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">块 4 + 块 5</text>
+    <text x="256" y="323" class="val" fill="#047857">25.0%（零拖尾）</text>
+
+    <!-- Sub 3: Two-Batch Overlap -->
+    <line x1="48" y1="340" x2="434" y2="340" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="48" y="358" class="lbl" fill="#4f46e5">MoE 双微批重叠（隐藏 DeepEP All-to-All 延迟）</text>
+
+    <text x="48" y="381" class="sm">微批 A</text>
+    <rect x="96" y="368" width="98" height="19" rx="4" fill="#dbeafe" stroke="#60a5fa"/>
+    <text x="145" y="381" font-size="10" font-weight="700" fill="#1d4ed8" text-anchor="middle">Attention</text>
+    <rect x="198" y="368" width="112" height="19" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="254" y="381" font-size="10" font-weight="700" fill="#b45309" text-anchor="middle">DeepEP Dispatch</text>
+    <rect x="314" y="368" width="114" height="19" rx="4" fill="#d1fae5" stroke="#10b981"/>
+    <text x="371" y="381" font-size="10" font-weight="700" fill="#065f46" text-anchor="middle">MoE GEMM</text>
+
+    <text x="48" y="407" class="sm">微批 B</text>
+    <rect x="96" y="394" width="98" height="19" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="145" y="407" font-size="10" font-weight="700" fill="#b45309" text-anchor="middle">DeepEP Combine</text>
+    <rect x="198" y="394" width="112" height="19" rx="4" fill="#d1fae5" stroke="#10b981"/>
+    <text x="254" y="407" font-size="10" font-weight="700" fill="#065f46" text-anchor="middle">Attention / GEMM</text>
+    <rect x="314" y="394" width="114" height="19" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="371" y="407" font-size="10" font-weight="700" fill="#b45309" text-anchor="middle">DeepEP Dispatch</text>
+  </g>
+
+  <!-- RIGHT TOP PANEL: SWA Bounded Replay -->
+  <g>
+    <rect x="462" y="74" width="424" height="168" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+    <rect x="462" y="74" width="424" height="34" rx="10" fill="#ecfdf5"/>
+    <rect x="462" y="96" width="424" height="12" fill="#ecfdf5"/>
+    <text x="476" y="96" class="sec" fill="#065f46">② CED + SWA 有界重放（Bounded Replay）</text>
+
+    <!-- Prompt bar -->
+    <text x="476" y="128" class="sm">输入序列 (L)</text>
+    <rect x="556" y="116" width="218" height="18" rx="4" fill="#dbeafe" stroke="#60a5fa"/>
+    <text x="665" y="129" font-size="10.5" font-weight="700" fill="#1e40af" text-anchor="middle">前 L − 140 个 token</text>
+    <rect x="778" y="116" width="94" height="18" rx="4" fill="#fde68a" stroke="#f59e0b"/>
+    <text x="825" y="129" font-size="10.5" font-weight="700" fill="#92400e" text-anchor="middle">末尾 140 tok</text>
+
+    <!-- Encoder row -->
+    <text x="476" y="160" class="sm">前 20 层编码</text>
+    <rect x="556" y="147" width="316" height="20" rx="4" fill="#6ee7b7" stroke="#059669"/>
+    <text x="714" y="161" font-size="10.5" font-weight="700" fill="#064e3b" text-anchor="middle">跑完整序列 → 产出跨层共享 FP4 全局 KV（890 B/tok）</text>
+
+    <!-- Decoder row -->
+    <text x="476" y="193" class="sm">后 20 层解码</text>
+    <rect x="556" y="180" width="218" height="20" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+    <text x="665" y="194" font-size="10.5" fill="#94a3b8" text-anchor="middle">跳过前 L − 140（省 98%+ 解码算力）</text>
+    <rect x="778" y="180" width="94" height="20" rx="4" fill="#f59e0b"/>
+    <text x="825" y="194" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">仅重放 140</text>
+
+    <text x="476" y="226" class="sm">• 8K Prefill 总算力直降 <tspan font-weight="700" fill="#047857">49%</tspan>；且无需向 HBM/SSD 持久化 SWA 状态（重建成本恒为 O(140)）。</text>
+  </g>
+
+  <!-- RIGHT BOTTOM PANEL: DSpark Confidence-Scheduled Verification -->
+  <g>
+    <rect x="462" y="254" width="424" height="170" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+    <rect x="462" y="254" width="424" height="34" rx="10" fill="#fffbeb"/>
+    <rect x="462" y="276" width="424" height="12" fill="#fffbeb"/>
+    <text x="476" y="276" class="sec" fill="#92400e">③ DSpark 半自回归起草 + 置信度动态截断验证</text>
+
+    <!-- Draft tokens with Markov arrows and STS confidence -->
+    <text x="476" y="308" class="sm">草稿与校准</text>
+    <text x="476" y="322" class="sm">置信度 (STS)</text>
+
+    <!-- 6 token pills -->
+    <g font-size="10" text-anchor="middle">
+      <rect x="556" y="295" width="44" height="32" rx="5" fill="#dcfce7" stroke="#22c55e"/>
+      <text x="578" y="308" font-weight="700" fill="#166534">d1</text>
+      <text x="578" y="322" fill="#15803d">0.96</text>
+
+      <rect x="610" y="295" width="44" height="32" rx="5" fill="#dcfce7" stroke="#22c55e"/>
+      <text x="632" y="308" font-weight="700" fill="#166534">d2</text>
+      <text x="632" y="322" fill="#15803d">0.91</text>
+
+      <rect x="664" y="295" width="44" height="32" rx="5" fill="#dcfce7" stroke="#22c55e"/>
+      <text x="686" y="308" font-weight="700" fill="#166534">d3</text>
+      <text x="686" y="322" fill="#15803d">0.84</text>
+
+      <rect x="718" y="295" width="44" height="32" rx="5" fill="#fef3c7" stroke="#f59e0b"/>
+      <text x="740" y="308" font-weight="700" fill="#92400e">d4</text>
+      <text x="740" y="322" fill="#b45309">0.72</text>
+
+      <rect x="772" y="295" width="44" height="32" rx="5" fill="#fee2e2" stroke="#f87171"/>
+      <text x="794" y="308" font-weight="700" fill="#991b1b">d5</text>
+      <text x="794" y="322" fill="#b91c1c">0.45</text>
+
+      <rect x="826" y="295" width="44" height="32" rx="5" fill="#f1f5f9" stroke="#94a3b8"/>
+      <text x="848" y="308" font-weight="700" fill="#475569">d6</text>
+      <text x="848" y="322" fill="#64748b">0.28</text>
+    </g>
+    <!-- Markov connectors -->
+    <line x1="600" y1="306" x2="609" y2="306" stroke="#6366f1" stroke-width="1.3" marker-end="url(#arr-b)"/>
+    <line x1="654" y1="306" x2="663" y2="306" stroke="#6366f1" stroke-width="1.3" marker-end="url(#arr-b)"/>
+    <line x1="708" y1="306" x2="717" y2="306" stroke="#6366f1" stroke-width="1.3" marker-end="url(#arr-b)"/>
+    <line x1="762" y1="306" x2="771" y2="306" stroke="#6366f1" stroke-width="1.3" marker-end="url(#arr-b)"/>
+    <line x1="816" y1="306" x2="825" y2="306" stroke="#6366f1" stroke-width="1.3" marker-end="url(#arr-b)"/>
+
+    <!-- Load-aware truncation rows -->
+    <text x="476" y="355" class="val" fill="#047857">轻载低并发</text>
+    <rect x="556" y="342" width="206" height="19" rx="4" fill="#d1fae5" stroke="#10b981"/>
+    <text x="659" y="355" font-size="10" font-weight="700" fill="#065f46" text-anchor="middle">验证 d1–d4（长验压低单用户 TPOT）</text>
+    <rect x="766" y="342" width="104" height="19" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="3 2"/>
+    <text x="818" y="355" font-size="10" fill="#94a3b8" text-anchor="middle">截断低分尾巴</text>
+
+    <text x="476" y="384" class="val" fill="#b45309">重载高并发</text>
+    <rect x="556" y="371" width="152" height="19" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="632" y="384" font-size="10" font-weight="700" fill="#92400e" text-anchor="middle">仅验证 d1–d3（保吞吐）</text>
+    <rect x="712" y="371" width="158" height="19" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="3 2"/>
+    <text x="791" y="384" font-size="10" fill="#94a3b8" text-anchor="middle">释放 Batch 算力给其他并发</text>
+
+    <text x="476" y="412" class="sm">• 半自回归 Markov 头遏制后缀衰减；同等吞吐下较 MTP-1 提速 <tspan font-weight="700" fill="#b45309">60%–85%</tspan>。</text>
+  </g>
+
+  <!-- Bottom takeaway -->
+  <rect x="34" y="436" width="852" height="24" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="46" y="452" class="note"><tspan font-weight="700" fill="#1e293b">协同法则：</tspan>算法结构（CED/DSpark）与底层执行（Balanced CP/有界重放/双微批）一体协同，是垂直专精引擎跑赢通用框架的根因。</text>
+</svg>

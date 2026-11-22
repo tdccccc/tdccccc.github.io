@@ -1,204 +1,227 @@
-# 第 23 章 跨芯片精度回归、性能归因与分析报告范式
+# 第 23 章 跨芯片算子迁移：从 CUDA / Triton 到 Ascend
 
-<p class="chapter-summary">将全书方法论收口为可证伪、可复现的跨芯片工程决策体系：用配对统计守住精度底线，用五步归因与二分定位锁死性能真凶，通过完整示范报告建立交付标准，并以高效的论文阅读习惯持续演进。</p>
+<p class="chapter-summary">剖析 GPU 与昇腾 NPU 在片上存储和执行模型上的本质分岔，逐条拆解六类 CUDA 隐式假设的化解方案，并通过小引擎与 SiluAndMul 双视角实战划清统一算子库与原生实现的工程边界。</p>
 
-走完性能直觉、推理引擎、底层算子与国产芯片适配的完整旅程后，所有技术细节最终都要汇聚到一个极其现实的工程拷问上：**同一套大模型业务，跑在 NVIDIA GPU 和国产加速卡上，精度到底差了多少？延迟与吞吐的差距究竟是谁造成的？这份结论在多大负载、哪个版本边界内有效？**
+通过[第 22 章](chapter-22.md)的覆盖分析揪出“热点且缺失”的算子后，下一步自然就是把它搬到目标芯片上。很多团队会优先选择把第三篇在 GPU 上已经调通的 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>Kernel 直接搬到 `triton-ascend` 上运行，期望做到“源码零改动跨平台”。然而真实迁移往往会迎面撞上三种尴尬结局：**编译直接报 `ub overflow`；编过了但数值误差超容限；结果全对却慢了一个数量级**。
 
-一份经不起追问的评测报告只会留下一句空洞的“还有差距”，而一份高标准的工程分析报告，能让任何同事照着命令复现出同一量级的数字，并能指着具体某一行算子或配置项拍板优化或选型。本章将精度回归统计、性能归因闭环、完整示范报告与前沿论文读法合为一体，为全书画上收放自如的句号。
+原因并不是 Triton 跨平台理念失灵，而是原本为 GPU 编写的 Kernel 里，悄悄埋着一批<strong>“默认这里是 NVIDIA SIMT 硬件”的隐式假设</strong>。本章把这些隐式假设逐一翻到台面上，给出工程化的迁移改造路径。
 
-## 23.1 跨芯片精度回归：控制变量与配对统计直觉
+## 23.1 为什么 GPU 上跑通的 Triton Kernel 搬到 Ascend 会“算错或变慢”
 
-换了一套芯片和底层算子库后，重跑同一评测集以确认输出质量没有悄悄滑坡，称为**精度回归测试**。这里最常见的工程陷阱有两个：一是变量没控死，把截断或模板差异算到了芯片头上；二是用粗糙的直觉拍脑袋——比如看到准确率从 $85.0\%$ 掉到 $84.2\%$ 就脱口而出“差 $0.8$ 个百分点是正常噪声”。
-
-### 控制变量的五项硬约束
-
-要让精度差异真正指向“芯片与底层软件栈”，两套环境必须严格锁死五个变量：
-
-1. **同一评测集与判分口径**：固定数据集版本、few-shot 示例、prompt 模板以及判分脚本（精确匹配 EM 还是宽容匹配、大小写和标点处理一致）。
-2. **同一模型权重与精度格式**：明确权重 revision/哈希值与<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>方案；若一边 FP16、一边 INT8，结论只能写成“各自默认精度方案对比”，绝不能混称“芯片差异”。
-3. **同一 Tokenizer**：不同分词器版本会改变切分边界与上下文截断位置，直接扭曲长题干任务得分。
-4. **同一采样策略**：优先使用 `temperature = 0`（贪心解码）或固定随机种子，压缩无关的采样方差。
-5. **同一生成上限并核对实际长度**：固定 `max_tokens`，同时记录两边服务端返回的 `usage.completion_tokens` 与触发长度截断的比例——若某一边频繁提前截断，准确率下跌反映的是截断而非计算偏差。
-
-### 为什么同题评测是“配对数据”：McNemar 检验与 NLL/PPL 换算
-
-假设我们在 $n = 1000$ 道 MMLU 题目上评测，平台 A 答对 850 题（$85.0\%$），平台 B 答对 842 题（$84.2\%$），差 $-0.8\,\text{pp}$（8 道题）。先建立样本量分辨率直觉：若评测集只有 $n = 100$ 题，1 道题就是 $1.0\,\text{pp}$，根本分辨不出 $0.8\,\text{pp}$ 的变化；放大到 1000 题，分辨率才到 $0.1\,\text{pp}$。
-
-更关键的统计学洞察在于：**两个平台做的是完全相同的 1000 道题，它们是强相关的配对数据（paired data），绝不能当作两组独立样本去套独立卡方或双样本 $z$ 检验！** 正确做法是按 `sample_id` 逐题对齐，构建 $2 \times 2$ 配对表，聚焦两边意见不一致的分歧题：
-
-- 记 $b$ 为<strong>“仅平台 A 答对、平台 B 答错”</strong>的题数；
-- 记 $c$ 为<strong>“仅平台 B 答对、平台 A 答错”</strong>的题数。
-
-两平台准确率之差恰好等于 $\Delta = (c - b) / n$。在原假设“两平台仅存在对称的随机浮点抖动，即 $P(\text{仅 A 对}) = P(\text{仅 B 对}) = 0.5$”下，**精确双侧 McNemar 检验**直接考察分歧题 $(b, c)$ 的偏斜程度。
-
-看看同样是 $-0.8\,\text{pp}$，背后的分歧结构有多大威力：假设 $n = 1000$ 时测得 **$b = 8, c = 0$**（即所有 8 道分歧题一边倒全是 A 对 B 错，B 没赢回哪怕一题！），则精确双侧 McNemar $p$ 值为：
-
-$$
-p = 2 \times \left(\frac{1}{2}\right)^{b + c} = \frac{2}{2^8} = \frac{1}{128} \approx 0.0078 < 0.01
-$$
-
-如果错误地按独立样本处理，85.0% 与 84.2% 的差距根本达不到统计显著，工程师就会误判为“随机噪声”并放行上线；而配对 McNemar 检验一眼戳穿了这几乎不可能是巧合——平台 B 上极可能潜伏着系统性的数值截断或算子精度 Bug！
-
-对于连续型的困惑度（PPL）指标，它与平均负对数似然（NLL）呈指数关系：
-
-$$
-\frac{\text{PPL}_B}{\text{PPL}_A} = \frac{e^{\text{NLL}_B}}{e^{\text{NLL}_A}} = e^{\Delta \text{NLL}}
-$$
-
-当两边平均 NLL 仅相差 $\Delta\text{NLL} = 0.01$ 时，$e^{0.01} \approx 1.01005$，意味着 PPL 相对升高约 **$1.0\%$**。F1 与 NLL 同样应按文档或题目做**配对 Bootstrap** 构造置信区间，不可与准确率百分点混为一谈。
-
-### 统计不显著 ≠ 质量通过：预设非劣门槛与分层抽查
-
-::: warning 常见误区：把“$p > 0.05$”当成质量无损的通行证
-样本量太小时，任何检验都很容易算出 $p > 0.05$。生产上线的正确判据是**非劣性门槛（non-inferiority）**：实验开跑之前就白纸黑字定好最大可容忍退化 $\Delta_{\max}$（例如 $-0.5\,\text{pp}$）。只有配对差异的置信下界严格高于 $\Delta_{\max}$ 才算通过；如果置信区间横跨 $\Delta_{\max}$，结论必须是“**当前样本量证据不足，需扩大评测集**”，绝不能趁机宣称质量无损。
-:::
-
-最后，指标只告诉你“差了多少”，**分层人工抽查**才告诉你“错成了什么样”。千万不要全集随机抽 5 题草草了事：如果 1000 道题里 800 道是选择题、200 道是开放数学推理，随机抽 5 题全部抽中选择题的概率高达 $0.8^5 \approx 32.8\%$，很可能完美避开仅在多步推演中累积放大的数值退化。正确做法是**按题型分层抽样**（如选择题、多步数学、代码、长文摘要各抽若干题并排对照），一旦发现某类题集中出现重复循环或算术跑偏，就为下一步算子归因直接指明了靶心。
-
-## 23.2 性能差异的五步归因闭环与二分定位
-
-压测表里摆着两组差距明显的 <a class="term-ref" href="/books/llm-inference/glossary#ttft" title="Time to First Token，首 token 延迟：从发出请求到收到首个非空生成内容的时间，包含排队与 prefill">TTFT</a>、<a class="term-ref" href="/books/llm-inference/glossary#itl" title="Inter-Token Latency，token 间延迟：同一请求相邻两个输出 token 之间的时间间隔，决定流式输出是否卡顿">ITL</a>和吞吐曲线，怎么把“数字差异”一步步锁死到“某一个算子或配置项”？记住一条铁律：**Profiler 耗时占比只是相关性线索，只有单变量对照实验才能确立因果关系**。
+Triton 屏蔽了底层的汇编指令，却**无法抹平两种芯片微架构的物理边界**。把一段面向 NVIDIA GPU 编写的 block 级代码直接扔给昇腾 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>编译器，就像把面向多车道立交桥设计的交通调度方案直接搬到专轨高速铁路上——语义虽能勉强翻译，底层资源预算与同步节奏却完全错位。
 
 <figure class="book-figure">
-  <img src="/figures/llm-inference/cross-chip-attribution.svg" alt="跨芯片性能差异五步归因闭环与二分定位示意图：沿现象量化、四面墙与五层栈定位、收敛候选机制、单点对照与二分排查、标明结论边界形成完整工程闭环" loading="lazy">
-  <figcaption><span class="book-figure__label">图 23-1</span>顺着五步主线从左向右推进，核心在于第 4 步必须通过单点变量对照与四项重测确立因果。核心结论：没有对照实验支撑的解释只能列为“候选机制”，绝不能写进最终定论。</figcaption>
+  <img src="/figures/llm-inference/gpu-vs-ascend-memory.svg" alt="NVIDIA GPU 与华为昇腾 NPU 存储层级与执行单元对比图：左侧为 GPU SM 的寄存器、Shared Memory、L2 与 Tensor Core；右侧为昇腾 AI Core 分离的 AIC/AIV 核、UB/L1/L0A/L0B/L0C 专用缓存与 MTE 搬运单元" loading="lazy">
+  <figcaption><span class="book-figure__label">图 23-1</span>左右对照同一块片上空间如何被划分。核心结论：GPU 依赖海量细粒度线程束共享通用的 Shared Memory 与寄存器；昇腾将向量计算（AIV）与矩阵计算（AIC）物理分离，片上采用 UB / L1 / L0 多级专用缓冲，由 MTE 引擎显式接力搬运。</figcaption>
 </figure>
 
-### 五步归因闭环
+### 执行模型与片上存储的本质分岔
 
-**第一步：现象量化。** 用同一套压测脚本（如[第 3 章](chapter-03.md)的流式压测口径）扫清**至少三级并发**（低负载单请求、吞吐拐点附近、高并发饱和区），每档请求数远大于并发数并重复多轮取中位数。必须把 **TTFT、ITL、<a class="term-ref" href="/books/llm-inference/glossary#tpot" title="Time Per Output Token，每输出 token 平均时间：解码阶段总跨度除以输出 token 数减一，衡量平均生成速度">TPOT</a>与输出吞吐**彻底拆报，标清 `p50/p95/p99`、样本量与时间边界，同时并排展示**绝对差值**和**比值**（统一写成 `目标芯片 / 基准芯片`）——TTFT 从 10 ms 涨到 14 ms 与从 100 ms 涨到 140 ms 比值都是 $1.4\times$，但用户的交互体感天差地别。
+对比图 23-1 左右两侧，四个结构性差异直接决定了迁移成败：
 
-**第二步：四面墙与五层栈粗定位。** 先看并发曲线形态：TTFT 随并发率先起飞，多半指向 <a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>计算、<a class="term-ref" href="/books/llm-inference/glossary#chunked_prefill" title="分块预填充：将长 prompt 的 prefill 切为定长小块，与 decode 请求混批以消除解码卡顿">Chunked Prefill</a>策略或图编译开销；ITL 随并发陡增，优先排查 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>显存带宽、算子回退或 KV 布局。再借助[第 18 章](chapter-18.md)的五层栈与[第 21 章](chapter-21.md)的<a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>矩阵，把问题收窄到具体一层。
+- <strong>计算单元组织不同</strong>：NVIDIA A100（108 个 SM）/ H100（132 个 SM）以 SIMT 方式调度海量 32 线程 <a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>，Tensor Core 与 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>Core 驻留在同一个 SM 内共享寄存器和 <a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="共享内存：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">Shared Memory</a>；昇腾 AI Core 则明确区分为<strong>向量核（AIV）</strong>与<strong>矩阵核（AIC）</strong>，单核以超宽 SIMD 向量或大块矩阵指令吞吐数据，物理核数在几十量级而非上百 SM。
+- **片上缓存语义不同**：GPU 的 Shared Memory 是一块通用的软件可控暂存器（A100 每 SM 164 KB，H100 每 SM 228 KB），且配合庞大的寄存器文件吸收临时变量；昇腾的向量指令只能读写**统一缓冲区（UB）**，矩阵乘则必须把输入 tile 先经 **L1** 搬进 **L0A / L0B**、累加结果驻留在 **L0C**，每一级缓存都有独立的容量天花板与路径约束。
+- **隐式硬件调度 vs 显式 DMA 流水**：GPU 靠高并发 Warp 切换掩盖全局显存延迟；昇腾靠 **MTE2 / MTE3 搬运单元**与计算单元之间的多缓冲流水掩盖延迟（正如[第 21 章](chapter-21.md)剖析的 `CopyIn → Compute → CopyOut`）。
 
-**第三步：收敛四类候选机制。** 将可疑机制限定在 2–3 个具体、可证伪的候选内（超过 3 个说明尚未收敛），典型来源集中于四类：
+## 23.2 六类 CUDA 隐式假设及其 Ascend 应对策略
 
-- **精度路径差异**：量化 scale 粒度、累加精度或额外类型转换；
-- **算子实现与回退**：CPU 回退、静默走 `forward_native` 零碎算子、缺失融合核；
-- **<a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>布局**：<a class="term-ref" href="/books/llm-inference/glossary#paged_attention" title="Paged Attention，分页注意力：将 KV 缓存切为固定大小 block，通过块表映射到非连续物理显存的注意力管理机制">PagedAttention</a>的 `block_size`、KV dtype 或分页访存合并效率；
-- **调度与图捕获**：是否启用静态图捕获（ACLGraph / CUDA Graph）、分档覆盖率与批处理上限。
+把上述微架构分岔翻译成工程师改代码时能逐项核对的清单，恰好收敛为**六类高频 CUDA 隐式假设**。迁移任何一个 Triton Kernel 之前，先问清这六类假设里有哪些命中了当前代码：
 
-**第四步：单点变量对照与二分定位。** **每次实验只改一个变量**（比如只替换一个算子实现、只开启一个图模式开关），并做 A/B/A 复核与多轮重复；每做一次单点改动，强制同步通过**四项联合验收**：① 数值正确性、② 同组配对精度回归、③ Profiler 确认实际命中目标路径、④ 端到端性能收益。
-
-当存在 $k$ 个可独立开关的候选因素时（例如定位 8 个融合算子中究竟是哪一个导致精度滑坡或延迟抖动），切忌逐个盲试或一把全关，直接采用**二分定位法**将开关一分为二：
-
-$$
-\text{定位轮数} = \lceil \log_2 k \rceil
-$$
-
-$8$ 个候选按 $8 \to 4 \to 2 \to 1$ 只需 **3 轮**即可精准锁死真凶，$10$ 个候选也仅需 $\lceil \log_2 10 \rceil = 4$ 轮。需谨记二分法的两个前提边界：第一，候选集不能漏掉真正的根因；第二，若存在多个强耦合交互因素，需在收敛后补做联合对照。
-
-**第五步：划清结论边界与版本保质期。** 任何一条归因结论都只对特定的硬件型号、软件栈版本、模型结构、输入输出长度与并发区间负责。软件栈一旦升级、并发一旦跨过拐点，旧机制可能退居二线、新瓶颈随之浮现。保留历史数据与修订记录，永远不把旧版本成绩静默外推到新环境。
-
-## 23.3 完整示范：A100 80GB vs Ascend 910B 64GB 跨芯片对比分析报告
-
-下面以单卡 **NVIDIA A100 80GB SXM** 与单卡 **华为昇腾 Ascend 910B 64GB** 运行同一模型 **`Llama-3.1-8B-Instruct`（FP16）** 为例，完整示范一份高标准的跨芯片对比分析报告如何组织实验条件、三级并发性能、配对精度检验、单点归因（含负面优化回滚）以及带边界的选型建议。
-
-### 1. 实验条件冻结表
-
-| 控制维度 | 基准平台：NVIDIA A100 80GB SXM | 目标平台：Ascend 910B 64GB | 控制一致性说明 |
+| 维度 | GPU（CUDA / Triton）隐式假设 | Ascend（Triton-Ascend）面对的物理约束 | 典型失效现象与化解策略 |
 |---|---|---|---|
-| **硬件配置** | 单卡 A100 80GB SXM（HBM2e 2 TB/s） | 单卡 Ascend 910B 64GB（Atlas A2） | 单卡 FP16 推理，不涉及多卡通信 |
-| **软件栈版本** | CUDA 12.4 / PyTorch 2.6 / vLLM 0.8（对应基准镜像） | HDK 24.1 / CANN 9.2.1 / NNAL 9.2.1 / TorchNPU 2.10.0.post7 / `vllm-ascend` v0.30.0 | 各自锁定整组兼容版本并留存 `pip freeze` 与镜像 digest |
-| **模型与权重** | `Llama-3.1-8B-Instruct`（FP16，权重 ~16 GB，固定 revision） | 完全相同的权重文件与 tokenizer | 校验权重 SHA256 与分词结果完全一致 |
-| **基线服务配置** | `vllm serve`，`--dtype float16 --max-model-len 8192 --max-num-seqs 64`，默认 CUDA Graph | `vllm serve`，`VLLM_WORKER_MULTIPROC_METHOD=spawn`，同长度与并发参数，基线先跑 Eager 模式 | 基线故意保留 Eager 以便后续单点量化图模式收益 |
-| **压测与评测负载** | 固定输入 512 tokens，输出上限 `max_tokens=128`，`temperature=0`；并发 `C = 1 / 8 / 32`，每档 1024 请求重复 3 轮取中位数 | 与基准平台完全相同的压测脚本、请求序列与重复口径 | 全部请求成功率 100%，实际平均输出均在 `124 ± 2` tokens |
-| **精度评测基准** | MMLU 5-shot 固定 1000 题子集（按 `sample_id` 对齐）+ WikiText-2 PPL；预设最大退化门槛 $\Delta_{\max} = -0.5\,\text{pp}$ | 同基准平台完全一致 | 先定门槛再开跑，保留逐题预测日志 |
+| **1. 内存层级** | 按 SM 的 Shared Memory 与大寄存器池挑大 `BLOCK` | 向量算子受片上 **UB** 限制，矩阵乘受 **L1 / L0A·B·C** 限制；多缓冲可能令活跃张量占双份 | 编译期报 `ub overflow` → 核算活跃张量总字节，收缩 `BLOCK` 或减少同时存活的中间张量 |
+| **2. 同步模型** | 靠 `__syncthreads` 与全局内存原子操作做跨块归约 | 搬运与计算分属 MTE / Vector / Cube 流水，由编译器自动插事件同步；`int64`/`fp64` 原子通常受限 | 跨核原子报错或结果错乱 → 消除多核写同一地址依赖，改用两阶段归约；勿将 `tl.debug_barrier` 当跨核同步 |
+| **3. 核映射** | 轻松启动数千个 2D/3D 逻辑 Program，交给上百个 SM 硬件调度 | 物理 AI Core 仅几十个；2D Grid 被展平为 1D，独立逻辑 Program 由编译器自动折叠到物理核 | 核映射不均或调度开销大 → 用 `get_device_properties` 查核数，改写为**固定 1D Grid + 核内循环** |
+| **4. `tl.dot`** | 映射到 Tensor Core，对常见 FP16/BF16/INT8/FP8 均成熟 | 映射到 Cube 单元，受 L0A/L0B/L0C 容量、M/N/K 分块与当前版本低精度 lowering 限制 | 编译失败或累加精度漂移 → 核对目标版本 `tl.dot` 支持的 dtype 与分块约束，最小单测先行 |
+| **5. Dtype 与对齐** | 关注 128B 合并访存；习惯用 `int64` 算指针偏移 | 纯 Vector 路径要求尾轴 **32B** 对齐，CV 融合路径常要求 **512B** 对齐；`int64`/`fp64` 易触发慢路径 | 结果对但极慢（**标量化退化**）→ 索引优先用 `int32`，尾轴尽量 32B 对齐，核查编译产物是否标量化 |
+| **6. 动态 Shape** | 运行时传动态维度，autotune 灵活切换配置 | 区分 Triton `constexpr` 特化、图捕获分档（bucketing）与动态编译 | batch / 序列长步步变化导致图重编或退回 Eager → 推理引擎侧做静态分档，核内兼顾边界 mask |
 
-### 2. 三级并发性能基线与比值对照
+下面重点拆穿其中最容易在实战中翻车的三个细节：
 
-*(说明：TTFT 与 ITL 越小越快，比值 `< 1` 代表 910B 更快；吞吐越大越快，比值 `> 1` 代表 910B 更快。)*
+### 细节一：算清 UB 预算，杜绝 `ub overflow`
 
-| 并发档位 | 核心指标 | NVIDIA A100 80GB | Ascend 910B 64GB（基线） | 比值（910B / A100） |
-|---:|---|---:|---:|---:|
-| **C = 1** | TTFT p50 / p95 (ms) | 180 / 220 | 260 / 340 | 1.44 / 1.55 |
-| **C = 1** | ITL p50 / p95 (ms) | 28 / 40 | 35 / 55 | 1.25 / 1.38 |
-| **C = 1** | 输出吞吐 (token/s) | 36 | 28 | 0.78 |
-| **C = 8** | TTFT p50 / p95 (ms) | 220 / 340 | 320 / 520 | 1.45 / 1.53 |
-| **C = 8** | ITL p50 / p95 (ms) | 33 / 60 | 42 / 85 | 1.27 / 1.42 |
-| **C = 8** | 输出吞吐 (token/s) | 240 | 190 | 0.79 |
-| **C = 32** | TTFT p50 / p95 (ms) | 450 / 900 | 700 / 1,500 | 1.56 / 1.67 |
-| **C = 32** | ITL p50 / p95 (ms) | 48 / 120 | 65 / 180 | 1.35 / 1.50 |
-| **C = 32** | 输出吞吐 (token/s) | 620 | 430 | 0.69 |
+GPU 开发者在写逐元素算子时，常随手设 `BLOCK = 8192` 来吃满带宽。搬到昇腾上，以常见路径名义 **192 KiB UB** 为算例（实际容量按具体 SKU 与 SDK 查询）：若 kernel 中同时活跃着 2 份 FP16 输入、1 份 FP16 输出与 2 份 FP32 中间结果，则单元素需 $3 \times 2 + 2 \times 4 = 14\,\text{B}$。当 `BLOCK = 4096` 时单份约 $56\,\text{KiB}$、双缓冲约 $112\,\text{KiB}$，尚有余量；一旦提到 `BLOCK = 8192`，双缓冲即冲到 $224\,\text{KiB}$，编译期直接报出 `ub overflow` 并给出所需 bit 与可用 bit。**算清活跃张量的生命周期并收缩 `BLOCK`，是迁入昇腾的第一步**。
 
-基线画像一目了然：从 `C = 1` 到 `C = 8`，两平台扩展节奏相近（910B 吞吐维持在 A100 的约 `78%–79%`）；但一旦推到 `C = 32`，910B 的比值明显恶化——吞吐滑落到 A100 的 `69%`，TTFT p95 拉大到 `1.67×`（`1,500 vs 900 ms`），ITL p95 拉大到 `1.50×`（`180 vs 120 ms`）。
+### 细节二：尾轴对齐与“标量化退化”陷阱
 
-### 3. 精度配对回归结果
+在纯 Vector 路径下，尾轴要求 32 字节对齐。以 FP16（2 字节/元素）为例：隐藏维 $D = 1024$ 占 $2048\,\text{B}$，完美对齐 32B；而 $D = 1000$ 占 $2000\,\text{B}$，若编译路径按 32B 向上 padding 到 $2016\,\text{B}$，每行多搬运 16 字节，带宽增量仅 $16 / 2000 = 0.8\%$，看似温和。
 
-| 评测维度 | 统计口径与预设门槛 | A100 (FP16) | 910B (FP16 基线) | 配对差异与统计检验 | 验收结论 |
-|---|---|---:|---:|---|---|
-| **MMLU 5-shot**（$n = 1000$） | 精确匹配准确率，预设 $\Delta_{\max} = -0.5\,\text{pp}$ | 85.0% (850/1000) | 84.8% (848/1000) | $-0.2\,\text{pp}$；分歧 $b=5, c=3$，McNemar $p = 0.727$，95% 区间 $[-0.75, +0.35]\,\text{pp}$ | 点估计极近，无系统性偏斜；区间下界微跨门槛，建议在数学/代码子集扩样复核 |
-| **WikiText-2 PPL** | 文档配对 $\Delta\text{NLL}$，预设 $\le +1.0\%$ | 6.82 | 6.87 | $\Delta\text{NLL} = +0.0073$，相对变化 $+0.73\%$ | **通过** |
-| **分层抽查**（20 题） | 选择/数学/代码/摘要各 5 题并排核对 | 基准输出 | 语义等价，无截断与循环乱码 | 无系统性题型错偏 | **通过** |
+真正致命的不是这 $0.8\%$ 的 padding，而是<strong>当不对齐或混用 `int64` 偏移/`fp64` 累加导致编译器无法向量化、被迫降级为标量循环（标量化退化）</strong>时，宽向量单元瞬间退化成单元素逐个搬算，性能直接雪崩一个数量级。因此，在昇腾 Triton Kernel 中，偏移计算能用 `int32` 绝不顺手写 `int64`，遇到非对齐尾块务必检查编译产物确认仍走向量指令。
 
-### 4. 关键差异归因与单点优化记录（含负面回滚案例）
+### 细节三：理性看待 2D Grid 折叠与 1D 核内循环
 
-借助[第 21 章](chapter-21.md)的 Profiler 清单与五步归因闭环，团队针对 `C = 32` 下的性能落差执行了三轮严格的单变量优化与四项联合验收：
+不要凭旧印象断定“逻辑 Program 数大于物理核数就会触发多次 host launch”。在现代 `triton-ascend` 中，编译器通过 IR 安全性分析，能够自动把无依赖的大量逻辑 Program 折叠映射到有限的物理核上，同时将 2D Grid 如 `(4, 5)` 展平为 `(20,)`。但当逻辑任务颗粒度过细、或实测自动折叠调度开销偏高时，把 Kernel 显式改写为 **Persistent Kernel 风格**（固定 1D Grid 大小不超过 `num_vectorcore`，在核内用步长循环扫遍所有 tile）往往能换来更可控的负载均衡与更低的调度开销。核数务必在运行时通过 `triton.runtime.driver.active.utils.get_device_properties` 动态获取，绝不把某代芯片的核数硬编码进源码。
 
-| 优化编号 | 锁定的现象与 Profiler 定位 | 单点改动内容 | 3 轮复测性能变化（`C = 32`） | 同组精度与路径复核 | 工程决策 |
-|---|---|---|---|---|---|
-| **Opt-A** | ITL p95 偏高（`180 vs 120 ms`）；激活与位置编码合计占设备时间 `18%`（A100 仅 `5%`），定位 `SiluAndMul` 与 `RoPE` 未命中插件融合路径 | 对齐张量布局并修复 `register_ascend_customop` 路由，实锤命中 `npu_swiglu` 与 `npu_rotary_mul` | ITL p95：`180 → 142 ms`（**-21.1%**）；输出吞吐：`430 → 515 tok/s`（**+19.8%**） | MMLU 维持 `84.8%`，PPL `6.87` 无变化；Profiler 确认融合核命中 | **保留** |
-| **Opt-B** | TTFT p95 偏高（`1,500 vs 900 ms`）；Eager 模式下小算子下发频次偏高，设备时间线存在明显调度空泡 | 保持 Opt-A 不变，单点开启 ACLGraph 静态分档捕获（覆盖 batch 1/4/8/16/32） | TTFT p95：`1,500 → 1,120 ms`（**-25.3%**）；ITL p95 微降至 `138 ms` | MMLU 维持 `84.8%`，PPL `6.87`；日志确认静态图重放命中 | **保留** |
-| **Opt-C（负面案例）** | 试图进一步压低带宽受限的 Decode 延迟 | 保持 Opt-A/B，开启激进动态 W8A8 量化 | ITL p95 降至 `105 ms`，输出吞吐跃升至 `585 tok/s` | **MMLU 跌至 `84.0%`**（相对 A100 $-1.0\,\text{pp}$；相对 910B FP16 基线 $-0.8\,\text{pp}$，分歧 $b=9, c=1$，McNemar $p = 0.0215$，突破 $-0.5\,\text{pp}$ 门槛）；分层抽查见多步算术舍入漂移 | **果断回滚**（转入后续 SmoothQuant / 敏感层 FP16 保护校准） |
+## 23.3 引擎级与算子级迁移双视角解剖
 
-::: tip 核心直觉：保留负面优化记录，才是报告可信的试金石
-很多团队在汇报时习惯只展示 Opt-A 和 Opt-B 的光鲜收益，悄悄删掉失败的 Opt-C。在严肃的工程体系里，**经过严格配对回归而主动回滚的负面案例价值连城**——它直接堵死了后来者重复踩坑的路，也向业务方证明了团队对精度红线的敬畏。
-:::
+掌握六类底层假设后，我们一远一近、从“整座引擎”和“单个算子”两个视角，看透跨芯片迁移的完整图景。
 
-### 5. 带适用边界的选型与部署建议
+### 宏观视角：借 `nano-vllm-ascend` 看清引擎移植的四类落点
 
-基于上述两项保留优化后的稳态数据（`C = 32` 下 910B 吞吐达 `515 tok/s`，约为 A100 `620 tok/s` 的 **83.1%**，TTFT p95 `1,120 ms`，ITL p95 `138 ms`）：
+直接扎进几十万行的 vLLM 与 `vllm-ascend` 源码很容易迷路；而极简教学引擎 [nano-vllm-ascend](https://github.com/linzm1007/nano-vllm-ascend) 体量仅约 **4,600 余行**（核心引擎代码与模型架构定义大致各占一半），大到能完整覆盖 Qwen3、Llama、<a class="term-ref" href="/books/llm-inference/glossary#moe" title="Mixture of Experts，混合专家：每个 token 经路由仅激活少数专家子网络，实现总参数容量与单步计算量脱钩">MoE</a>与多模态等主流结构，小到工程师两天就能通读一遍。
 
-- **推荐使用场景**：面向单卡 8B 级别模型、中等并发（`C <= 16`）或交互 <a class="term-ref" href="/books/llm-inference/glossary#slo" title="Service Level Objective，服务等级目标：对服务延迟分位数（如 TTFT/ITL p95）与可用性设定的可度量目标">SLO</a>预算为 `TTFT p95 <= 1.2 s`、`ITL p95 <= 150 ms` 的线上服务，优化后的 Ascend 910B 已具备生产替代能力；按单位 token 算力成本测算，只要 910B 的单卡采购或租赁 TCO 低于 A100 的 **75%**，综合性价比即可反超。
-- **审慎评估边界**：① 当业务进入超长上下文高并发区（如 32K 上下文 × 32 并发）时，64 GB 与 80 GB 之间 **16 GB 的 HBM 容量差**（按 Llama-3.1-8B 每 8K 上下文占 1 GiB 计，相当于 16 条 8K 请求的并发余量）会更早触发抢占；② 若未来切向 <a class="term-ref" href="/books/llm-inference/glossary#moe" title="Mixture of Experts，混合专家：每个 token 经路由仅激活少数专家子网络，实现总参数容量与单步计算量脱钩">MoE</a>、多模态等动态形状模型，需重新核查静态图入图率与算子覆盖，本报告结论仅在所列版本组合与负载分布下有效。
+解剖它从 CUDA 迁移到 Ascend 的全部 diff，整座推理引擎的跨芯片工作量可以干净利落地归为**四类落点**，并与我们在[第 20 章](chapter-20.md)学过的生产插件 `vllm-ascend` 一一对应：
 
-## 23.4 持续演进：如何高效阅读推理系统论文
+| 迁移落点类别 | 在极简引擎 `nano-vllm-ascend` 中的具体改动 | 在生产级插件 `vllm-ascend` 中的对应目录 | 典型边界与工程关注点 |
+|---|---|---|---|
+| **1. 框架设备适配** | `device="cuda"` 换 `"npu"`，`torch.cuda.*` 换 `torch_npu` 对应接口；分页 KV 写入换 `_npu_reshape_and_cache` | `platform.py`、`worker/` | 统一管理设备可见性与分页 KV 块表（例：序列长 1000 / 上限 4096 时，连续预分配浪费 $75.6\%$，按 block=16 分页仅浪费 $0.8\%$） |
+| **2. 图编译与捕获** | 接入 `torchair` 捕获并编译静态前向图，减少小算子下发开销 | `compilation/`（ACLGraph / AscendCompiler） | 动态路由（如 MoE）与变分辨率多模态（VL）常难以直接入静态图，需配合分档或局部 Eager |
+| **3. 注意力后端** | 提供 FlashAttention 库版、NPU 原生版、PyTorch 参考版三套实现按需切换 | `attention/`（Dense / MLA / FA3 后端） | 性能与可读性天然权衡：生产走芯片原生后端，跨平台精度对齐与排障时切回 PyTorch 参考版做 oracle |
+| **4. 自定义算子** | 以 `rms_norm` 示范三种路径：PyTorch C++ 扩展、AscendC、以及 `torch_npu` 内置 | `ops/`、`_cann_ops_custom/` | 验证“定义 → 编译 → 注册 → 调用”闭环，优先复用内置，热点再上自定义核 |
 
-上一节报告里的每一行数字，都会随着新硬件架构、新注意力变体（如 MLA、混合线性注意力）和新调度引擎的发布在几个月内过期；真正不会过期的，是本书从第 1 章到第 23 章为你打牢的方法论，以及**持续从前沿系统论文中汲取新架构直觉的阅读习惯**。
+**先读小引擎看清“改什么”，再读大插件看清“放哪儿”**——把四类改动装进脑子，以后面对海光、摩尔线程或沐曦的引擎移植，骨架完全通用。
 
-读论文最容易落入两种低效陷阱：一种是漫无目的地刷社交媒体的二手速览，看个热闹什么也没留下；另一种是从摘要第一行硬啃到附录定理，卡在一个数学符号上耗尽整个周末。成熟的系统工程师把读论文拆成**选、读、记、用**四步可执行闭环。
+### 微观视角：把 `SiluAndMul` 从 GPU 迁到 Ascend
 
-### 选、读、记、用与 Keshav 三遍读法
+下面聚焦[第 18 章](chapter-18.md)写过的核心融合激活算子 <strong>`SiluAndMul`</strong>（对应 SwiGLU 的门控激活）：给定形状为 $[M, 2D]$ 的连续输入 `hidden_states`，前一半 $x_1$ 在 FP32 精度下计算 $\text{SiLU}(x_1) = x_1 \cdot \sigma(x_1)$，再 <strong>cast 回原始输入精度（FP16/BF16）</strong>后与后一半 $x_2$ 逐元素相乘，输出 $[M, D]$。
 
-- **选（用业务未决问题当筛子）**：固定关注高信噪比来源——arXiv `cs.DC` / `cs.LG` 追踪前沿时效，MLSys / OSDI / SOSP / NeurIPS 获取经过同行评审的系统方法。拿到一篇论文，先扫标题与摘要三问（问题是什么、方法是什么、数字是多少），再问它是否命中当前服务的六大核心命题：**Prefill/Decode 成本、KV 缓存管理、量化精度、<a class="term-ref" href="/books/llm-inference/glossary#speculative_decoding" title="speculative decoding：先由低成本草稿模型预测多步候选 token，再由目标大模型单次并行验证的无损加速方法">投机解码</a>、调度与排队、多卡与跨芯片优化**。一条不沾，直接划掉。
-- **读（实战精简版 Keshav 三遍法）**：
-  - **第一遍（10–15 分钟定去留）**：只读三处——**摘要**、**核心系统/方法图**（理清“输入 → 处理 → 输出”主线）、**实验主表**（抓基线、指标、硬件与模型规模）。引言、相关工作与数学证明第一遍果断跳过；卡在陌生符号上先圈起来继续走。
-  - **第二遍（仅在触发信号时深读）**：只有当“机制复述不出来”“某个关键数字直击线上痛点”或“准备把思路写回自家服务”时，才回头细读算法细节、消融实验与失败边界。
-  - **第三遍（复现级精读）**：仅对决定落地的核心论文，逐行核对其源码、超参假设与硬件约束。
-- **记（三条结论 + 两条边界）**：合上论文，用不超过半页纸强制逼出最核心的骨架，写不出来的那一行就是还没读透的地方：
+先算一笔访存账：取 $M = 512, D = 1024$ 的 FP16 张量，输入 $[512, 2048]$ 占 $2\,\text{MiB}$，输出 $[512, 1024]$ 占 $1\,\text{MiB}$。融合写法总读写量为 $2 + 1 = 3\,\text{MiB}$；若拆成独立的 `silu` 与 `mul`，中间张量需多写 $1\,\text{MiB}$ 再多读 $1\,\text{MiB}$，总访存升至 $5\,\text{MiB}$——融合直接砍掉 **$40\%$ 的显存往返**。
 
-```text
-标题 / 作者 / 会议或 arXiv 编号 / 版本日期
-结论 1（问题）：它解决什么具体瓶颈？在什么前提下发生？
-结论 2（机制）：一句话讲清核心设计，能闭眼复述方法图主线。
-结论 3（数字）：最硬的一组结果，必须带齐基线、指标、硬件与负载条件。
-边界 1（适用条件）：在哪些模型、长度、并发或硬件下会失效或不划算？
-边界 2（未测与假设）：论文没测质量、尾延迟、显存碎片还是集群故障？
-写回落点：改配置 / 新增监控指标 / 列入风险清单 / 明确“不写回及原因”
+从 GPU 迁往昇腾时，先对照 23.2 节的六类假设做筛选：本算子不含 `tl.dot` 也没有跨核归约，真正起决定作用的是**内存层级（UB 选块）、核映射（2D 折叠 vs 1D 持久循环）、尾块 mask 与对齐、以及 FP32 SiLU 后先 cast 再乘的数值契约**。
+
+先看最直观的 **2D Grid 迁移基线**（保留标准 `npu_triton_impl` 契约入口）：
+
+```python
+import torch
+import triton
+import triton.language as tl
+
+
+@triton.jit
+def _silu_and_mul_2d_kernel(x_ptr, out_ptr, hidden_dim, n_cols, BLOCK: tl.constexpr):
+    row = tl.program_id(0)
+    col = tl.program_id(1) * BLOCK + tl.arange(0, BLOCK)
+    mask = col < hidden_dim
+
+    x1 = tl.load(x_ptr + row * n_cols + col, mask=mask, other=0.0)
+    x2 = tl.load(x_ptr + row * n_cols + hidden_dim + col, mask=mask, other=0.0)
+
+    # 严格保持数值语义：FP32 计算 SiLU，cast 回输入精度后再与 x2 相乘
+    x1_fp32 = x1.to(tl.float32)
+    silu_val = (x1_fp32 * tl.sigmoid(x1_fp32)).to(x2.dtype)
+    tl.store(out_ptr + row * hidden_dim + col, silu_val * x2, mask=mask)
+
+
+def npu_triton_impl_2d(inputs: dict) -> dict:
+    hs = inputs["hidden_states"]  # 形状 [M, 2D]
+    assert hs.ndim == 2 and hs.shape[1] % 2 == 0 and hs.is_contiguous()
+    assert hs.dtype in (torch.float16, torch.bfloat16)
+    bs, n_cols = hs.shape
+    hidden_dim = n_cols // 2
+    out = torch.empty((bs, hidden_dim), dtype=hs.dtype, device=hs.device)
+    if bs == 0 or hidden_dim == 0:
+        return {"output": out}
+
+    block_size = 128
+    grid = (bs, triton.cdiv(hidden_dim, block_size))
+    _silu_and_mul_2d_kernel[grid](hs, out, hidden_dim, n_cols, BLOCK=block_size)
+    return {"output": out}
 ```
 
-- **用（写回系统才算读完）**：论文里的数字是作者在作者的负载下跑出来的，绝不是你的线上结论。把读到的启发转化成一次具体的配置改动、一个新增的 Prometheus 监控项，或者一条排障检查项，在自己的负载上跑通对照，这篇论文才真正长进了你的工程直觉里。
+当 $M = 512, D = 1024, \text{BLOCK} = 128$ 时，上述 2D Grid 会切出 $512 \times 8 = 4096$ 个逻辑 Program。如果希望显式掌控昇腾物理向量核（AIV）的负载均衡，规避细粒度逻辑块调度开销，可以只改核映射逻辑，将其升级为 **1D 固定核数 + 核内循环（Persistent Kernel）优化版**：
 
-### 典范演练：用“三条结论、两条边界”精读 PagedAttention
+```python
+import torch
+import triton
+import triton.language as tl
 
-以推理工程里程碑论文 **PagedAttention / vLLM**（Kwon et al., SOSP 2023, `arXiv:2309.06180`）走一遍这套浓缩读法：
 
-- **快速扫图定主线**：跳过长篇背景，直奔三张关键图——系统架构图（Fig. 4：中心调度器 → KV 块管理器 → GPU Worker）、注意力算法图（Fig. 5：Query 跨非连续物理块读取 K/V）、块表翻译图（Fig. 6：逻辑块按固定大小映射到非连续物理块，按需分配并借助引用计数实现前缀共享与写时复制）。顺手复算文中的硬账本：OPT-13B 每 token 的 KV 为 $800\,\text{KiB}$，2048 token 即约 $1.6\,\text{GB}$，与本书[第 2 章](chapter-02.md)算 Llama-3.1-8B 的 $128\,\text{KiB/token}$ 逻辑一脉相承。
-- **沉淀半页笔记**：
-  - **结论 1（问题）**：早期推理引擎按最大长度连续预分配 KV 显存，实测仅 `20.4%–38.2%` 的显存真正存了有效 token 状态，严重卡死并发 batch 上限。
-  - **结论 2（机制）**：借鉴操作系统虚拟内存分页，将 KV 切为固定大小 Block，靠块表解耦逻辑连续与物理连续，消除外部碎片（浪费上界收窄至每序列最后一个未满 Block），并通过引用计数支持跨请求前缀共享。
-  - **结论 3（数字）**：在 A100 上以 OPT-13B/66B/175B 与 LLaMA-13B 跑 ShareGPT/Alpaca 真实分布负载，同等延迟约束下端到端吞吐较 FasterTransformer 与 Orca 提升 **`2–4×`**，且序列越长、模型越大、束搜索越复杂，优势越显著。
-  - **边界 1（适用条件）**：收益源于动态变长与前缀共享；若线上全为定长短输入、无公共前缀且显存远未吃满，收益会显著收敛；Block 过大增加末尾内部碎片，过小则拉低注意力核访存效率（论文消融取 `16` 附近平衡）。
-  - **边界 2（未测与假设）**：2023 年对比基线已大幅演进，不能把当年 `2–4×` 当作今天引擎间的绝对差距；原论文未覆盖跨节点分布式 KV 池与混合线性注意力架构（见[专题 A](../topics/advanced-architectures.md)与[专题 B](../topics/cluster-pd-mooncake.md)）。
-  - **写回落点**：将 `block_size`、`gpu_memory_utilization` 与 KV 有效利用率指标正式写进线上容量评估看板与跨芯片实验条件表，若长期观测到 KV 利用率偏低，立刻排查调度上限而非盲目扩容显存。
+@triton.jit
+def _silu_and_mul_persistent_kernel(
+    x_ptr,
+    out_ptr,
+    hidden_dim,
+    n_cols,
+    total_tiles,
+    tiles_per_row,
+    BLOCK: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    num_progs = tl.num_programs(0)
+    # 每个物理向量核在核内按步长循环领任务，避免细粒度块调度开销
+    for tile_idx in range(pid, total_tiles, num_progs):
+        row = tile_idx // tiles_per_row
+        col = (tile_idx % tiles_per_row) * BLOCK + tl.arange(0, BLOCK)
+        mask = col < hidden_dim
 
-更多推理系统经典论文的精炼笔记与口径拆解，收录在[专题 D：各章核心论文精读与数据口径](../topics/paper-notes.md)。
+        x1 = tl.load(x_ptr + row * n_cols + col, mask=mask, other=0.0)
+        x2 = tl.load(x_ptr + row * n_cols + hidden_dim + col, mask=mask, other=0.0)
+        x1_fp32 = x1.to(tl.float32)
+        silu_val = (x1_fp32 * tl.sigmoid(x1_fp32)).to(x2.dtype)
+        tl.store(out_ptr + row * hidden_dim + col, silu_val * x2, mask=mask)
 
----
 
-## 全书结语
+def npu_triton_impl(inputs: dict) -> dict:
+    hs = inputs["hidden_states"]
+    assert hs.ndim == 2 and hs.shape[1] % 2 == 0 and hs.is_contiguous()
+    assert hs.dtype in (torch.float16, torch.bfloat16)
+    m, n_cols = hs.shape
+    hidden_dim = n_cols // 2
+    out = torch.empty((m, hidden_dim), dtype=hs.dtype, device=hs.device)
+    if m == 0 or hidden_dim == 0:
+        return {"output": out}
 
-从第 1 章纸笔算出的 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>脊点，到第二篇深入 vLLM、SGLang 与 <a class="term-ref" href="/books/llm-inference/glossary#tensorrt_llm" title="TensorRT-LLM 推理引擎：NVIDIA 面向数据中心 GPU 的高性能 LLM 推理系统，当前默认采用 PyTorch 执行后端">TensorRT-LLM</a>的调度与生产架构，再到第三篇亲手优化 GPU 矩阵乘与 <a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>，直至第四篇跨越硬件边界走通国产芯片的软件栈、<a class="term-ref" href="/books/llm-inference/glossary#ascendc" title="Ascend C，AscendC 算子编程语言：面向华为昇腾 NPU 的 C++ 自定义算子编程接口，显式管理片上 UB 与硬件流水">AscendC</a>流水线、算子覆盖审计与跨芯片归因——你已经拥有了一套完整的**大语言模型推理系统工程心法**。
+    block_size = 256
+    tiles_per_row = triton.cdiv(hidden_dim, block_size)
+    total_tiles = m * tiles_per_row
 
-模型架构每半年都在演进，芯片算力与软件栈版本每季度都在刷新。但无论下一代是何种模型、何种加速器，**先算账、再度量、定位置、做对照、标边界**这五个朴素动作永远不会过时。祝你在每一次吞吐爬坡与延迟攻坚中，眼里有全局，手中有尺子，脚下有实证。
+    # 动态查询当前设备物理向量核数，绝不硬编码特定型号核数
+    props = triton.runtime.driver.active.utils.get_device_properties(hs.device.index or 0)
+    num_cores = props.get("num_vectorcore", 1)
+    grid = (min(num_cores, total_tiles),)
 
-**延伸阅读**：[lm-evaluation-harness 评测框架](https://github.com/EleutherAI/lm-evaluation-harness)、[MLPerf Inference 基准规范](https://docs.mlcommons.org/inference/)、[How to Read a Paper（S. Keshav, 2007）](https://web.stanford.edu/class/ee384m/Handouts/HowtoReadPaper.pdf)、[PagedAttention 论文（SOSP 2023）](https://arxiv.org/abs/2309.06180)、[专题 D：各章核心论文精读与数据口径](../topics/paper-notes.md)。
+    _silu_and_mul_persistent_kernel[grid](
+        hs, out, hidden_dim, n_cols, total_tiles, tiles_per_row, BLOCK=block_size
+    )
+    return {"output": out}
+```
+
+### 算子迁移上线前的七项检查清单
+
+每次完成类似 `SiluAndMul` 的跨芯片算子迁移后，用下面七项标准逐条过关（缺任何一项都不算收口）：
+
+| 检查项 | 验收通过标准 | 异常时优先回查什么 |
+|---|---|---|
+| **1. 语义等价** | 输入输出 shape、dtype 与中间 cast 顺序与 PyTorch oracle 完全一致 | 核对先 cast 还是先乘（例如 FP32 乘再 cast vs cast 后再乘的舍入差异） |
+| **2. 内存与 UB 层级** | 零 `ub overflow`，活跃张量与多缓冲总占用留有编译安全余量 | 缩小 `BLOCK`、复用中间变量或排查是否触发意外的寄存器/UB 溢出 |
+| **3. 同步模型** | 无跨核写同一全局地址的竞争；未误用不支持的 `int64`/`fp64` 原子 | 改用两阶段归约或消除跨核共享状态 |
+| **4. 尾轴对齐** | 确认未发生非预期标量化退化；非对齐形状的 padding 带宽开销在预算内 | 用 $D = 1000, 1023, 1024$ 对比设备耗时与编译中间产物 |
+| **5. 边界形状** | 覆盖 $M = 1$、空张量、$D$ 不整除 `BLOCK`、极值输入（$0, \pm 80$） | 检查 `mask` 边界、`other=0.0` 防脏值及 `sigmoid` 上下溢行为 |
+| **6. 数值精度** | 在目标 dtype（FP16/BF16）容限内 `max_abs` 达标 | 核对 `exp`/`sigmoid` 在极端输入下的 lowering 数值一致性 |
+| **7. 同口径性能** | 同 shape、同预热、同设备计时口径对比芯片内置库或基线，且确认真实走了设备 kernel | 排查自动/手工核映射、UB 利用率以及是否存在静默回退 |
+
+## 23.4 统一算子库（FlagGems / FlagTree）与手写原生算子的工程边界
+
+看完单个算子迁移的细致工作量，一个自然的问题浮上水面：**既然有 FlagGems 这样的跨芯片统一 Triton 算子库，我们是不是可以直接全部交给统一层，再也不用自己迁移或手写 <a class="term-ref" href="/books/llm-inference/glossary#ascendc" title="Ascend C，AscendC 算子编程语言：面向华为昇腾 NPU 的 C++ 自定义算子编程接口，显式管理片上 UB 与硬件流水">AscendC</a>了？**
+
+要做出冷静的架构选型，必须先厘清统一生态里两个常被混淆的项目，再划清统一算子库的能力边界。
+
+### 分清 FlagGems 与 FlagTree
+
+- **[FlagGems](https://github.com/flagos-ai/FlagGems) 是算子库**：维护面向十余家芯片后端的通用 Triton 算子源码（同时也允许针对特定硬件加入后端专用特化与调参），并注册进 PyTorch 的 ATen 分发层。模型代码零改动即可走通三级分发链（FlagGems 统一实现 → 厂商实现 → PyTorch 兜底）。
+- **[FlagTree](https://github.com/flagos-ai/FlagTree) 是多后端编译器项目**：衍生自 Triton 的统一编译基础设施，通过各芯片后端分支把同一套 Triton IR 降维成不同硬件的底层二进制。
+
+两者是<strong>“算子源码与分发库”</strong>和<strong>“底层多后端编译器”</strong>的协作关系，而非简单的“生成器与自动产物”。这意味着跨芯片维护收益来自<strong>通用算子逻辑与 bug 修复的共享</strong>，绝不是神奇的“12 份工作量自动变 1 份”——各后端的编译器升级、特定 shape/dtype 回归以及热点调参依然需要持续投入。
+
+### 统一算子库不能解决的四件事
+
+FlagGems 极大地加速了新芯片从 0 到 1 跑通主流模型的速度，但在生产调优中，必须清醒认识它**明确不负责的四类问题**：
+
+| 统一算子库不解决什么 | 背后的系统原因 | 应当交由哪一层解决？ |
+|---|---|---|
+| **1. 跨算子自动融合** | 它提供单算子或预设融合算子（如 `silu_and_mul`），但不会把模型前向里相邻的两个独立 PyTorch 调用自动合成一个 kernel | 推理引擎手工融合（`CustomOp`）或图编译器（GE / `torch.compile`） |
+| **2. 推理调度与批处理** | 不感知请求到达、Continuous Batching、Chunked Prefill 或流编排 | 推理引擎调度器（vLLM / SGLang）与运行时 |
+| **3. 整图捕获与显存规划** | 主打 Eager 就绪与 ATen 注册，不替代静态图捕获或跨层激活显存复用 | ACLGraph / CUDA Graph 与图执行器 |
+| **4. 单芯片极限峰值性能** | 通用源码需兼顾多后端可移植性；要压榨 AIC/AIV 双核流水或定制 L0 分块，通用写法常离硬件天花板有距离 | 针对 Profiler 热点做后端特化、手调 Triton-Ascend 或原生 AscendC |
+
+::: info 工程取舍：两阶段算子选型策略
+把统一算子库与原生手写算子摆在正确的协作位置上：**统一层决定你进入一块新芯片的起步速度，原生算子决定热点路径的性能天花板**。最务实的团队路线永远是：先用 `vllm-ascend` 内置实现或 FlagGems 统一层迅速把业务模型拉通上线；再用[第 22 章](chapter-22.md)的 Profiler 清单定位少数耗时高且离 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>差距悬殊的热点算子；最后只对那 2–3 个真正能撬动端到端延迟的关键算子投入手调 Triton-Ascend 或 AscendC 原生开发。
+:::
+
+## 本章小结
+
+- **微架构决定迁移痛点**：NVIDIA SIMT（大 SM + 共享内存 + 寄存器）与昇腾达芬奇架构（AIC/AIV 分离 + UB/L1/L0 + MTE 显式流水）的物理差异，是 GPU Triton Kernel 直接照搬后报错或降速的根本原因。
+- **逐条拆解六类假设**：迁移时必须系统核查内存层级（防 `ub overflow`）、流水同步模型、物理核映射（2D 折叠 vs 1D 核内循环）、`tl.dot` 的 L0 与 dtype 约束、Vector 32B / CV 512B 尾轴对齐（严防标量化退化）以及动态 shape 引发的图重编。
+- **宏微结合与能力边界**：小引擎 `nano-vllm-ascend` 将引擎移植清晰拆为框架适配、图编译、注意力后端与自定义算子四类落点；单算子 `SiluAndMul` 展示了数值契约与持久核映射改造；FlagGems/FlagTree 负责高效拉齐覆盖面，但不替代图融合、调度器与热点原生优化。
+
+**延伸阅读**：[Triton-Ascend GPU 迁移官方指南](https://github.com/triton-lang/triton-ascend/blob/main/docs/en/migration_guide/migrate_from_gpu.md)、[nano-vllm-ascend 极简昇腾推理引擎](https://github.com/linzm1007/nano-vllm-ascend)、[FlagGems 统一算子库](https://github.com/flagos-ai/FlagGems)、[FlagTree 多后端编译器](https://github.com/flagos-ai/FlagTree)。

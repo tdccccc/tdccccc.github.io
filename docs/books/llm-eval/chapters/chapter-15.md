@@ -4,7 +4,7 @@
 
 技术选型会上最常见也最昂贵的决策失误，莫过于拿出一张只有一列数字的表格：“模型 A 通过率 85.2%，比方案 B 高 4.7 个百分点，全量切 A！”结果上线不到一周，业务方和财务同时找上门——模型 A 每次回答暗自生成两万个思考 Token，P95 响应耗时飙到 56 秒击穿用户忍耐极限，月度 API 账单暴涨近 8 倍，却只换来了不足 5% 的任务成功率增量。
 
-离线评测一旦脱离推理系统的物理账本，结论就会在生产环境瞬间反噬。本章深度联动姐妹篇[《LLM 推理工程》](/books/llm-inference/)的[第 3 章推理度量](/books/llm-inference/chapters/chapter-03)、[第 8 章量化原理与取舍](/books/llm-inference/chapters/chapter-08)与[第 11 章生产成本路由](/books/llm-inference/chapters/chapter-11)，建立工程可复算的<strong><a class="term-ref" href="/books/llm-eval/glossary#pareto_frontier" title="质量、单任务成本与端到端 P95 延迟多维空间中不被其他方案同时碾压的最优折中集合">质量 × 成本 × 延迟联合帕累托前沿</a></strong>。
+离线评测一旦脱离推理系统的物理账本，结论就会在生产环境瞬间反噬。本章深度联动姐妹篇[《LLM 推理工程》](/books/llm-inference/)的[第 3 章推理度量](/books/llm-inference/chapters/chapter-03)、[第 8 章量化原理与取舍](/books/llm-inference/chapters/chapter-08)与[第 12 章生产成本路由](/books/llm-inference/chapters/chapter-12)，建立工程可复算的<strong><a class="term-ref" href="/books/llm-eval/glossary#pareto_frontier" title="质量、单任务成本与端到端 P95 延迟多维空间中不被其他方案同时碾压的最优折中集合">质量 × 成本 × 延迟联合帕累托前沿</a></strong>。
 
 ---
 
@@ -115,7 +115,7 @@ def select_pareto_winner(
     return sorted(scored, key=lambda x: x[1], reverse=True)
 ```
 
-对于自建开源模型集群（如 H100/A100 跑 vLLM FP8），需严格按[《LLM 推理工程》第 11 章](/books/llm-inference/chapters/chapter-11)的折旧公式把 GPU 租金折算为等效单价，确保自建与外部 API 站在同一条成本轴上公平比价：
+对于自建开源模型集群（如 H100/A100 跑 vLLM FP8），需严格按[《LLM 推理工程》第 12 章](/books/llm-inference/chapters/chapter-12)的折旧公式把 GPU 租金折算为等效单价，确保自建与外部 API 站在同一条成本轴上公平比价：
 
 $$
 p_{\text{eff}} \;(\text{USD / 1M tok}) \;=\; \frac{\text{节点每小时折旧与电费租金（USD/h）}}{3{,}600 \times \text{目标 SLA 下的有效吞吐（tok/s）} \times u_{\text{avg}}} \times 10^6

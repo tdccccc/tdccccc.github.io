@@ -256,7 +256,7 @@ SGLang 为此引入了**缓存感知调度（Cache-Aware Scheduling / Longest Pr
   - `chunk_size = 512`（分 4 块）：Decode 每步最多等约 $1/4$ 个 Prefill，<a class="term-ref" href="/books/llm-inference/glossary#itl" title="Inter-Token Latency，token 间延迟：同一请求相邻两个输出 token 之间的时间间隔，决定流式输出是否卡顿">ITL</a>尾延迟大幅收平。
 - **双刃剑与取舍**：分块 Prefill 优化的是**全局 Decode ITL、整体算力利用率**（Decode 搭 Prefill 便车，不再空转算力），以及多机流水线并行下的微批均衡（消除级间气泡）；但代价是**这条长 Prefill 自己的首字延迟 TTFT 会被拉长到跨越 4 个 step**。选择 Chunk 大小（常见默认值在 2K–8K token 量级）的准则是：**先锁死业务能容忍的 ITL 上限，再在此约束下尽量把 Chunk 调大以摊薄 Kernel 启动开销。**
 
-把两条主线合起来看：**前缀复用让命中的 Prefill 直接消失，分块 Prefill 让躲不掉的 Prefill 不再卡死 Decode。** 至于彻底在物理机器层面拆开两个阶段的 PD 解耦（Prefill-Decode Disaggregation），则是“改调度”与“改部署”的进一步取舍，我们将在[第 11 章](chapter-11.md)深入展开。
+把两条主线合起来看：**前缀复用让命中的 Prefill 直接消失，分块 Prefill 让躲不掉的 Prefill 不再卡死 Decode。** 至于彻底在物理机器层面拆开两个阶段的 PD 解耦（Prefill-Decode Disaggregation），则是“改调度”与“改部署”的进一步取舍，我们将在[第 12 章](chapter-12.md)深入展开。
 
 ### 前端 DSL 与压缩有限状态机（Compressed FSM）
 

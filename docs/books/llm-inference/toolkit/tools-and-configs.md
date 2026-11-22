@@ -120,19 +120,19 @@ sum by (finished_reason, model_name) (increase(vllm:request_success_total[5m]))
 
 ## 三、GPU 算子优化与引擎接入编译参考
 
-对应第三篇（[第 12 章](../chapters/chapter-12.md)、[第 15 章](../chapters/chapter-15.md) 与 [第 17 章](../chapters/chapter-17.md)）中的正文核心实现，按模块整理完整的编译、运行与插件安装参考命令：
+对应第三篇（[第 13 章](../chapters/chapter-13.md)、[第 16 章](../chapters/chapter-16.md) 与 [第 18 章](../chapters/chapter-18.md)）中的正文核心实现，按模块整理完整的编译、运行与插件安装参考命令：
 
 | 模块与文件名约定 | 对应章节 | 核心实现内容 | 编译 / 运行参考命令 |
 | --- | --- | --- | --- |
-| `gemm_bench.cu` | [第 12 章](../chapters/chapter-12.md) | FP32 GEMM 四版演进完整 CUDA 入口（`gemm_naive` → `gemm_tiled` → `float4` 向量化搬运 → `2×2` 线程粗化），内置 CPU 参考校验、非整除尾块保护与 CUDA Events 计时 | `nvcc -O3 -std=c++17 -arch=sm_80 gemm_bench.cu -o /tmp/gemm_bench`（按实际 GPU 计算能力调整 `-arch`，如 H100 用 `sm_90`，A40 用 `sm_86`） |
-| `quant_matmul.py` | [第 15 章](../chapters/chapter-15.md) | Triton 双路径量化矩阵乘实现：INT8 **W8A8**（`matmul_int8_kernel`，per-token × per-channel FP32 缩放 + L2 Swizzle）与 **W8A16 融合反量化**（`matmul_fused_dequant_kernel`） | `python3 quant_matmul.py` |
-| `silu_plugin/` | [第 17 章](../chapters/chapter-17.md) | 接入 vLLM 平台扩展体系的最小自定义算子插件包，通过 `vllm.general_plugins` 入口点注册 `SiluAndMul` 的 Triton 实现（含 `pyproject.toml`、`my_plugin/kernel.py` 与 `my_plugin/silu_and_mul_plugin.py`） | 在目标 vLLM 环境中执行 `pip install --no-build-isolation --no-deps -e ./silu_plugin` |
+| `gemm_bench.cu` | [第 13 章](../chapters/chapter-13.md) | FP32 GEMM 四版演进完整 CUDA 入口（`gemm_naive` → `gemm_tiled` → `float4` 向量化搬运 → `2×2` 线程粗化），内置 CPU 参考校验、非整除尾块保护与 CUDA Events 计时 | `nvcc -O3 -std=c++17 -arch=sm_80 gemm_bench.cu -o /tmp/gemm_bench`（按实际 GPU 计算能力调整 `-arch`，如 H100 用 `sm_90`，A40 用 `sm_86`） |
+| `quant_matmul.py` | [第 16 章](../chapters/chapter-16.md) | Triton 双路径量化矩阵乘实现：INT8 **W8A8**（`matmul_int8_kernel`，per-token × per-channel FP32 缩放 + L2 Swizzle）与 **W8A16 融合反量化**（`matmul_fused_dequant_kernel`） | `python3 quant_matmul.py` |
+| `silu_plugin/` | [第 18 章](../chapters/chapter-18.md) | 接入 vLLM 平台扩展体系的最小自定义算子插件包，通过 `vllm.general_plugins` 入口点注册 `SiluAndMul` 的 Triton 实现（含 `pyproject.toml`、`my_plugin/kernel.py` 与 `my_plugin/silu_and_mul_plugin.py`） | 在目标 vLLM 环境中执行 `pip install --no-build-isolation --no-deps -e ./silu_plugin` |
 
 ---
 
 ## 四、跨芯片对比评估核心维度框架
 
-在开展跨芯片（如 NVIDIA GPU 对照昇腾 NPU 或其他国产芯片）的正式技术选型或回归评审时，建议按 [第 23 章](../chapters/chapter-23.md) 的范式固化以下七个核心评估维度，使任何结论都能追溯到精确条件并在环境升级后有序复核：
+在开展跨芯片（如 NVIDIA GPU 对照昇腾 NPU 或其他国产芯片）的正式技术选型或回归评审时，建议按 [第 24 章](../chapters/chapter-24.md) 的范式固化以下七个核心评估维度，使任何结论都能追溯到精确条件并在环境升级后有序复核：
 
 | 评估维度 | 必须固定的关键要素 | 工程防错要点 |
 | --- | --- | --- |

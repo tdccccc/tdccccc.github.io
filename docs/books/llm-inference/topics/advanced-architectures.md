@@ -107,7 +107,7 @@ $$
 | 极端均匀分布 | 256 | 2 | 3.22 GFLOPs | 1.50 GiB | 60.00 GiB | 大量极瘦小矩阵，算术强度低 |
 | 极端集中分布 | 8 | 64 | 3.22 GFLOPs | 48.00 MiB | 1.875 GiB | 少数宽矩阵，权重复用提升 32× |
 
-两者算力完全相等，理想权重读取量却相差 **32 倍**。同时，MoE 还存在**专家粒度不变式**：单层路由总参数 $3 E d f$ 与单 token 算力 $6 k_{\text{top}} d f$ 只取决于乘积。若将专家数减半（$256 \to 128$）、中间维加倍（$512 \to 1024$）、选中数减半（$8 \to 4$），参数与算力总量纹丝不动，但每个专家的矩阵变宽变少，直接改变 [第 12 章](../chapters/chapter-12.md) 与 [第 13 章](../chapters/chapter-13.md) 的 <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>tiling 与分组矩阵乘（Grouped GEMM）效率。
+两者算力完全相等，理想权重读取量却相差 **32 倍**。同时，MoE 还存在**专家粒度不变式**：单层路由总参数 $3 E d f$ 与单 token 算力 $6 k_{\text{top}} d f$ 只取决于乘积。若将专家数减半（$256 \to 128$）、中间维加倍（$512 \to 1024$）、选中数减半（$8 \to 4$），参数与算力总量纹丝不动，但每个专家的矩阵变宽变少，直接改变 [第 13 章](../chapters/chapter-13.md) 与 [第 14 章](../chapters/chapter-14.md) 的 <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>tiling 与分组矩阵乘（Grouped GEMM）效率。
 
 ### 混合状态曲线与长度交点 $H^*$
 
@@ -235,4 +235,4 @@ $$
 
 回到最开始的问题：拿到一个全新大模型架构时，不要急着套用旧的调优模板，先按四条轴把账拆清——**总参数定显存与专家放置，激活参数定单步算力，状态曲线 $M_{\text{fixed}} + c_{\text{state}} H$ 定并发上限，层间与检索结构定长上下文读量及 P/D 配比**。当你能看穿这四者如何脱钩，架构迭代就不再是黑盒。
 
-> 本专题的五模型架构口径整理自李博杰[《深入理解 AI Infra》](https://github.com/bojieli/ai-infra-book)模型架构分析框架，并统一换算为全书计量口径；延伸阅读可结合 [第 2 章](../chapters/chapter-02.md)、[第 11 章](../chapters/chapter-11.md) 与 [硬件规格与模型账本速查](../toolkit/hardware-models.md)。
+> 本专题的五模型架构口径整理自李博杰[《深入理解 AI Infra》](https://github.com/bojieli/ai-infra-book)模型架构分析框架，并统一换算为全书计量口径；DeepSeek V4.1 Flash 的 CED、SWA 有界重放与 CSA2 如何在开源引擎中落地，详见 [第 11 章（DeepInfer）](../chapters/chapter-11.md)，其余延伸阅读可结合 [第 2 章](../chapters/chapter-02.md)、[第 12 章](../chapters/chapter-12.md) 与 [硬件规格与模型账本速查](../toolkit/hardware-models.md)。

@@ -196,7 +196,7 @@ $$\text{Speedup}(\alpha, \gamma, c) = \frac{E(\alpha, \gamma)}{1 + \gamma c} = \
 一旦越过脊点，验证多出来的 $\gamma$ 个位置不再免费，而是与正常并发请求真刀真枪地抢夺 Tensor Core 算力——更糟的是，**每一个被拒绝的草稿 token 消耗的算力都彻底打了水漂**。除此之外，高并发下的草稿前向排队、草稿 KV 挤占显存（缩小可用最大 batch）也会进一步拉低<a class="term-ref" href="/books/llm-inference/glossary#goodput" title="goodput：同时满足延迟（TTFT/ITL）SLO 与正确性约束的有效请求吞吐">有效吞吐</a>。
 
 ::: info 工程取舍：围绕交叉点做动态决策
-不要被“最高 2.8×”的离线单并发头条数字迷惑。投机解码的真正定位是<strong>低/中并发下的延迟加速器（压低 TPOT）</strong>，而非高满载集群的吞吐万能药。生产部署中，若集群昼夜流量峰谷悬殊，应启用引擎的<strong>动态投机（Dynamic Speculative Decoding）</strong>或按实时并发深度阈值自动缩减 $\gamma$ 乃至关闭投机：低谷期开足 $\gamma$ 压榨极速响应，高峰期自动退回标准<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>保护吞吐。同时注意，调节 `temperature` 与 `top_p` 时，接受率取决于目标与草稿分布的重叠度，未必随温度单调下降，上线前应按固定采样参数实测自身负载的 QPS 交叉区间。
+不要被“最高 2.8×”的离线单并发头条数字迷惑。投机解码的真正定位是<strong>低/中并发下的延迟加速器（压低 TPOT）</strong>，而非高满载集群的吞吐万能药。生产部署中，若集群昼夜流量峰谷悬殊，应启用引擎的<strong>动态投机（Dynamic Speculative Decoding）</strong>或按实时并发深度阈值自动缩减 $\gamma$ 乃至关闭投机（例如 [第 11 章](chapter-11.md)将剖析的 DeepInfer **DSpark** 框架，正是用校准后的逐位存活置信度结合集群负载动态截断验证长度）：低谷期开足 $\gamma$ 压榨极速响应，高峰期自动退回标准<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>保护吞吐。同时注意，调节 `temperature` 与 `top_p` 时，接受率取决于目标与草稿分布的重叠度，未必随温度单调下降，上线前应按固定采样参数实测自身负载的 QPS 交叉区间。
 :::
 
 ## 9.4 长上下文 KV 淘汰与 Attention Sink
@@ -276,4 +276,4 @@ StreamingLLM 给出的解法出奇简洁，但包含**两个缺一不可的关�
 - **投机解码**撬动的是**算力与带宽的不对称**：在低并发带宽受限区，借草稿预猜 + 目标一次前向并行验证 + 数学严格无损的残差拒绝采样，换取 2–3× 的单请求提速；但当并发跨过 Roofline 脊点进入计算受限区，额外算力反成拖累，需要动态调节 $\gamma$ 或按负载开关。
 - **KV 淘汰**撬动的是**显存与信息完整性的权衡**：以 StreamingLLM 为代表的方案通过保留功能性 Attention Sink 并重排缓存内 RoPE 相对位置，将 KV 显存与每步读取量压成常数，换来超长流式稳定性，代价是彻底放弃窗口外的精确远端记忆。
 
-在理解了推理引擎内部的高级加速技巧之后，[下一章](chapter-10.md)我们将聚焦 NVIDIA 的高性能推理框架 **<a class="term-ref" href="/books/llm-inference/glossary#tensorrt_llm" title="TensorRT-LLM 推理引擎：NVIDIA 面向数据中心 GPU 的高性能 LLM 推理系统，当前默认采用 PyTorch 执行后端">TensorRT-LLM</a>**，破除过时的“编译 vs Eager”刻板印象，并对 vLLM V1、SGLang 与 TensorRT-LLM 三大引擎展开全维度架构横评。
+在理解了推理引擎内部的高级加速技巧之后，[下一章](chapter-10.md)我们将聚焦 NVIDIA 硬件原厂推理框架 **<a class="term-ref" href="/books/llm-inference/glossary#tensorrt_llm" title="TensorRT-LLM 推理引擎：NVIDIA 面向数据中心 GPU 的高性能 LLM 推理系统，当前默认采用 PyTorch 执行后端">TensorRT-LLM</a>**，破除过时的“编译 vs Eager”刻板印象并拆解三本执行预算，随后在[第 11 章](chapter-11.md)剖析 DeepSeek 开源的 **DeepInfer** 并对四大主流引擎展开全维度架构横评。

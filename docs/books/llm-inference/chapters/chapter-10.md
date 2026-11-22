@@ -1,8 +1,8 @@
-# 第 10 章 TensorRT-LLM 与三引擎架构横评
+# 第 10 章 TensorRT-LLM：PyTorch 后端与执行预算
 
-<p class="chapter-summary">破除“TensorRT-LLM 是静态编译、vLLM 是纯 Eager”的过时标签，拆解当前 TensorRT-LLM PyTorch 后端的执行循环与三本预算账，并以八维架构横评与业务选型矩阵回答 vLLM V1、SGLang 与 TensorRT-LLM 究竟该怎么选。</p>
+<p class="chapter-summary">破除“TensorRT-LLM 是静态编译、vLLM 是纯 Eager”的过时标签，拆解当前 TensorRT-LLM PyTorch 后端的执行循环、三本预算账以及 FP8/NVFP4、KV 块复用、NIXL 解耦与 EAGLE-3 工程路径，厘清硬件原厂专精引擎的能力边界。</p>
 
-第 5 章和第 6 章分别拆解了 [vLLM](chapter-05.md) 的 <a class="term-ref" href="/books/llm-inference/glossary#paged_attention" title="Paged Attention，分页注意力：将 KV 缓存切为固定大小 block，通过块表映射到非连续物理显存的注意力管理机制">PagedAttention</a>与<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>、以及 [SGLang](chapter-06.md) 的 <a class="term-ref" href="/books/llm-inference/glossary#radix_attention" title="Radix Attention，基数树注意力：用压缩前缀树（Radix Tree）按 token 粒度管理、共享与 LRU 淘汰 KV 缓存的机制">RadixAttention</a>前缀树与重叠调度。在数据中心 NVIDIA GPU 生态中，还有第三根核心支柱——**<a class="term-ref" href="/books/llm-inference/glossary#tensorrt_llm" title="TensorRT-LLM 推理引擎：NVIDIA 面向数据中心 GPU 的高性能 LLM 推理系统，当前默认采用 PyTorch 执行后端">TensorRT-LLM</a>**。过去很长一段时间里，工程师对它贴着一个刻板标签：“性能猛，但要离线编译成静态 `.engine`，难调试、难换模型”。今天这套印象已经彻底过时。本章将先厘清现代推理引擎的架构趋同，再深入 TensorRT-LLM PyTorch 后端的执行循环、预算管理与核心特性，最后把三大引擎摆在同一张工程天平上做全景横评。
+第 5 章和第 6 章分别拆解了 [vLLM](chapter-05.md) 的 <a class="term-ref" href="/books/llm-inference/glossary#paged_attention" title="Paged Attention，分页注意力：将 KV 缓存切为固定大小 block，通过块表映射到非连续物理显存的注意力管理机制">PagedAttention</a>与<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>、以及 [SGLang](chapter-06.md) 的 <a class="term-ref" href="/books/llm-inference/glossary#radix_attention" title="Radix Attention，基数树注意力：用压缩前缀树（Radix Tree）按 token 粒度管理、共享与 LRU 淘汰 KV 缓存的机制">RadixAttention</a>前缀树与重叠调度。在数据中心 NVIDIA GPU 生态中，还有第三根核心支柱——**<a class="term-ref" href="/books/llm-inference/glossary#tensorrt_llm" title="TensorRT-LLM 推理引擎：NVIDIA 面向数据中心 GPU 的高性能 LLM 推理系统，当前默认采用 PyTorch 执行后端">TensorRT-LLM</a>**。过去很长一段时间里，工程师对它贴着一个刻板标签：“性能猛，但要离线编译成静态 `.engine`，难调试、难换模型”。今天这套印象已经彻底过时。本章将先厘清现代推理引擎的架构趋同，再深入 TensorRT-LLM PyTorch 后端的执行循环、三本预算账与核心执行路径，为下一章引入模型原厂引擎 DeepInfer 并展开四大引擎全景横评打下完整坐标。
 
 ## 10.1 破除“编译式 vs Eager”迷思：从静态 Engine 到 PyTorch 后端
 
@@ -115,7 +115,7 @@ $$8192 - 32 = 8160\text{ tokens}$$
 
 ### 量化后端：按 GPU 架构代际走正确路径
 
-<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>在 TensorRT-LLM 中与 GPU 计算能力（Compute Capability）严格绑定（量化数学原理详见[第 8 章](chapter-08.md)，低精度 Matmul 算子拆解详见[第 15 章](chapter-15.md)）：
+<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>在 TensorRT-LLM 中与 GPU 计算能力（Compute Capability）严格绑定（量化数学原理详见[第 8 章](chapter-08.md)，低精度 Matmul 算子拆解详见[第 16 章](chapter-16.md)）：
 
 - **Hopper（H100，CC 9.0）与 Blackwell（B200，CC 10.0）的原生 FP8 / FP4 路线**：
   - H100 配备原生 FP8 Tensor Core（稠密峰值 1,979 TFLOPS，较 FP16 翻倍）。Llama-3.1-8B 从 FP16 转为 **FP8 W8A8** 后，权重从 16.06 GB 缩半至约 8.03 GB，单请求 Decode 权重搬运地板直接从 4.80 ms 砍到 2.40 ms；在<a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>的长 Prompt Prefill 阶段，还能借原生 FP8 GEMM 吞吐翻倍显著压低 TTFT；
@@ -128,7 +128,7 @@ $$8192 - 32 = 8160\text{ tokens}$$
 
 - **In-flight Batching（在线迭代级动态批处理）**：这是 TensorRT-LLM 对 Continuous Batching 与 Chunked Context 的统一实现名称。请求在任意生成步完成即立刻腾出 `max_batch_size` 槽位与 KV 物理块，新请求立刻切块插入下一步，消灭静态批处理的尾部“陪跑气泡”。
 - **基于基数树的 KV 块复用（KV Block Reuse）**：TensorRT-LLM 的 <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>管理器默认开启跨请求块复用（`kv_cache_config.enable_block_reuse: true`），底层采用基数树（Radix Tree）索引分页块，并支持部分块复用（`enable_partial_reuse`）与带优先级的 LRU 淘汰。工程上需牢记**块对齐边界**：若两段长 System Prompt 在第 1 个 token 就存在差异（如插入了实时时间戳），后续所有块都无法命中前缀哈希。
-- **内置解耦传输层（`cache_transceiver_config`）**：面对跨实例 PD 解耦（将在[第 11 章](chapter-11.md)详述），TensorRT-LLM 原生集成基于 **NIXL（底层自动封装 NVLink / UCX / RDMA）** 的 KV 收发器，支持 `trtllm-serve disaggregated` 一键拉起 Context 与 Generation 编排服务，并可实现逐层计算与 KV 发送的流水线重叠。
+- **内置解耦传输层（`cache_transceiver_config`）**：面对跨实例 PD 解耦（将在[第 12 章](chapter-12.md)详述），TensorRT-LLM 原生集成基于 **NIXL（底层自动封装 NVLink / UCX / RDMA）** 的 KV 收发器，支持 `trtllm-serve disaggregated` 一键拉起 Context 与 Generation 编排服务，并可实现逐层计算与 KV 发送的流水线重叠。
 
 ### EAGLE-3 投机解码工程集成
 
@@ -158,46 +158,18 @@ speculative_config:
 ```
 
 ::: warning 常见误区：EAGLE-3 上线前的三项硬核对
-第一，Draft 权重必须与 Target 基座版本、词表与 Chat Template 严格匹配，错配版本会直接导致接受率趋近于零；第二，TensorRT-LLM 当前的投机解码配置作用于整实例级别，不支持逐请求动态关闭，高并发集群务必参考[第 9 章](chapter-09.md)的 <a class="term-ref" href="/books/llm-inference/glossary#qps" title="Queries Per Second，每秒请求数：系统每秒到达或完成的请求数量">QPS</a>交叉点原则，切勿在满载高吞吐实例上盲目常开；第三，压测对比三引擎前务必关闭或对齐 `enable_block_reuse`，防止跨轮次前缀命中污染 TTFT 基准。
+第一，Draft 权重必须与 Target 基座版本、词表与 Chat Template 严格匹配，错配版本会直接导致接受率趋近于零；第二，TensorRT-LLM 当前的投机解码配置作用于整实例级别，不支持逐请求动态关闭，高并发集群务必参考[第 9 章](chapter-09.md)的 <a class="term-ref" href="/books/llm-inference/glossary#qps" title="Queries Per Second，每秒请求数：系统每秒到达或完成的请求数量">QPS</a>交叉点原则，切勿在满载高吞吐实例上盲目常开；第三，跨引擎压测对比前务必关闭或对齐 `enable_block_reuse`，防止跨轮次前缀命中污染 TTFT 基准。
 :::
 
-## 10.4 三引擎深度架构与选型总表
+## 10.4 硬件原厂专精的工程边界
 
-把 vLLM V1、SGLang 与 TensorRT-LLM 并排放在一起，很容易陷入“社区跑分谁高了 5%”的短期口水战。引擎版本每两周都在迭代，单个 benchmark 数字转瞬即逝，但三者的**架构哲学、生态重心与工程取舍**却有清晰的长期脉络。
+回到架构全局视角，TensorRT-LLM 的长板与边界都极其清晰：
 
-### 八维深度架构横评：vLLM V1 vs SGLang vs TensorRT-LLM
-
-| 对比维度 | vLLM V1 | SGLang | TensorRT-LLM（PyTorch 后端） |
-|---|---|---|---|
-| **1. 架构演进与执行后端** | V1 彻底重构多进程引擎，解耦前端 API 与核心调度器，以 Python + PyTorch 为主轴，极度强调模块化与可扩展性 | 轻量级高并发 Python 引擎，深度围绕“语言/程序级调用 + 极致低 CPU 调度开销”设计，端到端架构紧凑 | 已从静态 `.engine` 全面转向原生 PyTorch 后端（`PyExecutor`），保留 NVIDIA 底层 C++/CUDA 高性能算子与执行计划内核 |
-| **2. 调度机制与批处理** | 统一 Chunked Prefill 调度（不再割裂 P/D 两阶段逻辑），支持优先级与抢占恢复，强调大流量稳健性 | **Zero-Overhead 重叠调度器**将 CPU 调度与 GPU 前向异步重叠，单步调度开销极低，高并发小模型优势突出 | **In-flight Batching**（Generation 优先保护 ITL），严格围绕 `max_batch_size / max_seq_len / max_num_tokens` 三预算闭环控制 |
-| **3. KV 缓存与前缀复用** | **PagedAttention** 分页块表 + 自动前缀缓存（APC，哈希块复用），支持多级 KV 卸载连接器 | **RadixAttention**（基数树全局管理所有会话 KV，含树状多分支共享与缓存感知调度，天然契合复杂 Agent 工作流） | 分页块管理器 + **基数树 KV 块复用**（支持部分块复用与优先级 LRU），默认开启跨请求共享 |
-| **4. 编译与 CUDA Graph** | 默认启用 `torch.compile` 算子融合 + **分段 CUDA Graph**，在动态 Attention 间隙无缝拼合静态图 | 预捕获多档位 CUDA Graph，支持 `torch.compile` 与 FlashInfer 融合图路径，捕获速度快、冷启动轻盈 | 结合自定义融合核、JIT、`torch.compile` 与 CUDA Graph（含 padding 与分段模式），面向 NVIDIA 架构精细调优 |
-| **5. 量化与算子生态** | 量化生态最全（FP8 / AWQ / GPTQ / Marlin / GGUF / BitsAndBytes），同时兼容 FlashAttention / FlashInfer / Triton | 深度集成 **FlashInfer** 与 Triton/CUTLASS，原生 FP8、DeepSeek MLA/FP8 块量化与 MoE Fused 算子迭代极快 | **NVIDIA 官方标杆**：Hopper FP8、Blackwell NVFP4、CUTLASS/cuBLASLt GEMM 与 TensorRT 专属融合核常年领先 |
-| **6. 投机解码、结构化与 PD 解耦** | 全家桶支持 Draft/N-gram/Medusa/EAGLE/MTP；支持 XGrammar/Outlines；多款 KV Connector（NIXL/Mooncake/LMCache） | **结构化输出（压缩有限状态机 FSM / XGrammar 零开销跳转）业内标杆**；EAGLE-2/3 与 MTP 成熟；原生 Bootstrap + Mooncake/NIXL PD 解耦 | EAGLE-3 与 MTP 性能极致；集成引导解码；内置基于 **NIXL** 的 `cache_transceiver` 解耦编排与计算-传输重叠 |
-| **7. 冷启动、硬件与模型支持广度** | **模型与硬件广度第一**：新开源模型常年 Day-0 支持，覆盖 NVIDIA / AMD ROCm / TPU / 昇腾（`vllm-ascend`）等异构芯片 | **前沿大模型（尤其 MoE/MLA 如 DeepSeek、Qwen3）跟进极快**，启动轻快；支持 NVIDIA / AMD / 部分国产 NPU 插件 | **仅限官方 NVIDIA GPU 矩阵**（Ampere 至 Blackwell）；主流旗舰模型覆盖稳健，但冷门/超新架构适配节奏慢于前两者 |
-| **8. 典型工程定位** | 企业级通用推理底座与多模型中台“默认安全牌” | 高共享前缀 Agent、结构化输出、前沿 MoE/MLA 性能先锋 | 纯 NVIDIA 旗舰卡（H100/B200）榨取极限单卡延迟与低精度吞吐的“硬件专精派” |
-
-::: info 工程取舍：基准横评必须守住“四同一”铁律
-做内部选型压测时，任何跨引擎对比都必须严格对齐四个前提：**同一硬件与驱动/CUDA 栈、同一权重文件/量化路径/Chat Template、同一精确输入输出 token 分布与采样参数、同一延迟分位数（p50/p95/p99）与稳态<a class="term-ref" href="/books/llm-inference/glossary#goodput" title="goodput：同时满足延迟（TTFT/ITL）SLO 与正确性约束的有效请求吞吐">有效吞吐</a>口径**。常见“伪对比”包括：用 FP8 的 TensorRT-LLM 对比 FP16 的 vLLM、未清空<a class="term-ref" href="/books/llm-inference/glossary#prefix_caching" title="prefix caching：跨请求复用相同 prompt 前缀已计算出的 KV 缓存，跳过重复 prefill">前缀缓存</a>导致第二轮 TTFT 虚低、或者只比 `batch=1` 忽略高并发下的 p99 拐点。
-:::
-
-### 按业务场景快速决策选型指南
-
-回到真实业务架构评审，你可以直接按以下七类典型场景快速收口选型：
-
-| 业务场景特征 | 首选推荐 | 备选方案 | 核心决策理由 |
-|---|---|---|---|
-| **多模型中台 / 频繁上线新开源模型 / 企业级标准平台** | **vLLM V1** | SGLang | 模型覆盖最广、Day-0 响应快、K8s `production-stack` 与 Prometheus 生态成熟，团队上手与排障成本最低 |
-| **多轮 Agent、Tree-of-Thought、复杂工具调用、重度 JSON/Schema 结构化输出** | **SGLang** | vLLM V1 | RadixAttention 缓存感知调度 + 压缩 FSM 零开销结构化解码，高复用前缀与严格格式输出下综合吞吐优势最明显 |
-| **纯 H100 / B200 旗舰集群、核心单一主力模型、压榨极限 FP8 / NVFP4 延迟与吞吐** | **TensorRT-LLM** | SGLang | NVIDIA 原厂针对 Hopper/Blackwell 深度打磨的 FP8/NVFP4 算子与执行计划，在大流量稳定模型上能把硬件压到极致 |
-| **DeepSeek MLA / 超大稀疏 MoE（如 671B）大规模专家并行（EP）部署** | **SGLang** | TensorRT-LLM / vLLM V1 | SGLang 与 TensorRT-LLM 在 MLA 吸收、FP8 分块量化、DeepEP 通信重叠方面推进最快，需紧跟最新 release 核对 |
-| **多云异构硬件（含 AMD GPU 或昇腾等国产 NPU 混合纳管）** | **vLLM V1** | SGLang | vLLM 通过统一插件接口（如第 19 章的 `vllm-ascend`）屏蔽多芯片差异，TensorRT-LLM 强绑定 NVIDIA 生态无法跨厂 |
-| **超大规模跨节点 PD 解耦 + 分布式共享 KV 池集群** | **SGLang / vLLM V1**（配 Mooncake/NIXL） | TensorRT-LLM（配 NIXL） | 三者均已支持 NIXL/RDMA 解耦；若需集成跨机 DRAM/SSD 共享 KV 池，SGLang 与 vLLM 的社区连接器生态最丰富 |
-| **极低并发交互式应用（代码补全、实时语音对话），强需求低 TPOT** | **TensorRT-LLM / SGLang**（开 EAGLE-3） | vLLM V1（开 EAGLE-3） | 优先对比三者在目标模型上 EAGLE-3 + CUDA Graph 的端到端 TPOT p95 与冷启动耗时 |
+- **不可替代的原厂红利**：作为 NVIDIA 自家团队围绕 Ampere、Hopper 到 Blackwell 逐代硬件特性打磨的运行时，TensorRT-LLM 往往第一时间把最新 Tensor Core 精度（如 Hopper 原生 FP8、Blackwell 原生 **NVFP4**）、CUTLASS/cuBLASLt 融合核、NVLink/NVSHMEM 通信与 **NIXL** 解耦收发器送入稳定生产路径；在纯 NVIDIA 旗舰集群上运行稳定主力模型时，它常年保持极限单卡延迟与低精度吞吐的标杆水准。
+- **清晰可见的生态约束**：第一，它**强绑定 NVIDIA GPU 矩阵**，一旦企业需要统一纳管 AMD GPU 或华为昇腾等国产 NPU（见[第 19–23 章](chapter-19.md)），便无法沿用同一套运行时；第二，面对每个月涌现的冷门或激进新架构（例如彻底重构编解码拓扑、稀疏索引与超大规模 MoE 通信的超前沿模型），硬件原厂引擎虽然仍会快速跟进，却很难像模型发明者自己那样把模型结构与底层引擎做“零抽象损耗”的一体化定制。
 
 ## 小结
 
-现代 LLM 推理引擎已经走出“编译式 vs 解释执行”的早期分水岭，全面汇流到**加载期算子融合 + CUDA Graph 捕获 + 运行期迭代级动态调度**的统一架构范式。TensorRT-LLM 借 PyTorch 后端彻底卸下了静态编译的包袱，通过 `PyExecutor` 与三本预算账（并发、单条长度、单步 token 池）精确驾驭 GPU 资源；而在 vLLM V1、SGLang 与 TensorRT-LLM 之间做技术选型，核心永远是“先过硬件与模型兼容红线，再按前缀复用、结构化输出与低精度硬件特化匹配场景，最后以同口径 <a class="term-ref" href="/books/llm-inference/glossary#slo" title="Service Level Objective，服务等级目标：对服务延迟分位数（如 TTFT/ITL p95）与可用性设定的可度量目标">SLO</a>下的有效吞吐（Goodput）一锤定音”。
+现代 LLM 推理引擎已经走出“编译式 vs 解释执行”的早期分水岭，全面汇流到**加载期算子融合 + CUDA Graph 捕获 + 运行期迭代级动态调度**的统一架构范式。TensorRT-LLM 借 PyTorch 后端彻底卸下了静态编译的包袱，通过 `PyExecutor`、三本预算账（并发、单条长度、单步 token 池）以及原厂低精度算子与 EAGLE-3 / NIXL 集成，构筑了“硬件原厂专精派”的完整工程范本。
 
-单机引擎的潜力挖尽之后，面对更大规模的并发与更苛刻的 TTFT / ITL 双重 SLA，我们必须把视野拉升到集群与生产架构层。[下一章](chapter-11.md)我们将系统展开 **PD 解耦、Kubernetes 弹性扩缩容、单位 Token 经济学与多后端成本路由**。
+在看清通用底座（vLLM V1）、程序级前缀先锋（SGLang）与硬件原厂专精（TensorRT-LLM）之后，推理引擎还存在第四个维度——<strong>模型原厂垂直协同派</strong>。[下一章](chapter-11.md)我们将深入拆解 DeepSeek 开源的生产级推理引擎 **<a class="term-ref" href="/books/llm-inference/glossary#deepinfer" title="DeepSeek 开源的生产级高性能大模型推理引擎（Apache 2.0），面向 DeepSeek-V4.1-Flash 等超大稀疏 MoE 模型深度垂直协同，支持 NVIDIA SM100 与华为昇腾 950">DeepInfer</a>**，并将四大主流引擎放到同一张九维工程天平上完成全景横评与业务选型收口。

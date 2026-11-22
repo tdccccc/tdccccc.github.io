@@ -80,7 +80,7 @@ ncu --section SpeedOfLight --kernel-name-base demangled \
   python3 run_step.py
 ```
 
-看 `ncu` 报告的第一眼，永远先盯 **GPU Speed Of Light Throughput** 中的两个百分比——**Compute (SM) Throughput** 与 **Memory Throughput**：如果 Memory 冲上 80%+ 而 Compute 只有 10%，就是实锤的带宽受限；反之 Compute 逼近 80%+ 则是<a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>；如果**两者都远低于 50%**，说明既没喂饱算力也没跑满带宽，往往卡在低占用率（Occupancy）、<a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>停顿（如等待长延迟访存或同步屏障）或 Grid 并行度不足上——第三篇第 12 章会带着你顺着这些硬件计数器逐级改写 kernel。
+看 `ncu` 报告的第一眼，永远先盯 **GPU Speed Of Light Throughput** 中的两个百分比——**Compute (SM) Throughput** 与 **Memory Throughput**：如果 Memory 冲上 80%+ 而 Compute 只有 10%，就是实锤的带宽受限；反之 Compute 逼近 80%+ 则是<a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>；如果**两者都远低于 50%**，说明既没喂饱算力也没跑满带宽，往往卡在低占用率（Occupancy）、<a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>停顿（如等待长延迟访存或同步屏障）或 Grid 并行度不足上——第三篇第 13 章会带着你顺着这些硬件计数器逐级改写 kernel。
 
 ---
 
@@ -158,10 +158,10 @@ ncu --section SpeedOfLight --kernel-name-base demangled \
 
 | Profiling 时间线典型症状 | 背后物理根因 | 第二篇：引擎与部署优化 | 第三篇：GPU 算子优化 | 第四篇：国产芯片排查 |
 |---|---|---|---|---|
-| **低算术强度算子占大头**（Decode 线性层/Attention、大量逐元素读写） | 显存带宽受限（$I < I_{\text{ridge}}$） | 连续批处理（第 5 章）、前缀复用（第 6 章）、权重量化与 KV 量化（第 8 章）、投机解码（第 9 章） | Triton 融合（第 13 章）、FlashAttention（第 14 章）、W8A16 量化 Matmul（第 15 章） | 核对 HBM 带宽利用率与 UB 双缓冲流水（第 20/22 章） |
-| **高算术强度大块连续顶满 GPU**（长 Prefill GEMM / Attention） | 计算受限（$I > I_{\text{ridge}}$） | 原生 FP8 计算（第 8 章）、PD 解耦隔离长 Prefill（第 11 章） | GEMM 四版分块阶梯（第 12 章）、Triton 2D GEMM（第 13 章）、FA2/FA3 与 CUTLASS（第 16 章） | 检查矩阵核 AIC 利用率与块划分适配（第 20/22 章） |
-| **小 kernel 针刺密集、CPU 泳道挤满、GPU 碎片空白** | 启动开销受限（Host 发射跟不上） | CUDA Graph 静态图重放（第 5/10 章）、双进程异步引擎调度（第 5 章） | 算子融合减少启动次数（第 13 章）、自定义算子接入与分发验证（第 17 章） | 排查 ACL Graph / 图下沉是否生效与图外断链（第 19/21 章） |
-| **GPU 周期性成片空白，上方为同步、拷贝或 CPU 执行** | 结构性等待（显式同步、H2D/D2H 或算子回退） | 消除同步拷贝与抢占换出（第 5/7 章）、PD 间异步 KV 传输（第 11 章） | 异步拷贝 `cp.async` 与片上流水线（第 16 章） | **重点排查 CPU 回退、图外执行与静默精度降级**（第 21 章） |
+| **低算术强度算子占大头**（Decode 线性层/Attention、大量逐元素读写） | 显存带宽受限（$I < I_{\text{ridge}}$） | 连续批处理（第 5 章）、前缀复用（第 6 章）、权重量化与 KV 量化（第 8 章）、投机解码（第 9 章） | Triton 融合（第 14 章）、FlashAttention（第 15 章）、W8A16 量化 Matmul（第 16 章） | 核对 HBM 带宽利用率与 UB 双缓冲流水（第 20/22 章） |
+| **高算术强度大块连续顶满 GPU**（长 Prefill GEMM / Attention） | 计算受限（$I > I_{\text{ridge}}$） | 原生 FP8 计算（第 8 章）、PD 解耦隔离长 Prefill（第 12 章） | GEMM 四版分块阶梯（第 13 章）、Triton 2D GEMM（第 14 章）、FA2/FA3 与 CUTLASS（第 17 章） | 检查矩阵核 AIC 利用率与块划分适配（第 20/22 章） |
+| **小 kernel 针刺密集、CPU 泳道挤满、GPU 碎片空白** | 启动开销受限（Host 发射跟不上） | CUDA Graph 静态图重放（第 5/10 章）、双进程异步引擎调度（第 5 章） | 算子融合减少启动次数（第 14 章）、自定义算子接入与分发验证（第 18 章） | 排查 ACL Graph / 图下沉是否生效与图外断链（第 19/21 章） |
+| **GPU 周期性成片空白，上方为同步、拷贝或 CPU 执行** | 结构性等待（显式同步、H2D/D2H 或算子回退） | 消除同步拷贝与抢占换出（第 5/7 章）、PD 间异步 KV 传输（第 12 章） | 异步拷贝 `cp.async` 与片上流水线（第 17 章） | **重点排查 CPU 回退、图外执行与静默精度降级**（第 22 章） |
 
 ::: tip 收口原则：每次优化只闭环一件事
 一份合格的性能诊断笔记只需要三行：第一，**最热算子或最长空白占端到端时间的比例**；第二，**它落在三区间中的哪一区、对应哪条根因**；第三，**下一步只改一个变量的具体动作，以及改完后重新压测与重拉 Trace 的验证结果**。

@@ -2,7 +2,7 @@
 
 <p class="chapter-summary">端侧推理绝非数据中心服务的缩小版：没有并发排队，量化是入场门票，冷加载与发热降频成为一等约束。</p>
 
-全书主线聚焦于数据中心的多用户推理服务（vLLM、SGLang、TensorRT-LLM 与国产集群卡）。然而在实际产品落地中，大量离线隐私对话、桌面代码补全、移动终端助手以及零后端成本的网页应用，选择把模型直接搬到用户的手机、笔记本甚至浏览器标签页里执行。
+全书主线聚焦于数据中心的多用户推理服务（vLLM、SGLang、TensorRT-LLM、DeepInfer 与国产集群卡）。然而在实际产品落地中，大量离线隐私对话、桌面代码补全、移动终端助手以及零后端成本的网页应用，选择把模型直接搬到用户的手机、笔记本甚至浏览器标签页里执行。
 
 许多熟悉数据中心调优的工程师第一次接触端侧推理时，会下意识地把“<a class="term-ref" href="/books/llm-inference/glossary#continuous_batching" title="continuous batching：以单次迭代为粒度动态组批，已完成请求立即退出、等待请求即时补入的调度机制">连续批处理</a>”“并发拐点”“KV 分页共享”搬过去，结果发现几乎处处失灵。核心原因在于：**两者的模型数学完全相同，但操作面与物理约束截然相反**。本专题系统拆解主流端侧运行时、六大操作面差异、四大硬件约束算术，以及数据中心经验的迁移边界。
 
@@ -10,7 +10,7 @@
 
 ## C.1 三类代表性端侧运行时版图
 
-面向终端设备的客户端推理生态，按部署形态大致分为三类代表运行时（注意：TensorRT-LLM 是面向 NVIDIA 数据中心 GPU 的服务端引擎，与 vLLM、SGLang 同属 [第 10 章](../chapters/chapter-10.md) 范畴，不归此类）：
+面向终端设备的客户端推理生态，按部署形态大致分为三类代表运行时（注意：TensorRT-LLM 与 DeepInfer 是面向数据中心旗舰加速卡的服务端引擎，与 vLLM、SGLang 同属 [第 10–11 章](../chapters/chapter-10.md) 范畴，不归此类）：
 
 | 代表运行时 | 核心定位与载体 | 模型格式与量化主力 | 底层硬件后端 | 典型工程优势与限制 |
 | --- | --- | --- | --- | --- |
@@ -84,7 +84,7 @@ $$
 - **轻薄本统一内存**（如 Apple M 系列基础款 100–150 GB/s，可用 ~110 GB/s）：$110 / 4.8 \approx \mathbf{22.9\text{ tok/s}}$；
 - **工作站级统一内存**（如 Apple M Max/Ultra 400–800 GB/s，可用 ~320 GB/s）：$320 / 4.8 \approx \mathbf{66.7\text{ tok/s}}$。
 
-这笔算术直接解释了端侧硬件形态的胜负手：第一，**统一内存架构（Unified Memory）** 让 GPU/<a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>直接共享高带宽主存且免去 PCIe 拷贝，在大容量端侧推理中天然占优；第二，在 $B=1$ 场景下，将权重从 FP16（16 GB）压到 Q4（4.8 GB）几乎直接把解码速度抬高 **3 倍以上**，配合 [第 15 章](../chapters/chapter-15.md) 的**融合反量化算子（Fused Dequant）** 避免把反量化后的 FP16 权重写回内存，是端侧提速的绝对第一杠杆。
+这笔算术直接解释了端侧硬件形态的胜负手：第一，**统一内存架构（Unified Memory）** 让 GPU/<a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>直接共享高带宽主存且免去 PCIe 拷贝，在大容量端侧推理中天然占优；第二，在 $B=1$ 场景下，将权重从 FP16（16 GB）压到 Q4（4.8 GB）几乎直接把解码速度抬高 **3 倍以上**，配合 [第 16 章](../chapters/chapter-16.md) 的**融合反量化算子（Fused Dequant）** 避免把反量化后的 FP16 权重写回内存，是端侧提速的绝对第一杠杆。
 
 ### 约束四：功耗、续航与发热降频（Thermal Throttling）
 

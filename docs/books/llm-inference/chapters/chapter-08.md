@@ -48,7 +48,7 @@
 | **主要精度难点** | 低比特权重的舍入误差（尤其 INT4） | **在线激活通道离群值（Outliers）** |
 
 ::: tip 核心直觉
-把这一条刻进脑海里：**W8A16 / W4A16 只省 HBM 搬运，不增加 Tensor Core 峰值算力；W8A8 既省搬运，又把<a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>区的算力上限直接翻倍。** 关于两者底层反量化融合算子与 Tensor Core 指令调度原理，我们将在[第 15 章 量化 Matmul 算子原理：W8A8 与 W8A16](chapter-15.md)做源码级剖析。
+把这一条刻进脑海里：**W8A16 / W4A16 只省 HBM 搬运，不增加 Tensor Core 峰值算力；W8A8 既省搬运，又把<a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>区的算力上限直接翻倍。** 关于两者底层反量化融合算子与 Tensor Core 指令调度原理，我们将在[第 16 章 量化 Matmul 算子原理：W8A8 与 W8A16](chapter-16.md)做源码级剖析。
 :::
 
 ---
@@ -255,6 +255,6 @@ vllm serve hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4 \
 
 **本章小结与延伸阅读**
 
-量化通过压缩权重与 KV 比特宽度直接撬动了推理的显存墙与带宽墙：W8A16/W4A16 专攻带宽受限的小批解码与显存容量，W8A8 借助原生低精度 Tensor Core 同时打开计算受限区的天花板；SmoothQuant、AWQ 与 GPTQ 则分别从激活迁移、显著通道保护和二阶误差补偿三条路径化解了低比特精度崩坏难题。各量化论文的完整数据对照请参阅[专题 D：各章核心论文精读与数据口径](../topics/paper-notes.md)，底层量化 <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>算子实现将在[第 15 章](chapter-15.md)展开。
+量化通过压缩权重与 KV 比特宽度直接撬动了推理的显存墙与带宽墙：W8A16/W4A16 专攻带宽受限的小批解码与显存容量，W8A8 借助原生低精度 Tensor Core 同时打开计算受限区的天花板；SmoothQuant、AWQ 与 GPTQ 则分别从激活迁移、显著通道保护和二阶误差补偿三条路径化解了低比特精度崩坏难题。各量化论文的完整数据对照请参阅[专题 D：各章核心论文精读与数据口径](../topics/paper-notes.md)，底层量化 <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>算子实现将在[第 16 章](chapter-16.md)展开。
 
 量化在单步之内削减了权重搬运量；但自回归解码还有一个更根本的瓶颈——**每读一遍几十 GB 权重，却只吐出 1 个 token**。能不能读一次权重、同时验证并吐出多个 token？下一章[第 9 章 投机解码与长上下文 KV 淘汰](chapter-09.md)将揭晓答案。

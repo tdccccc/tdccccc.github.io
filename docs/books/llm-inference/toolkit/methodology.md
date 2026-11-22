@@ -4,7 +4,7 @@
 
 推理工程中一半的争论来自“数字对不上”：客户端测的 TTFT 和服务端 Grafana 面板差出几十毫秒；开启某项优化后吞吐翻倍，上线却发现回答质量悄悄退化；或者同一台机器测出截然不同的 p99。这些问题往往不是工具坏了，而是**计时边界、控制变量与验收门槛没有事先统一**。
 
-本手册将 [第 3 章](../chapters/chapter-03.md)、[第 4 章](../chapters/chapter-04.md)、[第 7 章](../chapters/chapter-07.md) 与 [第 23 章](../chapters/chapter-23.md) 的度量方法浓缩为一套可直接对照查阅的工程参考准则。
+本手册将 [第 3 章](../chapters/chapter-03.md)、[第 4 章](../chapters/chapter-04.md)、[第 7 章](../chapters/chapter-07.md) 与 [第 24 章](../chapters/chapter-24.md) 的度量方法浓缩为一套可直接对照查阅的工程参考准则。
 
 ---
 

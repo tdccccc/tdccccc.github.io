@@ -4,7 +4,7 @@
 
 当推理工程团队将 BF16 旗舰模型压成 FP8 / W4A16 权重、开启 INT4 KV-Cache 压缩、接入投机解码（Speculative Decoding），或将整套服务从 NVIDIA GPU 迁移至昇腾（Ascend NPU）等国产加速卡时，几乎都会跑一轮精度回归。然而线上频繁上演的诡异事故是：**离线跑完 MMLU 与 C-Eval 掉点不到 0.4%，团队兴冲冲全量上线，结果次日 Agent 工具调用 JSON 频频报语法错、长文档总结开始胡言乱语。**
 
-本专题与 [《LLM 推理工程》第 8 章（量化原理与取舍）](/books/llm-inference/chapters/chapter-08) 及 [第 23 章（跨芯片精度回归与性能归因）](/books/llm-inference/chapters/chapter-23) 深度互锁，专门回答一个落地难题：**如何用最小算力成本，第一时间揪出被粗粒度基准掩盖的量化退化与底层算子 Bug？**
+本专题与 [《LLM 推理工程》第 8 章（量化原理与取舍）](/books/llm-inference/chapters/chapter-08) 及 [第 24 章（跨芯片精度回归与性能归因）](/books/llm-inference/chapters/chapter-24) 深度互锁，专门回答一个落地难题：**如何用最小算力成本，第一时间揪出被粗粒度基准掩盖的量化退化与底层算子 Bug？**
 
 ---
 
@@ -14,7 +14,7 @@
 
 1. **单 Token 选项容错掩蔽**：传统多选题只取首字符 `A/B/C/D` 的最高概率，只要正确选项原本领先第二名 3–4 个 logit 单位，即便量化误差或算子舍入已把整条分布扭曲得面目全非，最终 argmax 依然纹丝不动——直到真实生产中需要连续自回归生成几千个 token 时，微小误差才滚雪球式爆发。
 2. **短上下文遮蔽 KV-Cache 累积失真**：正如 [《LLM 推理工程》第 8 章](/books/llm-inference/chapters/chapter-08) 所拆解的，短序列下权重搬运占主导，KV 量化误差几乎无感；但当上下文拉长至 32K–128K，Attention Softmax 在长序列上的动态范围和离群通道（Attention Sink）对 INT4/FP8 KV 缩放粒度极其敏感，2K 长度的常规基准完全测不到这类崩塌。
-3. **未配对检验吞噬系统性掉点**：沿用本书 [第 1 章](/books/llm-eval/chapters/chapter-01) 与 [《LLM 推理工程》第 23 章](/books/llm-inference/chapters/chapter-23) 的经典案例：在 $N=1000$ 题上，新平台掉点 $-0.8\text{ pp}$ 若错用独立样本检验看似“完全在噪声内”；但逐题配对拆出分歧表一旦发现 **$n_{10}=8,\; n_{01}=0$（所有分歧一边倒全错）**，精确双侧<a class="term-ref" href="/books/llm-eval/glossary#mcnemar_test" title="针对同一题库上二值配对结果的显著性检验，仅依赖分歧题数判断胜负">McNemar 检验</a>立刻给出 $p = 2 \times (1/2)^8 \approx 0.0078 < 0.01$，直接坐实平台存在系统性缺陷。
+3. **未配对检验吞噬系统性掉点**：沿用本书 [第 1 章](/books/llm-eval/chapters/chapter-01) 与 [《LLM 推理工程》第 24 章](/books/llm-inference/chapters/chapter-24) 的经典案例：在 $N=1000$ 题上，新平台掉点 $-0.8\text{ pp}$ 若错用独立样本检验看似“完全在噪声内”；但逐题配对拆出分歧表一旦发现 **$n_{10}=8,\; n_{01}=0$（所有分歧一边倒全错）**，精确双侧<a class="term-ref" href="/books/llm-eval/glossary#mcnemar_test" title="针对同一题库上二值配对结果的显著性检验，仅依赖分歧题数判断胜负">McNemar 检验</a>立刻给出 $p = 2 \times (1/2)^8 \approx 0.0078 < 0.01$，直接坐实平台存在系统性缺陷。
 
 ---
 
@@ -73,7 +73,7 @@ $$
 5. **沉淀为永久回归用例**：将触发该算子边界的最小序列与形状固化进 CI 回归金丝雀集，防止后续 CANN / CUDA 驱动或引擎升级导致同类回归复发。
 
 ::: tip 跨芯片与量化上线四步验收闸门
-1. **锁死五项控制变量**：严格执行 [《LLM 推理工程》第 23 章](/books/llm-inference/chapters/chapter-23) 铁律——同题库、同权重版本、同 Tokenizer、同贪心采样、同 `max_tokens` 并核对截断率。
+1. **锁死五项控制变量**：严格执行 [《LLM 推理工程》第 24 章](/books/llm-inference/chapters/chapter-24) 铁律——同题库、同权重版本、同 Tokenizer、同贪心采样、同 `max_tokens` 并核对截断率。
 2. **先跑 Logit 金丝雀**：拦截任何 $\bar D_{\mathrm{KL}}$ 突刺或低熵翻转超标的版本，直接二分定位异常层与算子。
 3. **四类高灵敏集配对验收**：对长文、工具 JSON、多步计算与边界集执行配对 McNemar / Bootstrap 检验，给出 $\Delta \pm 95\%\text{ CI}$。
 4. **落入联合帕累托决策**：确认无算子 Bug 后，将量化/芯片方案的微幅精度差与实测吞吐/延迟/成本改善一起绘入 [第 15 章联合帕累托前沿](/books/llm-eval/chapters/chapter-15) 拍板上线。

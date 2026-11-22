@@ -2,15 +2,15 @@
 
 <p class="chapter-summary">以软件栈、算子语言、推理引擎插件、集合通信与切入特征五维并排，速览除昇腾外的主流国产 AI 芯片与跨芯片统一生态。</p>
 
-全书第四篇（[第 18 章](../chapters/chapter-18.md) 至 [第 22 章](../chapters/chapter-22.md)）以华为昇腾 Ascend 为贯穿样例，系统拆解了国产芯片适配的五层软件栈、平台级插件、底层算子流水线、覆盖率归因与跨芯片迁移方法。选择昇腾作主线是为了把全链路讲深讲透，而非对不同芯片生态做成熟度排名。
+全书第四篇（[第 19 章](../chapters/chapter-19.md) 至 [第 23 章](../chapters/chapter-23.md)）以华为昇腾 Ascend 为贯穿样例，系统拆解了国产芯片适配的五层软件栈、平台级插件、底层算子流水线、覆盖率归因与跨芯片迁移方法。选择昇腾作主线是为了把全链路讲深讲透，而非对不同芯片生态做成熟度排名。
 
-实际工程项目中，团队经常需要在海光、摩尔线程、昆仑芯、天数智芯、沐曦、寒武纪、壁仞、燧原等多类国产算力底座之间评估或迁移推理服务。本专题承接 [第 18 章](../chapters/chapter-18.md) 的“四面墙 × 五层软件栈”坐标系，为你提供一份**统一维度的主流国产芯片生态速查入口**，并深入拆解跨芯片统一生态 **FlagOS** 的工程定位。
+实际工程项目中，团队经常需要在海光、摩尔线程、昆仑芯、天数智芯、沐曦、寒武纪、壁仞、燧原等多类国产算力底座之间评估或迁移推理服务。本专题承接 [第 19 章](../chapters/chapter-19.md) 的“四面墙 × 五层软件栈”坐标系，为你提供一份**统一维度的主流国产芯片生态速查入口**，并深入拆解跨芯片统一生态 **FlagOS** 的工程定位。
 
 ---
 
 ## E.1 统一对比维度与选型切入坐标
 
-面对一块陌生国产 AI 芯片时，与其死盯宣传页上的峰值 TFLOPS，不如沿着 [第 18 章](../chapters/chapter-18.md) 的五层栈快速核对五个工程接口：
+面对一块陌生国产 AI 芯片时，与其死盯宣传页上的峰值 TFLOPS，不如沿着 [第 19 章](../chapters/chapter-19.md) 的五层栈快速核对五个工程接口：
 
 1. **基础软件栈（SDK / 运行时）**：驱动之上提供的编译、运行时与 PyTorch 适配层（如 `torch_musa`、`torch_mlu`、`mcPytorch`）；
 2. **算子开发语言与库**：走类 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>/ROCm 源码兼容路线（HIP / MUSA C++ / MACA C++），还是走独立 DSA 专用编程模型（AscendC / BANG C / XPU C++）；
@@ -26,7 +26,7 @@
 
 ## E.2 八大主流国产 AI 芯片生态全景速查
 
-下表按统一五维梳理除华为昇腾（详参 [第 19–20 章](../chapters/chapter-19.md)）外的八大主流国产 AI 芯片推理生态：
+下表按统一五维梳理除华为昇腾（详参 [第 20–21 章](../chapters/chapter-20.md)）外的八大主流国产 AI 芯片推理生态：
 
 | 芯片平台 | 软件栈与框架适配 | 算子开发语言 / 核心算子库 | 主流推理引擎插件与形态 | 集合通信库 | 典型工程切入特征 |
 | --- | --- | --- | --- | --- | --- |
@@ -49,11 +49,11 @@
 | --- | --- | --- |
 | **硬件抽象模型** | SIMT 线程束（Warp/Wavefront）+ Shared Memory + L1/L2 硬件缓存层级 | 矩阵核（Cube/MAC）与向量核（Vector）分离 + 片上显式缓冲区（UB / NRAM）DMA 流水 |
 | **存量 CUDA 资产迁移** | 通过 Hipify / MUSIFY / `cu-bridge` 源码级替换与重编，首跑周期短 | 无法直接翻译 CUDA 线程语义，须调用厂商算子库（AOL/CNNL/XFT）或重写底层算子 |
-| **常见隐藏性能坑** | Warp 宽度（如 64 vs 32）、寄存器数、L2 尺寸差异导致未重调 Tile 的 CUDA 内核性能打折 | 未覆盖算子触发隐式回退（[第 21 章](../chapters/chapter-21.md)）、动态 Shape 导致图编译失败或重载开销 |
+| **常见隐藏性能坑** | Warp 宽度（如 64 vs 32）、寄存器数、L2 尺寸差异导致未重调 Tile 的 CUDA 内核性能打折 | 未覆盖算子触发隐式回退（[第 22 章](../chapters/chapter-22.md)）、动态 Shape 导致图编译失败或重载开销 |
 | **极致性能优化重心** | 调整 Tile 尺寸、适配厂商版 FlashAttention/Marlin 量化内核与多卡 CCL 带宽 | 算子大颗粒融合（降低 Host 下发与显存往返）、静态图捕获（如 ACLGraph）与片上双缓冲 |
 
 ::: tip 核心直觉：不要迷信“100% CUDA 兼容”的口号
-即使在类 CUDA 兼容阵营里，**“编译能过”也绝不等于“跑得快”**。正如 [第 12 章](../chapters/chapter-12.md) 与 [第 22 章](../chapters/chapter-22.md) 揭示的，只要片上缓存容量、<a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>宽度或异步拷贝指令（如 TMA / `cp.async`）发生变化，照搬 NVIDIA H100/A100 的手写 Tile 参数极易引发寄存器溢出或<a class="term-ref" href="/books/llm-inference/glossary#occupancy" title="occupancy：SM 上实际驻留活跃 warp 数占硬件最大支持 warp 数的比例">占用率</a>塌方。跨芯片迁移永远离不开 Profiler 热点重审。
+即使在类 CUDA 兼容阵营里，**“编译能过”也绝不等于“跑得快”**。正如 [第 13 章](../chapters/chapter-13.md) 与 [第 23 章](../chapters/chapter-23.md) 揭示的，只要片上缓存容量、<a class="term-ref" href="/books/llm-inference/glossary#warp" title="线程束：NVIDIA GPU 中以 32 个线程为一组按 SIMT 方式同步调度的最小硬件执行单元">Warp</a>宽度或异步拷贝指令（如 TMA / `cp.async`）发生变化，照搬 NVIDIA H100/A100 的手写 Tile 参数极易引发寄存器溢出或<a class="term-ref" href="/books/llm-inference/glossary#occupancy" title="occupancy：SM 上实际驻留活跃 warp 数占硬件最大支持 warp 数的比例">占用率</a>塌方。跨芯片迁移永远离不开 Profiler 热点重审。
 :::
 
 ---
@@ -65,7 +65,7 @@
 ### 四大核心组件的精确分工
 
 - **FlagGems**（[github.com/flagos-ai/FlagGems](https://github.com/flagos-ai/FlagGems)）：基于 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>编写的跨芯片通用算子库与分发层，覆盖归一化、激活、采样、注意力及常见逐元素算子；它并非只能“取硬件最小交集”，同样允许针对特定芯片保留后端特化参数与定制实现。
-- **FlagCX**：统一多卡集合通信抽象层，向上向推理引擎提供一致的 AllReduce / AllGather / All-to-All 原语，向下无缝路由至各厂商原生 CCL（NCCL、HCCL、MCCL、BKCL、CNCL、mcCCL 等），直接攻克 [第 18 章](../chapters/chapter-18.md) 所说的“通信墙”。
+- **FlagCX**：统一多卡集合通信抽象层，向上向推理引擎提供一致的 AllReduce / AllGather / All-to-All 原语，向下无缝路由至各厂商原生 CCL（NCCL、HCCL、MCCL、BKCL、CNCL、mcCCL 等），直接攻克 [第 19 章](../chapters/chapter-19.md) 所说的“通信墙”。
 - **FlagTree**（[github.com/flagos-ai/FlagTree](https://github.com/flagos-ai/FlagTree)）：面向多后端芯片的开源统一 Triton 编译器基础设施，负责把高层算子 IR 编译映射到不同芯片的底层指令集（注意：FlagTree 是多后端编译器，FlagGems 是算子源码与分发库，两者协同配合而非简单的“自动生成”关系）。
 - **`vllm-plugin-FL`**（[docs.flagos.io/projects/vllm-plugin-FL](https://docs.flagos.io/projects/vllm-plugin-FL/en/latest/overview/features.html)）：把 FlagGems 与 FlagCX 整合进 vLLM 平台插件体系的统一入口，目前已登记支持包括 NVIDIA、Ascend、海光、摩尔线程、昆仑芯、天数智芯、沐曦、燧原、平头哥、阿里 PPU、清微智能及 ARM64 CPU 在内的十余种后端平台。
 
@@ -82,11 +82,11 @@
 
 在多芯片团队落地时，最稳妥的工程策略是**分两阶段推进**：
 
-1. **阶段一（从 0 到 1 跑通与验收）**：优先接入统一算子层（`vllm-plugin-FL` + FlagGems/FlagCX）或厂商官方 vLLM 插件，快速点亮服务，跑完 [第 23 章](../chapters/chapter-23.md) 的同题配对精度回归，先解决“能不能跑、算得对不对”。
-2. **阶段二（从 1 到快靶向攻坚）**：导出端到端 Profiler 热点清单（[第 21 章](../chapters/chapter-21.md)）。依据 Amdahl 定律，占比仅 1% 的算子哪怕慢 5 倍，对端到端也仅拖慢 4%；而占比 20% 的算子慢 5 倍会让端到端恶化 80%。**只把位于关键路径且落在低效/回退分支的 Top-3 算子，下沉替换为厂商原生高性能实现（AscendC / BANG C / MACA / MUSA）或深度调优版 Triton 内核**。
+1. **阶段一（从 0 到 1 跑通与验收）**：优先接入统一算子层（`vllm-plugin-FL` + FlagGems/FlagCX）或厂商官方 vLLM 插件，快速点亮服务，跑完 [第 24 章](../chapters/chapter-24.md) 的同题配对精度回归，先解决“能不能跑、算得对不对”。
+2. **阶段二（从 1 到快靶向攻坚）**：导出端到端 Profiler 热点清单（[第 22 章](../chapters/chapter-22.md)）。依据 Amdahl 定律，占比仅 1% 的算子哪怕慢 5 倍，对端到端也仅拖慢 4%；而占比 20% 的算子慢 5 倍会让端到端恶化 80%。**只把位于关键路径且落在低效/回退分支的 Top-3 算子，下沉替换为厂商原生高性能实现（AscendC / BANG C / MACA / MUSA）或深度调优版 Triton 内核**。
 
 ---
 
 ## 本专题小结
 
-掌握了 [第 18 章](../chapters/chapter-18.md) 的五层坐标系、[第 19–22 章](../chapters/chapter-19.md) 的昇腾深水区实战，再加上本专题的八大芯片生态入口与 FlagOS 统一抽象视图，面对任何新国产芯片时你都不会迷失：先辨路线（类 CUDA 还是独立 DSA），再查五层组件与 vLLM 插件接口，先借统一层/官方镜像保覆盖与精度，再靠 Profiler 算清热点占比做靶向优化。
+掌握了 [第 19 章](../chapters/chapter-19.md) 的五层坐标系、[第 20–23 章](../chapters/chapter-20.md) 的昇腾深水区实战，再加上本专题的八大芯片生态入口与 FlagOS 统一抽象视图，面对任何新国产芯片时你都不会迷失：先辨路线（类 CUDA 还是独立 DSA），再查五层组件与 vLLM 插件接口，先借统一层/官方镜像保覆盖与精度，再靠 Profiler 算清热点占比做靶向优化。

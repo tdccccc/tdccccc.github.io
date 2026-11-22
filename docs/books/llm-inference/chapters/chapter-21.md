@@ -1,180 +1,269 @@
-# 第 21 章 算子覆盖分析与回退定位方法
+# 第 21 章 CANN 分层与 AscendC 算子全链路
 
-<p class="chapter-summary">服务能跑通不等于所有计算都落在芯片上；建立“单阶段纯净清单 → 四类回退与三层检测漏斗 → 三口径覆盖率与四象限归因”的系统方法，并用完整的 Decode 案例拆穿隐蔽回退。</p>
+<p class="chapter-summary">解剖 CANN 五层逻辑架构与两代算子编程抽象的演化权衡，通过向量加法算清 AscendC 三级硬件流水与双缓冲的访存账，再沿 RMSNorm 走通“定义 → 编译 → 三处注册 → 三次解析”的完整调用链。</p>
 
-模型在昇腾 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>上顺利拉起、输出流畅、日志里没有一行红字，可压测吞吐却明显低于同模型在 NVIDIA GPU 上的表现。此时最忌讳直接盲调 `--max-num-seqs` 或者凭直觉重写 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>/<a class="term-ref" href="/books/llm-inference/glossary#ascendc" title="Ascend C，AscendC 算子编程语言：面向华为昇腾 NPU 的 C++ 自定义算子编程接口，显式管理片上 UB 与硬件流水">AscendC</a>算子——你必须先回答一个更根本的问题：**这次前向调用的几十上百个算子里，究竟有多少真正落到了芯片专用实现上？哪些算子悄悄回退到了 CPU 或零碎的通用路径？**
+在昇腾上跑通 `vllm-ascend` 之后，工程师很快会碰到两类更深层的问题：第一类是日志跳出 `aclnnAddRmsNormBias not found`，模型退回慢路径却找不到该修哪个文件；第二类是 Profiler 指出了一个占比可观的瓶颈算子，需要判断是否值得重写、以及到底该怎么读懂芯片侧的 <a class="term-ref" href="/books/llm-inference/glossary#ascendc" title="Ascend C，AscendC 算子编程语言：面向华为昇腾 NPU 的 C++ 自定义算子编程接口，显式管理片上 UB 与硬件流水">AscendC</a>实现。要彻底看透这两类问题，不能停留在 Python 插件层，必须下潜到昇腾底座 **CANN（Compute Architecture for Neural Networks）** 的内部架构与算子全链路。
 
-本章建立一套严谨的<a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>审计与回退定位流程，帮你精准区分“缺算子覆盖”与“调度/显存/通信瓶颈”。
+## 21.1 CANN 五层逻辑架构与两条执行路径
 
-## 21.1 为什么“能跑通”不等于“跑在芯片上”
+很多初学者把 CANN 当成“华为版 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>算子库”，这会让人在排障时完全找不到北。实际上，CANN 是一套横跨编译、算子库、运行时与集合通信的完整软件栈，官方逻辑架构自顶向下分为五层，最底部则依托宿主机驱动与固件：
 
-推理引擎的默认兜底机制让服务具备极强的容错能力：即便芯片插件漏掉了某个算子，引擎也常常会退回 PyTorch 原生组合或搬到 CPU 算完再传回显存。结果能出，速度却被拖进泥潭。拆穿这种假象的第一步，是导出一次干净、无噪声的**算子耗时账单**。
+### CANN 五层与通用软件栈的精确映射
 
-### 采集纯净单阶段清单的三个硬口径
-
-使用 PyTorch Profiler（NVIDIA 侧为 `torch.profiler`，昇腾侧为 `torch_npu.profiler` 或 `msprof`）采集清单时，必须严守三条口径，否则后面的覆盖率分母从根上就是歪的：
-
-1. **剥离冷启动，只采稳态**：前几次前向混杂着 JIT 编译、算子库 autotune、显存池初始化与芯片时钟爬升。必须用相同输入形状连续预热若干轮，再采集稳态单步。
-2. **<a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>与 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>严格分采**：两个阶段的算子画像截然不同——Prefill 以大矩阵乘和长序列注意力为主，Decode 则是瘦矩阵乘加上高频的逐元素算子、<a class="term-ref" href="/books/llm-inference/glossary#rope" title="Rotary Position Embedding，旋转位置编码：通过旋转 query/key 向量注入相对位置信息的经典位置编码方法">RoPE</a>与 <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>读取。把整次 `generate()` 混在一张表里，Decode 阶段致命的小算子回退会被 Prefill 的海量矩阵乘彻底淹没。
-3. <strong>按设备自耗时排序，导出全表</strong>：排序键选<strong>设备自耗时（`self_device_time_total`）</strong>而非总耗时（总耗时会把子算子时间重复计入父算子），也不按 CPU 时间排序；导出全表（`row_limit=-1`），不可拿截断后的 Top 20 当覆盖率分母。
-
-下面是采集单步稳态前向清单的标准脚本骨架（以 `torch.profiler` 为例；昇腾侧将 `torch.profiler` 替换为 `torch_npu.profiler`、将 `ProfilerActivity.CUDA` 换为 `ProfilerActivity.NPU`，并配合离线解析工具 `torch_npu.profiler.profiler.analyse` 或 `msprof` 导出）：
-
-```python
-import torch
-from torch.profiler import ProfilerActivity, profile
-
-
-def profile_single_stage(step_fn, trace_path: str, warmup_steps: int = 3) -> None:
-    """采集单个推理阶段（Prefill 或单步 Decode）的稳态算子清单。"""
-    with torch.no_grad():
-        for _ in range(warmup_steps):
-            step_fn()
-
-    activities = [ProfilerActivity.CPU]
-    if torch.cuda.is_available():
-        activities.append(ProfilerActivity.CUDA)
-
-    with profile(activities=activities, record_shapes=True) as prof:
-        with torch.no_grad():
-            step_fn()
-
-    # 按设备自耗时降序打印全量算子表，并导出时间线供空白间隙分析
-    print(prof.key_averages(group_by_input_shape=True).table(
-        sort_by="self_device_time_total", row_limit=-1
-    ))
-    prof.export_chrome_trace(trace_path)
-```
-
-拿到清单后，立刻核对两类时间分母：假设某步前向的**端到端墙钟时间**是 $100\,\text{ms}$，清单里**所有设备算子自耗时之和**是 $70\,\text{ms}$，Top 10 算子合计 $56\,\text{ms}$。那么 Top 10 占算子总自耗时的 $56/70 = 80\%$，但只占墙钟的 $56/100 = 56\%$——中间那 $30\,\text{ms}$ 差额并不在任何设备算子里，它藏着 **CPU 回退、流同步、主机端下发空泡或跨卡通信**。把算子占比与墙钟占比并排看，一眼就能知道慢在算子内部还是算子之外。
-
-### 统一计数单位与剔除元数据噪声
-
-导出表之前还须钉死两项边界规则：
-
-- **固定计数单位（PyTorch 算子名 vs 底层 Kernel 名）**：模型侧调用的 `aten::silu` 与 `aten::mul` 在 PyTorch 表里是两行，在昇腾芯片上却常融合为一个 `npu_swiglu` kernel；反过来，一次 `aten::mm` 按不同 shape 也可能拆分出多个 kernel。默认推荐按**逻辑算子**计数（贴近“模型提出了哪些计算需求”），当多行 PyTorch 调用融合为单个底层 kernel 时，耗时仅记在同一条逻辑行上，防止重复累加虚增分母。
-- **单列纯元数据操作**：`aten::view`、`aten::reshape`、`aten::empty`、`aten::slice` 等视图操作不产生实际设备计算（仅 `contiguous` 在非连续时触发拷贝）。把它们混入分母会毫无意义地稀释覆盖率；正确做法是将其单列核查拷贝字节数，覆盖率分母**只统计需要实际计算的算子**。
-
-## 21.2 四类性能回退形态与三层检测漏斗
-
-工程中习惯把一切不如预期的执行路径统称为“算子回退”，这极易把排查引向歧途。实际上，常见劣化包含**四种截然不同的形态**，它们沿不同的维度切分，检测手段与性能代价也迥然不同：
-
-| 劣化形态 | 底层真实发生了什么 | 典型检测信号 | 核心性能 / 质量代价 |
+| CANN 逻辑分层 | 核心组件 | 对应第 19 章通用软件栈 | 失效时的典型症状与首选排查点 |
 |---|---|---|---|
-| **CPU 回退** | 算子被搬回宿主机 CPU 执行，算完再将张量拷回设备 | 设备自耗时为 0、CPU 自耗时异常飙升、设备时间线出现硬同步空洞、日志出现 fallback 警告 | 触发设备-主机往返拷贝（D2H/H2D）与流同步，CPU 算力远逊于加速卡，**杀伤力最大** |
-| **图外 Eager 执行** | 算子仍在芯片上运行，但因动态控制流或不支持入图而跳出编译图/ACLGraph | 图编译日志报 graph break、Profiler 中细碎 kernel 数量激增、开关图模式耗时无变化 | 丧失跨算子融合与图重放收益，放大 CPU 下发空泡 |
-| **精度降级** | 芯片侧有实现，但实际落入低精度路径或引入非预期的额外 dtype 转换 | Profiler 的 `Input Shapes / dtype` 字段异常、kernel 名或源码含隐式 cast、精度回归误差超限 | 引发数值漂移（精度墙），额外类型转换有时反而拖慢访存带宽 |
-| **静默回退** | 插件注册或 shape 路由未命中专用融合核，退回默认 `forward_native` 拆成零碎通用算子，且**不抛任何报错** | 分发检查发现类名未替换、Profiler 设备时间线出现一堆基础逐元素算子而非融合核 | 最隐蔽的性能黑洞，容易让工程师误判为“芯片硬件慢” |
+| **计算语言 / 接口层** | AscendCL（`acl`、`aclrt`、`aclnn` 对外编程接口） | SDK / 运行时（对外 API 面） | 调用处报参数/流/显存错误，或 `aclnnXxx not found`；先查接口名与 CANN 版本 |
+| **计算服务层** | 算子库 AOL（NN/BLAS/融合算子）、OPP 算子包目录、调优引擎 AOE、框架适配 | 算子库 + 框架桥接（`torch_npu` 承接 PyTorch 侧） | 算子能跑但慢或精度异常、自定义算子包检索不到；先查 OPP 路径与算子覆盖 |
+| **计算编译层** | 图引擎 GE（Graph Engine）、图编译器、算子编译器（Ascend C / TBE 编译器） | SDK / 运行时（编译子系统） | 算子源码编不过、片上 UB 超限、tiling 越界；先查编译日志与切分参数 |
+| **计算执行层** | Runtime、Graph Executor、集合通信库 HCCL、DVPP/AIPP | SDK / 运行时（执行子系统） | Kernel 无法下发、流与事件同步错乱、多卡通信卡死；先查 Runtime 与 HCCL 日志 |
+| **计算基础层** | 共享虚拟内存（SVM）、设备虚拟化、主机-设备通信 | SDK / 运行时（内核交互面） | 内存映射失败、设备句柄异常；核对设备节点与容器共享内存 |
+| *驱动与固件（五层之下）* | HDK（Driver / Firmware） | 驱动 / 固件 | `npu-smi info` 不可见或 Health 非 OK；排查宿主机驱动安装 |
 
-### 从廉价到昂贵的三层检测漏斗
+把两张架构图对齐，就能明白为什么<strong>“写一个算子”绝不只是单层操作</strong>：算子源码在<strong>计算编译层</strong>被编译成 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>二进制；产物作为算子包安装进<strong>计算服务层</strong>的 OPP（Operator Package）检索目录；运行时由框架通过<strong>计算语言层</strong>的 `aclnn` C 接口调用，再经 `torch_npu` 与 `vllm-ascend` 接入模型。只写完 kernel 源码却漏掉安装注册，在推理引擎眼里这个算子就跟不存在一样。
 
-不要每次都直接导出上百兆的 Chrome Trace 肉眼翻找。按排查成本从低到高，构建三层递进的检测漏斗：
-
-1. **第一层：分发检查（零成本、秒级确认）**
-   在推理进程初始化后，直接打印模型各层实际实例化的算子类名与注意力后端类名。例如检查激活层解析到的是 `AscendSiluAndMul` 还是基类 `SiluAndMul`，检查 `RotaryEmbedding` 是否命中了昇腾插件子类。注意：注意力机制不走 `CustomOp`，需单独核对 `NPUPlatform.get_attn_backend_cls()` 选中的后端类。这一层能用几行日志直接拦住绝大多数“静默回退”。
-2. **第二层：Profiler 设备时间线（核心实锤）**
-   核对每个算子的 CPU 自耗时与设备自耗时，并打开 Chrome Trace / `msprof` 时间线视图。看到设备时间线上出现规则空洞时，向下追踪同一时间窗内的 CPU 线程栈，确认空洞究竟源自 **CPU 回退 + 显存拷贝**、显式 `synchronize()` 等待，还是 Python 调度器过慢导致的下发断流。
-3. **第三层：运行日志与编译缓存（辅助交叉印证）**
-   调高框架日志级别检索 `fallback`、`unsupported`、`graph break` 等关键字；必要时清空编译缓存（如 `TRITON_CACHE_DIR` 或 CANN 自定义算子缓存目录）重新运行一次，避免把历史残留缓存误判为本次实际执行了芯片编译路径。
-
-::: warning 常见误区
-Profiler 表里某一行“只有 CPU 时间、没有设备时间”，不能不假思索地一律判为 CPU 回退——在异步 Worker、静态图重放（ACLGraph / CUDA Graph）或部分 Profiler 活动项漏配的情况下，设备 kernel 事件可能归集在图重放节点之下。判断 CPU 回退必须以“**设备侧确实无对应计算 + 伴随 D2H/H2D 拷贝或调用栈指向 CPU 实现**”为实锤。
+::: info 工程取舍：把五层当排查地图，而非严格 OSI 调用栈
+CANN 的五层划分是按功能职责切分的**定位地图**，不是“每层只能调紧邻下一层”的严格协议栈。例如 AscendCL 作为统一对外接口被多方直接调用，图引擎 GE 也可以被单算子直调绕过。拿到报错时，先看关键词（`aclnn`、UB overflow、HCCL、SVM）落入哪一层的职责域，排查方向立刻清晰。
 :::
 
-## 21.3 三口径覆盖率与四象限归因法则
+### Eager 单算子直调 vs 图引擎 / ACLGraph 路径
 
-完成了逐算子排查，如何把一张几十行的明细表提炼成能让架构师立刻拍板的<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>指标？答案是**绝不报单一数字，而是同时汇报三个互相校验的覆盖率口径**。
+同样一份模型代码跑在 CANN 底座上，存在两条截然不同的执行路径：
 
-### 三个覆盖率口径的数学定义
+- **单算子直调（Eager 路径）**：每个 PyTorch 算子经 `torch_npu` 或插件扩展直接翻译成一次 `aclnn` 调用，由 Runtime 逐个下发到 NPU 执行。优点是动态 shape 零阻力、调试极直观；缺点是在 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>这类小计算量阶段，host 侧频繁下发指令会留下大量调度空泡。
+- **图模式路径（ACLGraph 捕获重放 / GE 整图编译）**：前者类似 <a class="term-ref" href="/books/llm-inference/glossary#cuda_graph" title="CUDA 图：将一连串 GPU kernel 启动录制成静态图单次重放，显著降低 CPU 发射开销">CUDA Graph</a>，将一连串静态 shape 的下发序列捕获成图并整图重放，大幅压缩 CPU 下发开销；后者依托 GE 或 `torchair` 进行整图优化、跨算子融合与内存静态复用。
 
-设某阶段清单中共有 $n$ 个需要实际计算的逻辑算子；若第 $i$ 个算子在本次运行中**确实命中了芯片专用实现**（原生库或插件专用核），记指示变量 $c_i = 1$，否则（包括 CPU 回退、静默走零碎通用实现、不支持）记 $c_i = 0$。加权执行覆盖率统一定义为：
+两条路径的排障入口完全不同：单算子路径盯紧 `aclnn` 接口、OPP 搜索路径与单算子 Profiler 耗时；图模式路径则必须先核对图编译日志、静态分档 shape 与入图范围（有没有发生 graph break），确认异常究竟出在算子本身还是图捕获阶段。
 
-$$
-C = \frac{\sum_{i=1}^{n} w_i c_i}{\sum_{i=1}^{n} w_i}
-$$
+## 21.2 两代算子抽象演化：TBE 与 AscendC 的控制权权衡
 
-取三种不同权重 $w_i$，即得到三把尺子：
+阅读昇腾算子库源码或文档时，会频繁看到 **TBE（Tensor Boost Engine）** 与 **AscendC** 两个名词。它们共用“定义 → 编译 → 注册 → 调用”同一条接入链路，本质差别在于**开发者和编译器之间如何划分控制权**。
 
-| 覆盖率口径 | 权重 $w_i$ | 核心计算公式 | 它专门用来抓什么问题？ |
-|---|---|---|---|
-| **按个数覆盖率 $C_{\text{cnt}}$** | $1$ | $\dfrac{1}{n}\sum_{i=1}^{n} c_i$ | 衡量生态覆盖广度，看长尾里还有多少未接住的算子 |
-| **按调用次数覆盖率 $C_{\text{call}}$** | 第 $i$ 个算子的调用次数 $\text{calls}_i$ | $\dfrac{\sum_{i} \text{calls}_i \cdot c_i}{\sum_{i} \text{calls}_i}$ | 捕捉**高频小算子**回退与 kernel 下发风暴 |
-| **按设备自耗时加权覆盖率 $C_{\text{time}}$** | 第 $i$ 个算子的设备自耗时 $t_{\text{dev},i}$ | $\dfrac{\sum_{i} t_{\text{dev},i} \cdot c_i}{\sum_{i} t_{\text{dev},i}}$ | 衡量对芯片端计算总时间的真实覆盖权重 |
+| 链路环节 | TBE（上一代 DSL 抽象） | AscendC（当前主力 C++ 抽象） |
+|---|---|---|
+| **定义方式** | 用 Python DSL 描述“算什么”及粗粒度调度原语（另有更底层 TIK 路径） | 用 C++ 算子类显式编写 `Init`（地址/Buffer 规划）与 `Process`（搬运/计算/搬回） |
+| **编译器职责** | 读 DSL 生成 IR，由编译 Pass 自动完成**双缓冲、流水同步、片上内存分配**并生成代码 | 将 C++ 编译为 NPU 指令，校验 API/对齐/UB 容量；**队列深度与同步节拍交还开发者** |
+| **调用与落点** | 打包进 OPP，经 `aclnn` 或框架算子名调用 | 同样打包进 OPP，经 `aclnn` 或 `torch.ops` 调用 |
+| **核心权衡** | 代码短小、上手快，但精细优化受限于 DSL 表达能力与编译器启发式策略 | 代码偏长、需要手动算清 UB 与同步账，但可把搬运粒度、双缓冲与核间切分捏在手里 |
 
-### 实现存在率 vs 实际执行覆盖率，以及 $C_{\text{time}}$ 的致命盲区
+这种演进背后的系统逻辑非常清晰：TBE 像高级自动挡，把调度、片上内存、异步同步三件麻烦事隐藏在编译器 Pass 背后；但在大语言模型时代，<a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>、Fused <a class="term-ref" href="/books/llm-inference/glossary#moe" title="Mixture of Experts，混合专家：每个 token 经路由仅激活少数专家子网络，实现总参数容量与单步计算量脱钩">MoE</a>等复杂融合算子往往需要极致压榨每一字节片上存储与流水线重叠，自动调度常常力不从心。AscendC 把这三项控制权重新交还给工程师，代价则是写错队列深度、对齐边界或同步依赖会直接导致变慢甚至静默算错。
 
-汇报这三列数字时，必须守住两条极其敏锐的工程直觉：
+### 编译产物“四件套”与三类失败现场
 
-- **区分“实现存在率”与“实际执行覆盖率”**：插件源码或 CANN 文档里“存在这个算子”只是理论上限（实现存在率），Profiler 证实“本次前向确实走了它”才是实际执行覆盖率。**两者的差值，精确暴露了静默回退的面积**。
-- **警惕 $C_{\text{time}}$ 的数学盲区**：如果某个算子发生了 **CPU 回退**，它在芯片设备上的自耗时 $t_{\text{dev},i} = 0$！于是它在 $C_{\text{time}}$ 的分子和分母里同时消失了——哪怕这个 CPU 回退把端到端耗时拖慢了一倍，$C_{\text{time}}$ 看上去依然可能高达 100%！要彻底堵住这个盲区，必须把 **$C_{\text{call}}$、CPU 自耗时总和，以及“墙钟时间 − 设备总自耗时”的鸿沟**放在一起联合审视。
+无论采用哪一代抽象，算子工程编译出来的都不是一个孤零零的 `.o` 文件，而是一套完整的**算子包**，包含四类缺一不可的产物：
 
-### 四象限归因法则
+1. **按目标 SoC 编译的 Kernel 二进制**：绑定具体芯片型号（如 `Ascend910B`），跨代往往不通用。
+2. **算子原型与信息库**：声明输入输出的 shape 推导规则、dtype 支持列表与张量 format 约束，供 OPP 检索注册。
+3. **Host 侧 Tiling 实现**：运行时根据真实输入 shape、硬件核数与片上 UB 容量，动态算出切分块数、每块长度与尾块长度。
+4. **Host 侧 `aclnn` 接口库**：对外暴露的 C 头文件（`op_api/include`）与动态链接库（`op_api/lib`）。
 
-将耗时加权执行覆盖率 $C_{\text{time}}$ 作为横轴（经验阈值 $80\%$），将最耗时的前 3 个算子占比之和 $H_3$（热点集中度，经验阈值 $50\%$）作为纵轴，就可以把任意一次覆盖分析精准落入四个象限之一：
+理解了四件套，算子开发的失败就能精准归为三大第一现场：**编译错**（语法、不支持 API、静态 UB 超限）看编译日志；**加载错**（`aclnn` 找不到、符号未定义、SoC 不匹配）查 `ASCEND_CUSTOM_OPP_PATH` 与 `LD_LIBRARY_PATH`；**运行错**（输出数值偏差、越界、卡死）查 `op_host` 的 tiling 边界与 `op_kernel` 的对齐及队列同步。
+
+## 21.3 AscendC 硬件流水线模型剖析
+
+从 CUDA 转向 AscendC 时，最大的思维跃迁不是语法，而是**把计算看作三条独立硬件单元之间的接力流水线**。我们用最干净的逐元素向量加法 `add_custom`（计算 $z = x + y$）来拆解这套模型——没有归约也没有矩阵乘，恰好把 AscendC 的核心骨架毫无遮掩地暴露出来。
 
 <figure class="book-figure">
-  <img src="/figures/llm-inference/coverage-attribution.svg" alt="算子覆盖四象限归因图：横轴为耗时加权执行覆盖率 C_time，纵轴为 Top 3 热点占比 H3，将工程动作清晰划分为补热点算子、按权重补长尾以及排查调度显存通信" loading="lazy">
-  <figcaption><span class="book-figure__label">图 21-1</span>先沿横轴看 <em>C</em><sub>time</sub>，再沿纵轴看 Top 3 集中度 <em>H</em><sub>3</sub>。核心结论：唯有“低覆盖 + 热点集中”才应立刻动手补算子；高覆盖但依然慢时，瓶颈已转移到 kernel 实现效率、调度空泡、显存带宽或通信墙。</figcaption>
+  <img src="/figures/llm-inference/ascendc-pipeline.svg" alt="AscendC 三级硬件流水线与双缓冲示意图：展示 CopyIn(MTE2)、Compute(VEC)、CopyOut(MTE3) 三个独立硬件单元通过 TQue 队列接力重叠执行的过程" loading="lazy">
+  <figcaption><span class="book-figure__label">图 21-1</span>横向对比单缓冲串行执行（3<em>n</em>）与 <code>BUFFER_NUM=2</code> 双缓冲流水重叠（<em>n</em> + 2）。核心结论：MTE2、VEC、MTE3 是独立硬件流水，双缓冲通过倍增片上 UB 队列深度隐藏等待空泡，但不减少总搬运字节数。</figcaption>
 </figure>
 
-各象限对应的直接工程动作如下：
+### 最小向量加法 `add_custom` 骨架精读
 
-- **左上（$C_{\text{time}} < 80\%$ 且 $H_3 \ge 50\%$，低覆盖 + 热点集中）**：算子覆盖是明确主因，立刻针对 Top 3 中的未覆盖项补齐专用实现或修复静默回退，并用 $1 + p(s - 1)$ 估算端到端收益。
-- **左下（$C_{\text{time}} < 80\%$ 且 $H_3 < 50\%$，低覆盖 + 热点分散）**：属于长尾覆盖问题，切忌逐个手写，优先引入统一算子库（如 FlagGems）拉齐基础面，仅按“占比 × 劣化倍数”补高权重项。
-- **右半区（$C_{\text{time}} \ge 80\%$，高覆盖——前提是已排除 CPU 回退盲区）**：算子覆盖**不再是第一瓶颈**。下一步按设备时间线分叉排查：时间线有大段空泡 → 查调度、图外 Eager 与主机同步；时间线塞得很满仍嫌慢 → 用 `msprof` / <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>查 HBM 带宽利用率、热点 kernel 效率（矩阵分块/对齐）或多卡集合通信重叠。
+下面是一段面向单核、整除长度场景的 AscendC 向量加法精简阅读骨架（完整生产工程还需包含核间切分、系统 workspace 判空与尾块处理）：
 
-::: info 工程取舍：单算子迁移基准 vs 模型真实覆盖
-社区基准如 [TritonAscendBench](https://github.com/Gxj230958/TritonAscendBench) 将来自 vLLM / SGLang 的 101 个真实 GPU <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>Kernel 拆分为 L1 向量单算子（36 个）、L2 融合与矩阵算子（35 个）、L3 流水线大算子（30 个），非常适合衡量**芯片与编译器承载算子迁移的能力边界**。但基准通过率绝不等同于你线上模型的执行覆盖率——后者永远只能从你目标模型、目标 shape 的真实 Profiler 清单里算出来。
-:::
+```cpp
+#include "kernel_operator.h"
+using namespace AscendC;
 
-## 21.4 示范案例：Llama-3.1-8B Decode 阶段覆盖与回退剖析
+constexpr int32_t BUFFER_NUM = 2;      // 队列深度为 2：开启双缓冲（Double Buffer）
+constexpr int32_t TILE_LENGTH = 1024;  // 每块处理的元素个数（实际工程由 host tiling 传入）
 
-纸上谈兵不如拿一张完整的账单演练一遍。下面以 **Ascend 910B（64 GB）** 运行 **Llama-3.1-8B（FP16，32 层，词表 128K）** 的一次稳态 Decode 前向（`batch = 8`，上下文长度 `2048`）为例，演示如何把前面三节的工具拧成一股绳，在 3 分钟内识破两处隐蔽的性能杀手。
+class KernelAdd {
+public:
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR z, uint32_t totalLength) {
+        // 1. 绑定全局内存（GM）张量视图
+        xGm.SetGlobalBuffer((__gm__ float*)x, totalLength);
+        yGm.SetGlobalBuffer((__gm__ float*)y, totalLength);
+        zGm.SetGlobalBuffer((__gm__ float*)z, totalLength);
+        // 2. 通过 TPipe 在片上统一缓冲区（UB）为三个队列分配双缓冲空间
+        pipe.InitBuffer(inQueueX, BUFFER_NUM, TILE_LENGTH * sizeof(float));
+        pipe.InitBuffer(inQueueY, BUFFER_NUM, TILE_LENGTH * sizeof(float));
+        pipe.InitBuffer(outQueueZ, BUFFER_NUM, TILE_LENGTH * sizeof(float));
+        // 3. 计算分块总轮数（多核场景下每个核仅负责自身分片）
+        tileCount = totalLength / TILE_LENGTH;
+    }
 
-本步采集到的宏观时间账为：**端到端墙钟耗时 `36.00 ms`**，其中**全部设备算子自耗时合计 `24.00 ms`**（二者存在高达 **`12.00 ms`** 的设备外时间鸿沟！）。按逻辑算子聚合后的 8 行核心计算算子清单如下：
+    __aicore__ inline void Process() {
+        for (int32_t i = 0; i < tileCount; ++i) {
+            CopyIn(i);   // MTE2: GM -> UB
+            Compute(i);  // VEC:  UB 向量计算
+            CopyOut(i);  // MTE3: UB -> GM
+        }
+    }
 
-| 逻辑算子（映射路径） | 调用次数 | 设备自耗时 (ms) | 占设备总耗时 | CPU 自耗时 (ms) | 实现状态 | 本次执行判定 | 归入覆盖 $c_i$ |
-|---|---:|---:|---:|---:|---|---|---:|
-| **MatMul**（QKV/O/MLP/LMHead，`aclnnMm`） | 225 | 11.40 | 47.5% | 0.65 | 原生（AIC 矩阵核） | 芯片专用（命中） | 1 |
-| **PagedAttention**（`AscendAttentionBackend`） | 32 | 4.80 | 20.0% | 0.25 | 插件/原生（CV 融合） | 芯片专用（命中） | 1 |
-| **RoPE**（`RotaryEmbedding`） | 32 | 2.88 | 12.0% | 0.42 | 插件（有 `npu_rotary_mul`） | **静默回退（`forward_native` 零碎逐元素）** | **0** |
-| **RMSNorm**（`npu_add_rms_norm_bias`） | 65 | 1.68 | 7.0% | 0.18 | 插件自定义（AIV） | 芯片专用（命中） | 1 |
-| **SiLU + Mul**（`npu_swiglu`） | 32 | 1.44 | 6.0% | 0.12 | 插件/原生融合（AIV） | 芯片专用（命中） | 1 |
-| **Add**（独立残差加，`aclnnAdd`） | 32 | 1.20 | 5.0% | 0.11 | 原生（AIV） | 芯片专用（命中） | 1 |
-| **Embedding**（`aclnnEmbedding`） | 1 | 0.60 | 2.5% | 0.05 | 原生（AIV） | 芯片专用（命中） | 1 |
-| **TopK / TopP 采样**（128K 词表过滤） | 1 | **0.00** | **0.0%** | **6.80** | 缺专用实现 | **CPU 回退（触发流同步 + Logits 拷贝）** | **0** |
-| **合计** | **420** | **24.00** | **100.0%** | **8.58** | 存在 7/8（87.5%） | 命中 6/8 | — |
+private:
+    __aicore__ inline void CopyIn(int32_t i) {
+        LocalTensor<float> xLocal = inQueueX.AllocTensor<float>();
+        LocalTensor<float> yLocal = inQueueY.AllocTensor<float>();
+        DataCopy(xLocal, xGm[i * TILE_LENGTH], TILE_LENGTH);
+        DataCopy(yLocal, yGm[i * TILE_LENGTH], TILE_LENGTH);
+        inQueueX.EnQue(xLocal);
+        inQueueY.EnQue(yLocal);
+    }
 
-*(注：调用次数严格贴合 Llama-3.1-8B 的 32 层几何结构——32 层 × 7 组线性投影 + 1 次 LMHead = 225 次 MatMul，32 层 × 2 + 最终层 = 65 次 RMSNorm，其余逐层算子各 32 次，Embedding 与末尾采样各 1 次。)*
+    __aicore__ inline void Compute(int32_t i) {
+        LocalTensor<float> xLocal = inQueueX.DeQue<float>();
+        LocalTensor<float> yLocal = inQueueY.DeQue<float>();
+        LocalTensor<float> zLocal = outQueueZ.AllocTensor<float>();
+        Add(zLocal, xLocal, yLocal, TILE_LENGTH);
+        outQueueZ.EnQue(zLocal);
+        inQueueX.FreeTensor(xLocal);
+        inQueueY.FreeTensor(yLocal);
+    }
 
-### 三步读透这张示范账单
+    __aicore__ inline void CopyOut(int32_t i) {
+        LocalTensor<float> zLocal = outQueueZ.DeQue<float>();
+        DataCopy(zGm[i * TILE_LENGTH], zLocal, TILE_LENGTH);
+        outQueueZ.FreeTensor(zLocal);
+    }
 
-先算出三口径执行覆盖率与热点集中度：
+    TPipe pipe;
+    TQue<TPosition::VECIN, BUFFER_NUM> inQueueX, inQueueY;
+    TQue<TPosition::VECOUT, BUFFER_NUM> outQueueZ;
+    GlobalTensor<float> xGm, yGm, zGm;
+    int32_t tileCount;
+};
+
+extern "C" __global__ __aicore__ void add_custom(
+    GM_ADDR x, GM_ADDR y, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling) {
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);  // 编译期固化：仅使用向量核（AIV）
+    GET_TILING_DATA(tilingData, tiling);             // 反序列化 host 侧算好的切分参数
+    KernelAdd op;
+    op.Init(x, y, z, tilingData.totalLength);
+    op.Process();
+}
+```
+
+逐一拆解这段代码里的五个核心对象与入口约定：
+
+- <strong>入口五参数与核类型</strong>：`x`、`y`、`z` 是输入输出在全局内存（GM，即 HBM）的裸地址；`workspace` 是跨核交换或暂存用的显存工作区；`tiling` 承载 host 侧预计算的切分结构体，kernel 通过 `GET_TILING_DATA` 直接读取而不必在片上重算。`KERNEL_TYPE_AIV_ONLY` 在编译期声明仅启用<strong>向量核（AIV，AI Vector Core）</strong>；若为矩阵乘算子则需声明使用<strong>矩阵核（AIC，AI Cube Core）</strong>或 CV 混合模式——核类型直接决定了该算子的硬件算力天花板。
+- <strong>`GlobalTensor<T>` 与 `LocalTensor<T>`</strong>：前者封装全局显存 HBM 上的张量视图，后者封装片上<strong>统一缓冲区（UB，Unified Buffer）</strong>上的局部张量视图。NPU 的向量计算指令不能直接读写 HBM，数据必须先搬进 UB 才能算。
+- **`TPipe`、`TQue<..., N>` 与 `TBuf`**：`TPipe` 是算子内部的片上资源大管家，统一分配 UB 内存与硬件同步事件；`TQue` 是连接上下游硬件单元的队列，既承载 `LocalTensor` 内存块，又用 `EnQue` / `DeQue` 表达严格的生产者-消费者硬件事件同步；若需要纯临时片上暂存区（不跨流水交接），则用 `TBuf` 申请。
+
+### 三级独立硬件流水与双缓冲的数学账
+
+这段代码看起来像一个平平无奇的 `for` 循环，但落到昇腾 AI Core 硬件上，三个函数分别驱动**三个彼此独立的物理执行单元**：
+
+- `CopyIn` → **MTE2**（GM 到 UB 的专用 DMA 搬运引擎）；
+- `Compute` → **VEC**（片上 SIMD 向量计算单元）；
+- `CopyOut` → **MTE3**（UB 到 GM 的写回搬运引擎）。
+
+当 `BUFFER_NUM = 1` 时，队列里同一时刻只放得下一块数据：第 $i$ 块没算完并释放，MTE2 就无法预取第 $i+1$ 块，三条流水被迫退化成严格串行。假设三阶段各耗 $1$ 个时间单位、共切分 $n$ 块，串行总耗时为 $3n$。
+
+一旦把 `BUFFER_NUM` 设为 `2`（双缓冲），队列里可以同时挂着两块 buffer：当 VEC 正在计算第 $i$ 块时，MTE2 已经并行把第 $i+1$ 块搬进另一块空闲 buffer，同时 MTE3 正把第 $i-1$ 块的结果写回 HBM。第 1 块经历完整的 3 个单位后，此后每经过 1 个单位就产出 1 块，总耗时骤降为：
 
 $$
-C_{\text{cnt}} = \frac{6}{8} = 75.0\%, \qquad C_{\text{call}} = \frac{387}{420} = 92.1\%, \qquad C_{\text{time}} = \frac{24.00 - 2.88}{24.00} = 88.0\%
+T_{\text{pipe}} = 3 + (n - 1) = n + 2, \qquad \text{流水加速比} = \frac{3n}{n + 2}
 $$
 
-同时，设备侧 Top 3 热点为 MatMul（47.5%）+ PagedAttention（20.0%）+ RoPE（12.0%），集中度 $H_3 = 79.5\%$。如果只扫一眼 $C_{\text{time}} = 88.0\%$ 和 $C_{\text{call}} = 92.1\%$，很容易误以为“算子覆盖已经不错了，问题肯定在芯片硬件带宽”。但按本章方法交叉复核，**两只“潜伏巨兽”立刻现形**：
+当 $n = 4$ 时，耗时从 $12$ 压到 $6$（$2\times$）；当 $n = 1024$ 时，耗时从 $3072$ 压到 $1026$，逼近三级流水的理论极值 $3\times$。
 
-1. **巨兽一：TopK/TopP 采样 CPU 回退躲过了 $C_{\text{time}}$ 的雷达**
-   因为 `TopK / TopP` 每步只调 1 次、且退到 CPU 执行，它的设备自耗时是 **`0.00 ms`**，在 $C_{\text{time}}$ 里完全隐形，在 $C_{\text{call}}$ 里也只占 $1/420 \approx 0.24\%$。但回头核对“墙钟 `36.00 ms` vs 设备总自耗时 `24.00 ms`”这 `12.00 ms` 鸿沟，顺藤摸瓜扫向 **CPU 自耗时列**，立刻锁定采样单行独吞 **`6.80 ms`**！原因在于 Llama-3.1 拥有 128K 大词表，回退 CPU 意味着每步必须强制同步设备流，将 `batch=8 × 128K` 的 logits 拷回主机排序再送回，单这一项就吃掉了整步 <a class="term-ref" href="/books/llm-inference/glossary#itl" title="Inter-Token Latency，token 间延迟：同一请求相邻两个输出 token 之间的时间间隔，决定流式输出是否卡顿">ITL</a>的 **18.9%**。
-2. **巨兽二：RoPE 的静默回退暴露在“存在率 vs 执行率”的剪刀差里**
-   表格显示插件里明明存在 `npu_rotary_mul`（按个数实现存在率 $7/8 = 87.5\%$，高于执行覆盖率 $75.0\%$），但因输入 layout 或插件注册条件未命中，前向静默退回了 `forward_native`，被拆成零碎的 `cat / sin / cos / mul` 跑满 32 层，导致一个本该轻量级的位置编码耗时膨胀到 **`2.88 ms`**，硬生生挤进设备耗时 Top 3（12.0%）。
+但不要被 $3\times$ 冲昏头脑——立刻拉出 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>算一笔访存账。以 $N = 2^{20} = 1{,}048{,}576$ 个 FP32 元素为例：读入 $x, y$ 共 $8\,\text{MiB}$，写回 $z$ 共 $4\,\text{MiB}$，总搬运量 $12\,\text{MiB} = 12{,}582{,}912\,\text{B}$，仅做 $1{,}048{,}576$ 次浮点加法，<a class="term-ref" href="/books/llm-inference/glossary#arithmetic_intensity" title="arithmetic intensity：每搬运 1 字节数据所执行的浮点运算次数（FLOP/Byte）">算术强度</a>只有：
 
-### 无需手写一行 AscendC 的优化账
+$$
+\text{AI} = \frac{1{,}048{,}576\;\text{FLOP}}{12{,}582{,}912\;\text{B}} \approx 0.083\;\text{FLOP/B}
+$$
 
-明确两只巨兽之后，修补路线清晰得令人愉悦：
+这是一个极其典型的<strong><a class="term-ref" href="/books/llm-inference/glossary#memory_bound" title="memory-bound：运行时间主要受显存数据搬运速度限制的状态">显存带宽受限</a></strong>算子——实际中 `Compute` 的时间远小于 `CopyIn` 与 `CopyOut`。双缓冲真正消除的是阶段之间的“干等空泡”，让搬运尽量贴近 HBM 带宽上限，<strong>它绝不会让 12 MiB 的总搬运量变少</strong>；同时，双缓冲会让三个队列的片上 <strong>UB 占用直接翻倍</strong>（本例中 $3 \times 2 \times 1024 \times 4\,\text{B} = 24\,\text{KiB}$）。当中间张量很多、UB 告急时，只能在“缩小单块 `TILE_LENGTH`”与“降为单缓冲”之间做工程取舍。
 
-- **修复采样路径**：将 TopK/TopP 切换为 NPU 原生采样实现，消除流同步与 128K logits 往返拷贝，预计净省约 `6.50 ms`（芯片侧执行约 `0.30 ms`）；
-- **修复 RoPE 分发路由**：对齐输入张量布局使 `RotaryEmbedding` 真正命中插件的 `npu_rotary_mul`（若提速 $4\times$，耗时由 `2.88 ms` 压至 `0.72 ms`），净省 `2.16 ms`。
+### 分块粒度与 32 字节对齐尾巴
 
-两项配置与路由修复合计削掉 **`8.66 ms`**，把单步 Decode 延迟从 `36.00 ms` 直接压至约 **`27.3 ms`**（端到端提速约 **`1.32×`**），全过程**一行底层 AscendC 都没写**！这正是系统化算子覆盖分析最大的工程价值：先消灭看不见的回退失血点，再决定是否动用重武器去手写自定义核。
+分块大小改变的是搬运次数而非总搬运量：对 $2^{20}$ 个 FP32 元素，每块 1024 个需搬运 1024 次，每块 4096 个只需 256 次。块越大，单次 DMA 事务越饱满、同步交互次数越少，但 UB 压力越大；块越小则相反。
+
+真实生产中的输入长度往往无法被 `TILE_LENGTH` 整除。假设向量总长为 $10{,}000$、块长为 $1024$：向上取整需 10 块，前 9 块各搬 1024 个元素，最后 1 块只剩 $10{,}000 - 9 \times 1024 = 784$ 个元素。如果粗暴按 1024 搬运，就会越界读取并污染相邻显存。更细的约束在于硬件对齐：**UB 搬运指令 `DataCopy` 要求按 32 字节对齐**（784 个 FP32 占 $3136\,\text{B}$ 刚好是 32 的倍数；但若是 785 个 FP32 即 $3140\,\text{B}$ 则非对齐）。针对非整除与非对齐尾块，必须由 host 侧 tiling 将尾块有效长度传入 kernel，并在 kernel 中借助 `DataCopyPad` 按有效字节搬运或走专用尾块分支处理。
+
+## 21.4 一个算子的完整链路：以 `RMSNorm` 为例
+
+弄懂单个 kernel 怎么在 AI Core 上跑起来之后，最后一个关键拼图是：**从一段 C++ 源码到 vLLM 前向里真正命中它，中间到底要过几道手？** 以 Transformer 每层出现两次的 `RMSNorm` 为例，它在 `vllm-ascend` 里恰好同时拥有 CANN 内置路径（`torch_npu.npu_rms_norm`）与插件自定义融合路径（`npu_add_rms_norm_bias`），能把整条链路照得清清楚楚。
+
+<figure class="book-figure">
+  <img src="/figures/llm-inference/cann-op-chain.svg" alt="CANN 分层与一个 AscendC 算子的四环全链路：定义、编译、三处注册与最终前向调用" loading="lazy">
+  <figcaption><span class="book-figure__label">图 21-2</span>左列是 CANN 到推理引擎的软件分层，右列是自定义算子落地的四道工序。核心结论：编译通过只完成了前半程，CANN OPP、PyTorch 与 vLLM 三处注册缺一不可。</figcaption>
+</figure>
+
+### 四道工序与三处注册
+
+| 链路环节 | 核心产物 | 代码与路径落点 | 工程核验要点 |
+|---|---|---|---|
+| **1. 定义** | 算子原型、tiling 切分、kernel 逻辑 | `op_host/<op>.cpp`（原型/shape 推导/`TilingFunc`）、`op_host/<op>_tiling.h`、`op_kernel/<op>.cpp` | 核对输入输出 dtype、eps 属性传参方式与边界 shape 推导 |
+| **2. 编译** | 算子包四件套（kernel/信息库/tiling/aclnn 库） | 算子工程 `build.sh` → `build_out/` 或 `vendors/<vendor>/` | 确认目标 SoC 与当前硬件一致，产物含 `op_api/include` 与 `op_api/lib` |
+| **3. 注册** | **三处独立登记**（CANN / PyTorch / vLLM） | 见下文三处注册拆解 | 三处分别核验，任何一处漏登都会在别处引发隐蔽故障 |
+| **4. 调用** | 模型前向透明路由至底层 kernel | `RMSNorm` → `CustomOp` → `AscendRMSNorm.forward_oot` → `aclnn` → Runtime → Kernel | 结合 `msprof` / Profiler 核对设备时间线上的真实 kernel 名 |
+
+整条链路里最容易踩坑、也最常被低估的是第 3 环——**三处注册**，它们各自管着一套独立的名字空间：
+
+1. **CANN 侧注册（OPP 搜索路径）**：将编译好的算子包安装进 OPP 目录，或通过 `ASCEND_CUSTOM_OPP_PATH` 指定自定义算子包路径，并把 `op_api/lib` 加入 `LD_LIBRARY_PATH`。缺这一步，底层 `aclnnAddRmsNormBias` 根本找不到二进制实现。
+2. **PyTorch 侧注册（`torch.ops._C_ascend`）**：`torch_npu` 的内置算子由自身的 `op_plugin` 注册；而 `vllm-ascend` 的自定义融合算子则通过 `csrc/torch_binding.cpp` 里的 `TORCH_LIBRARY_EXPAND` 与 `EXEC_NPU_CMD` 暴露为 `torch.ops._C_ascend.<name>`，在导入插件 C++ 扩展时触发登记。若扩展加载失败，插件通常会降级关闭 custom ops。
+3. **vLLM 侧注册（`CustomOp.register_oot`）**：`vllm_ascend/utils.py::register_ascend_customop()` 将类名 `"RMSNorm"` 映射到 `AscendRMSNorm`。缺这一步，即便前两处都已就绪，模型前向依然会跳过插件去走 `forward_native`。
+
+### 三次名称解析与极速验证命令
+
+三处注册在运行时精确对应**三次名称解析**：
+
+1. **Python 引擎层**：`RMSNorm` 类构造时经 `op_registry_oot` 解析为 `AscendRMSNorm`；
+2. **PyTorch 分发层**：Dispatcher 依据 `PrivateUse1` 分发键，把 `torch.ops._C_ascend.npu_add_rms_norm_bias` 解析至 C++ 绑定函数；
+3. **CANN 运行时层**：OPP 根据算子信息库将 `aclnnAddRmsNormBias` 解析至匹配当前 SoC 与 shape 的 NPU 二进制 kernel。
+
+排查链路是否畅通，四条命令就能把三处注册逐一验明：
+
+```bash
+# 1. 验证宿主机驱动与设备
+npu-smi info
+# 2. 验证框架层 torch_npu 可用
+python3 -c "import torch, torch_npu; print('torch_npu:', torch_npu.__version__)"
+# 3. 验证 PyTorch 侧自定义算子注册（必须导入 C++ 扩展模块）
+python3 -c "import torch, torch_npu, vllm_ascend.vllm_ascend_C; print(hasattr(torch.ops._C_ascend, 'npu_add_rms_norm_bias'))"
+# 4. 验证当前 shell 是否生效自定义 OPP 路径
+printenv ASCEND_CUSTOM_OPP_PATH
+```
+
+### 典型报错 → 锁定四环速查表
+
+拿到异常现象后，先把它精准归到四环之一，再直奔对应文件或环境变量，避免盲目重装：
+
+| 观察到的异常现象 | 故障落在哪一环 | 第一现场排查动作 |
+|---|---|---|
+| `aclnnXxx not found` | **注册（CANN 侧）** | 查算子包是否安装、`ASCEND_CUSTOM_OPP_PATH` 是否在当前 shell 生效、SoC 型号是否匹配 |
+| `undefined symbol` 或 `.so` 加载失败 | **注册（CANN 侧）或版本咬合** | 查 `LD_LIBRARY_PATH` 是否包含 `op_api/lib`，核对 CANN 与 `torch_npu` 版本矩阵 |
+| 编译期报 UB 超限、tiling 越界 | **定义 / 编译** | 核算 `InitBuffer` 总量（留意 `BUFFER_NUM=2` 翻倍）与单块 `TILE_LENGTH` |
+| 能跑通但输出数值偏差或随机乱码 | **定义 / 调用** | 查 32 字节对齐、非整除尾块、`EnQue`/`DeQue` 同步配对、host tiling 边界假设 |
+| 不报错但很慢，Profiler 显示零碎算子 | **注册（vLLM / PyTorch 侧）** | 查 `CustomOp.register_oot` 是否命中、custom ops 开关是否被降级禁用 |
+
+### 何时值得手写 AscendC：Amdahl 判据
+
+手写并维护一个高性能 AscendC 融合算子的人力与版本升级成本不低。动手之前，先用 **Amdahl 定律**冷静算清端到端收益天花板：设目标算子占单步前向总耗时的比例为 $p$，手写优化把它加速了 $s$ 倍，则端到端理论加速比为：
+
+$$
+S_{\text{e2e}} = \frac{1}{(1 - p) + p / s}
+$$
+
+| 算子原始耗时占比 $p$ | 单算子加速 $s = 2\times$ | 单算子加速 $s = 5\times$ | 单算子加速 $s = 10\times$ |
+|---:|---:|---:|---:|
+| **5%** | $1.026\times$ | $1.042\times$ | $1.047\times$ |
+| **20%** | $1.111\times$ | $1.190\times$ | $1.220\times$ |
+| **50%** | $1.333\times$ | $1.667\times$ | $1.818\times$ |
+
+这张表给出了两条铁一般的工程准绳：
+
+1. **占比低于 5% 的算子，写到极致也撬不动端到端**（即便提速 10 倍，整体收益不足 5%）；通常只有当单算子占比超过 **10%** 且确认为回退或明显低效时，才值得进入手写候选池。
+2. **边际收益递减极快**：即便占比高达 20%，把算子从 5 倍死磕到 10 倍，端到端仅多出不到 3% 的收益。
+
+因此，算子工程的正确节奏是先借助 CANN 内置库、统一算子层与图捕获把能拿的“大块收益”吃干净，下一章我们就用系统化的<a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>分析，把真正值得动刀的那 1–2 个热点算子精准揪出来。
 
 ## 本章小结
 
-- **清单必须分阶段且算清双分母**：Prefill 与 Decode 严格分采，剔除 `view/reshape` 等元数据噪声，将“算子设备自耗时之和”与“端到端墙钟时间”并排比对，第一眼就能发现设备外的时间黑洞。
-- **四类回退配三层漏斗**：严格区分 CPU 回退、图外 Eager、精度降级与静默回退；按“分发检查 → Profiler 设备时间线 → 日志与缓存”由廉到贵逐层锁定实锤。
-- **三口径覆盖率防盲区，四象限定动作**：$C_{\text{cnt}}$、$C_{\text{call}}$、$C_{\text{time}}$ 必须联合 CPU 自耗时一起看（专防 CPU 回退在 $C_{\text{time}}$ 中隐身），实现存在率与实际执行覆盖率的差值直接暴露静默回退；只有“低覆盖 + 热点集中”才优先投入补算子。
+- **CANN 五层即排障地图**：算子源码在编译层变成包含四件套的算子包，落入服务层 OPP，经接口层 `aclnn` 调用；单算子 Eager 与图模式（ACLGraph/GE）拥有完全不同的排查入口。
+- **AscendC 用控制权换极限**：相比 TBE 由编译器包办调度与双缓冲，AscendC 将 MTE2（CopyIn）、VEC（Compute）、MTE3（CopyOut）三级独立硬件流水与 `BUFFER_NUM=2` 双缓冲交由开发者掌控；双缓冲隐藏等待空泡（理论耗时 $3n \to n+2$），但以 UB 翻倍为代价，无法减少总访存字节，且须严守 32 字节对齐与尾块边界。
+- **三处注册与 Amdahl 纪律**：自定义算子要在 vLLM 生效，必须同时打通 CANN OPP、PyTorch `_C_ascend` 与 vLLM `register_oot` 三处注册；是否值得手写 AscendC，永远先拿 $1/((1-p)+p/s)$ 算清收益上限。
 
-**延伸阅读**：[PyTorch Profiler 官方文档](https://pytorch.org/docs/stable/profiler.html)、[昇腾 `msprof` 与 `torch_npu.profiler` 性能分析指南](https://www.hiascend.com/document)、[TritonAscendBench 算子迁移基准设计](https://github.com/Gxj230958/TritonAscendBench)。
+**延伸阅读**：[昇腾 CANN 总体架构与官方文档](https://www.hiascend.com/document)、[Ascend C 算子开发与流水线编程指南](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/latest/programug/Ascendcopdevg/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/cpp_tensor_programming/static_tensor_programming.md)、[vLLM `custom_op.py` 树外分发源码](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/custom_op.py)。

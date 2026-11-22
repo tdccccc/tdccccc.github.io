@@ -1,421 +1,208 @@
-# 第 11 章 生产架构：PD 解耦、扩缩容与成本路由
+# 第 11 章 DeepInfer：模型原厂垂直协同与四引擎横评
 
-<p class="chapter-summary">从 Roofline 瓶颈错配出发算清 Prefill/Decode 分池的干扰收益与传输税，建立以排队深度与 KV 水位为核心的 Kubernetes 弹性扩缩容体系，再把每百万 Token 的真实硬件成本写进多后端路由器与原子预算账本。</p>
+<p class="chapter-summary">拆解 DeepSeek 开源的生产级推理引擎 DeepInfer（Apache 2.0）：从“通用适配 vs 垂直协同”的范式分叉出发，走通 C++ 零开销异步调度、Attention DP / Balanced CP 与 MoE EP/EPLB 并行编排、五大定制算子栈、SWA 有界重放、DSpark 置信度投机解码与 SM100/昇腾 950 双一线硬件栈，最后以九维架构总表横评 vLLM V1、SGLang、TensorRT-LLM 与 DeepInfer 四大引擎。</p>
 
-把一台单机引擎调到极限之后，生产环境会立刻抛来三个集群级难题：第一，长 Prompt 涌入瞬间把正在流式输出的并发请求全部卡顿，单机调参已触及天花板；第二，流量突发时按传统 CPU 或 GPU 利用率配的自动扩缩容要么纹丝不动、要么疯狂误扩；第三，月底云账单来了，怎么把按小时计费的 GPU 租金折算成精确的每百万输入/输出 Token 成本，并在路由层把钱花在刀刃上？本章用同一套可复算的物理账本，把这三道生产关口一气打通。
+前面几章已经走完三种代表性引擎范式：[第 5 章 vLLM](chapter-05.md) 以分页与统一调度扛起通用多模型生态，[第 6 章 SGLang](chapter-06.md) 以基数树和轻量重叠调度领跑高复用前缀与 Agent 工作流，[第 10 章 TensorRT-LLM](chapter-10.md) 代表 NVIDIA 硬件原厂把 Hopper/Blackwell 算子与执行预算压到极致。
 
-## 11.1 为什么拆分 Prefill 与 Decode：干扰账与分块边界
+然而，当单模型参数规模迈向 700B+ 超稀疏 <a class="term-ref" href="/books/llm-inference/glossary#moe" title="Mixture of Experts，混合专家：每个 token 经路由仅激活少数专家子网络，实现总参数容量与单步计算量脱钩">MoE</a>、注意力演进为编解码分离（CED）+ 稀疏索引跨层共享（CSA2）+ FP4 混合 KV（低至 **890 B/token**）时，第四种工程范式站上了台前——<strong>模型原厂垂直协同推理引擎</strong>。2026 年 10 月 20 日，DeepSeek 以 **Apache 2.0** 协议正式开源其大规模生产基础设施的核心引擎 <strong><a class="term-ref" href="/books/llm-inference/glossary#deepinfer" title="DeepSeek 开源的生产级高性能大模型推理引擎（Apache 2.0），面向 DeepSeek-V4.1-Flash 等超大稀疏 MoE 模型深度垂直协同，支持 NVIDIA SM100 与华为昇腾 950">DeepInfer</a></strong>（`deepseek-ai/DeepInfer`）及配套协议编解码组件 **`deepseek-recipe`**。本章将完整拆解 DeepInfer 的架构边界、异步调度与并行编排、算子栈、算法-系统协同加速与双一线硬件抉择，并在章末把四大主流引擎摆上同一张工程天平。
 
-### 痛点：同机混跑的“瓶颈错配”与“线头阻塞”
+---
 
-回到第 1 章的 [Roofline 框架](chapter-01.md)，<a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>与 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>在同一张 GPU 上呈现截然相反的物理习性。以 **NVIDIA H100 80GB SXM**（FP16/BF16 Tensor Core 稠密峰值 **989.5 TFLOPS**，HBM3 带宽 **3.35 TB/s**，脊点 **$295.37\text{ FLOP/B}$**）运行 **Llama-3.1-8B（FP16）**（参数量 $N = 8.03\text{B}$，权重 $W = 16.06\text{ GB}$，每 token KV $k = 128\text{ KiB}$）为例，分别核算两个阶段：
+## 11.1 范式分叉：通用引擎 vs 模型原厂垂直协同
 
-- **1,000-token Prefill（极度计算受限）**：权重主导计算量 $F_P \approx 2 N L = 16.06\text{ TFLOP}$，读权重加写 KV 总搬运量约 $16.191\text{ GB}$，<a class="term-ref" href="/books/llm-inference/glossary#arithmetic_intensity" title="arithmetic intensity：每搬运 1 字节数据所执行的浮点运算次数（FLOP/Byte）">算术强度</a>高达 $991.9\text{ FLOP/B}$（约为 H100 脊点的 **3.36 倍**）。跑满稠密峰值需 $16.23\text{ ms}$，按工程常见的 **50% <a class="term-ref" href="/books/llm-inference/glossary#mfu" title="Model FLOPs Utilization，模型算力利用率：实际有效模型计算吞吐占硬件理论峰值算力的比例">MFU</a>** 折算耗时约 **$32.46\text{ ms}$**（若 Prompt 增至 4,000 token，50% MFU 下仅权重计算就高达 **$129.84\text{ ms}$**）。
-- **1,000-token 上下文下的单请求 Decode（极度带宽受限）**：每生成 1 个 token 的计算量仅 $16.06\text{ GFLOP}$（算术强度低至 $0.99\text{ FLOP/B}$），但仍需从 HBM 搬运 $16.191\text{ GB}$ 权重与 KV，带宽下界为 **$4.83\text{ ms}$**（单请求理论上限约 207 tok/s）。在此工作点上，H100 实际用到的算力仅为 $3.32\text{ TFLOPS}$，占 989.5 TFLOPS 峰值的 **$0.34\%$**！
+### 为什么通用抽象在 DeepSeek-V4.1-Flash 级架构上会漏水？
 
-把这两个习性水火不容的阶段关在同一张 GPU 里混跑，会同时触发两重损耗：
+DeepInfer 首发并不追求“开箱跑通 Hugging Face 上的几百个模型”，而是高度专精于 **DeepSeek-V4.1-Flash** 这一类极致压榨长上下文与激活稀疏度的前沿模型（该模型的完整存储与算力拆账见[专题 A](../topics/advanced-architectures.md)：主干 $551.57\text{B}$ + Engram 外部记忆表 $196.93\text{B} = 748.50\text{B}$，40 层 384 选 6 稀疏 MoE，前 20 层因果编码器 + 后 20 层因果解码器的 CED 结构，38 层全局注意力拆为 4 Full + 4 Reindex + 30 Reuse 的 CSA2 候选池，每 token 全局 KV 仅 **$890\text{ B}$**）。
 
-1. **线头阻塞（Head-of-Line Blocking）**：在两个流畅的 4.8 ms Decode 步之间，只要串行插进一条 1,000-token（32.5 ms）或 4,000-token（129.8 ms）的 Prefill，同卡上所有正在吐字的 Decode 请求立刻被硬生生“冻结”几十到上百毫秒，造成剧烈的 **<a class="term-ref" href="/books/llm-inference/glossary#itl" title="Inter-Token Latency，token 间延迟：同一请求相邻两个输出 token 之间的时间间隔，决定流式输出是否卡顿">ITL</a>尾延迟尖峰**；
-2. **硬件资源错配**：Prefill 渴望 H100 级的超高 Tensor Core 算力，而 Decode 在中小并发下连 A100（312 TFLOPS / 2 TB/s，单步带宽下界 8.10 ms，算力利用率仅 $0.64\%$）的算力零头都吃不完。同机混跑迫使你为带宽受限的 Decode 支付顶级算力卡的溢价，且两阶段被迫共享同一套<a class="term-ref" href="/books/llm-inference/glossary#tensor_parallelism" title="tensor parallelism：将单层权重矩阵切分到多张加速卡上并行计算并通过集合通信汇总的并行策略">张量并行</a>度与显存预算。
+这类架构把传统通用推理引擎的三条默认假设几乎同时打破：
 
-<figure class="book-figure">
-  <img src="/figures/llm-inference/pd.svg" alt="PD 解耦基础结构：Router 将请求先发往算力密集的 Prefill 池生成完整 KV，经网络或显存传输至带宽密集的 Decode 池逐 token 生成" loading="lazy">
-  <figcaption><span class="book-figure__label">图 11-1</span>读图顺着请求流向看：Router 先将 Prompt 交给算力型 Prefill 池，生成整段 KV 后经显式传输送往带宽型 Decode 池。结论：PD 解耦用可度量的 KV 传输成本，换取两阶段彻底隔离与独立资源配比。</figcaption>
-</figure>
+1. **Prefill 与 Decode 的激活结构不再对称**：传统 Decoder-only 引擎默认所有层对所有输入 token 跑同一条前向循环；而在 CED 架构中，Prefill 阶段仅激活约 **8B** 参数（后 20 层解码器仅重放末尾短窗），Decode 阶段才激活约 **16B** 参数，通用循环要么无法跳过冗余解码计算，要么只能打补丁式特判。
+2. **上下文状态不再是单一齐整的 Paged KV 块**：一条活跃请求同时挂着四类生命周期和位宽截然不同的状态——仅 4 层独立保存且跨层共享的 **FP4 主 KV（E2M1 + 每 16 通道缩放）**、128 维轻量**索引键（Index Key）**、40 层 **FP8 局部滑动窗口（SWA）环形状态**，以及驻留主机 DRAM 或外部存储层、需要与前层计算异步预取重叠的 **196.93B 级 Engram 查表**。
+3. **单卡 GEMM 不再是第一瓶颈，跨卡通信与热专家倾斜才是生死线**：主干中高达 **98.6%** 的参数落在路由专家内，单步真正决定 <a class="term-ref" href="/books/llm-inference/glossary#mfu" title="Model FLOPs Utilization，模型算力利用率：实际有效模型计算吞吐占硬件理论峰值算力的比例">MFU</a> 和尾延迟的，是 `All-to-All` 专家分发通信能否被计算严丝合缝藏住、热点专家会不会把某几张卡打成木桶短板。
 
-### Chunked Prefill 能走多远？与物理拆池的边界
+通用框架为了兼容上百种模型与硬件，必须在调度器、KV 管理器和 Attention 后端之间保留厚重的抽象接口；而模型原厂自建的 DeepInfer 选择了完全相反的路径：**以单一旗舰架构的物理账本为中心，从模型定义、C++ 调度器、块管理器一直垂直贯通到底层编译算子与集合通信库**。
 
-在直接拆机之前，同机路线有一道极强的防线——**Chunked Prefill（分块预填充）**（已在[第 5 章](chapter-05.md)与[第 10 章](chapter-10.md)介绍）。它把长 Prompt 切成小块，穿插到连续的 Decode 步中混合执行，将一次几十毫秒的大阻塞摊平为多次可控的小波动。
+### 刻意划清的开源边界：核心执行引擎 + `deepseek-recipe`，剥离集群外围壳
 
-但 Chunked Prefill 也有清晰的物理天花板。沿用 H100（50% MFU）+ Llama-3.1-8B 核算 1,000-token Prompt 按不同分块单独执行的代价（每块步时取计算与搬运最大值 $\max\!\left(\frac{2 N \cdot c}{989.5\text{T} \times 0.5},\; \frac{W + k c}{3.35\text{T}}\right)$）：
+阅读 `deepseek-ai/DeepInfer` 时，工程师最容易产生的误判是把它当成类似 `vllm serve` 的“开箱即用在线 HTTP 服务器”。事实上，DeepSeek 在开源架构上划出了一条极其清醒的工程边界：
 
-| 最大分块大小（tokens） | 切分块数 | 单块步时估计（ms） | 总 Prefill 耗时（ms） | 单块算术强度（FLOP/B） | 所处 Roofline 区间 |
-|---:|---:|---:|---:|---:|---|
-| 1,000 | 1 | 32.46 | 32.46 | 991.9 | 稳居计算受限侧 |
-| 500 | 2 | 16.23 | 32.46 | 498.0 | 计算受限侧 |
-| 250 | 4 | 8.12 | 32.46 | 249.5 | 略低于峰值脊点，50% MFU 下仍由计算主导 |
-| 125 | 8 | 4.80 | **38.39** | 124.9 | 跌入带宽受限侧，每块重复搬权重，总耗时抬升 |
-| 63 | 16 | 4.80 | **76.74** | 63.0 | 严重带宽受限，总耗时暴涨至 2.36× |
-
-计算项与搬运项在约 **148 token/块** 处相交：块切得比 148 还细，单步搬运 16.06 GB 权重的 **4.80 ms 地板**不再下降，块数却成倍增长，不仅拖垮 <a class="term-ref" href="/books/llm-inference/glossary#ttft" title="Time to First Token，首 token 延迟：从发出请求到收到首个非空生成内容的时间，包含排队与 prefill">TTFT</a>，还让大量重复权重读取挤占本就宝贵的 HBM 带宽。反过来，若块切得大（如 500 token），单步 16.23 ms 叠加同批 Decode 与调度开销，又会刺穿苛刻的 ITL p99 红线。
+- **纳入开源核心（Apache 2.0）**：面向高吞吐**离线批处理推理**（`deepinfer.entrypoints.LLM`）与单域极致执行所需的全部核心引擎层——C++ 异步调度器、多态块管理器、混合并行与 EPLB 编排、五大定制底层算子栈、DSpark 投机解码、SWA 有界重放、文法结构化掩码以及确定性推理支持。
+- **配套开源协议契约层（`deepseek-recipe`）**：独立以 **Rust 编写并提供 Python 绑定**的高性能协议编解码器，负责把外部标准 Chat Completions / Messages / Tool-call 请求严丝合缝地编译为模型内部控制 Token 序列，并将模型输出流准确拆解回思维过程（Reasoning）、正文与工具调用事件。大模型的控制 Token 属于严格的运行时契约——用松散的字符串拼接极易在社区自托管时引发格式漂移或提示注入风险，`deepseek-recipe` 保证了开源引擎与官方 API 行为的 100% 协议对齐。
+- **刻意剥离的集群外围基础设施**：DeepSeek 明确未将与其内部生产集群深度绑定的三大外围系统打进引擎核——**分布式持久化 KV 存储（如基于 3FS 的跨机块缓存池）**、**跨机器的实例级 PD 解耦编排**与**大规模多副本流量负载均衡器**。这并非能力缺失，而是清晰的架构分层：单域计算与通信极限由执行引擎吃透，跨机存储、PD 路由与弹性扩缩由集群编排层解耦演进（完整集群架构将在[第 12 章](chapter-12.md)与[专题 B](../topics/cluster-pd-mooncake.md)展开）。
 
 <figure class="book-figure">
-  <img src="/figures/llm-inference/pd-timeline-cluster.svg" alt="上半部对比同机混跑、Chunked 切块与 PD 解耦三轨时间线；下半部展示以共享分布式 KV Cache 池与 Transfer Engine 为中心的 Mooncake 集群架构" loading="lazy">
-  <figcaption><span class="book-figure__label">图 11-2</span>先对照上半部三条执行时间线：同机混跑在长 Prefill 处产生明显 ITL 尖峰，Chunked 切块通过穿插平抑毛刺但仍争抢同卡资源，PD 解耦将两阶段彻底分轨并引入显式 KV 传输段；下半部进一步示意超大规模集群如何引入共享 KV 池。结论：Chunked Prefill 是中小规模同机的强基线，PD 物理拆池则是双严格 SLO 下的终极隔离解。</figcaption>
+  <img src="/figures/llm-inference/deepinfer-arch-stack.svg" alt="DeepInfer 垂直协同全栈架构与开源边界：左侧为协议对齐、C++ 异步调度核、混合并行、五大定制算子栈与 SM100/昇腾 950 双一线硬件；右侧虚线框标出刻意剥离的分布式 KV 池、PD 解耦与副本负载均衡" loading="lazy">
+  <figcaption><span class="book-figure__label">图 11-1</span>自上而下阅读左侧五层开源核心：从 Rust 编写的 <code>deepseek-recipe</code> 协议层穿过 C++ 零开销异步运行时、混合并行编排与五大定制算子栈，直达 NVIDIA SM100 与华为昇腾 950 双一线硬件；右侧虚线框标出刻意剥离的集群外围组件。结论：DeepInfer 交付的是“压榨到极限的核心运行时”，在线生产化需配合外围集群编排栈。</figcaption>
 </figure>
 
-::: info 工程取舍：什么时候该从 Chunked Prefill 迈向 <a class="term-ref" href="/books/llm-inference/glossary#pd_disaggregation" title="prefill-decode disaggregation，预填充-解码解耦：将算力密集的 Prefill 与带宽密集的 Decode 拆分到独立计算池，消除相互干扰">PD 解耦</a>？
-切忌把 PD 解耦当成“默认必选项”。当满足以下任一条件时，**同机 Chunked Prefill 往往更省钱更简单**：总 GPU 卡数少（如 $\le 4$ 卡）、节点间缺乏高速 RDMA 互联（仅 10GbE/拥塞以太网）、或业务以短输入（$< 1\text{K}$）为主。只有当**长上下文输入密集（4K–32K+）、TTFT 与 ITL p99 同时面临严苛 SLA、且集群规模足以按需异构配比 P/D 两池**时，物理 PD 解耦的收益才会彻底释放。
+---
+
+## 11.2 异步 C++ 调度核、混合并行与定制算子栈
+
+### 代码分层、零开销异步调度与批次无关确定性
+
+打开 `deepseek-ai/DeepInfer` 的工程目录，Python 控制面与 C++/CUDA/Ascend 执行面分工利落：
+
+```text
+DeepInfer/
+├── deepinfer/
+│   ├── entrypoints/                  # 离线批推理核心 API（LLM / generate）
+│   ├── model_executor/layers/
+│   │   └── tilelang_ops/             # 近百个面向硬件精细调优的 TileLang 定制核
+│   ├── config.py                     # 并行拓扑、硬件与低精度运行配置
+│   └── utils.py                      # IPC 封装与调试辅助工具
+├── csrc/
+│   └── engine/
+│       ├── scheduler.hpp / .cpp      # C++ 零开销异步调度器与跨 Rank 同步投票
+│       ├── block_manager.hpp         # 分页主 KV、索引键与 SWA 环形窗多态块管理
+│       └── mtp_varlen.hpp            # 变长多 token 预测与 DSpark 验证数据结构
+└── examples/offline_inference.py     # 标准离线高吞吐批推理与校验入口
+```
+
+在运行循环上，DeepInfer 的核心设计围绕三个关键工程问题展开：
+
+1. **C++ 零开销异步批调度（Zero-Overhead Async Scheduling）**：如果 CPU 每步都苦等 GPU/NPU 采样完再做下一轮组批，超快加速卡在毫秒级 Decode 步间会频繁陷入空等。DeepInfer 将核心调度器下沉到 C++（`scheduler.cpp`），在设备执行第 $N$ 步前向的同时，CPU 端**乐观组装第 $N+1$ 步批次**并异步消化投机验证反馈，实现 CPU 调度与设备执行的完全重叠。更关键的是，在多卡 DP + EP 混合执行中，MoE 层的 `All-to-All` 是全局同步集合通信——一旦某些 Rank 选了 Prefill、另一些 Rank 选了 Decode 或已空转，跨卡通信会立刻死锁；因此 `_schedule()` 内置跨 Rank 同步投票与状态协调机制，保证所有参与 EP 通信的 Rank 步调一致。
+2. **结构化输出与批次无关确定性推理（Batch-Invariant Inference）**：采样层内嵌文法自动机编译（支持 Regex、JSON Schema、EBNF），在前向后动态掩码非法词表槽位，避免在外部做低效重采样。此外，针对 NVIDIA 平台提供 **`DEEPINFER_BATCH_INVARIANT=1`** 环境变量开关：标准 GPU 归约核因并行块切分随 batch 大小动态变化，浮点加法非结合律会导致同一条 Prompt 放在 `batch=1` 和 `batch=32` 里吐出细微差异的 logits（在强化学习 Rollout 训推对齐与严格精度回归中极易放大为系统性偏差）。开启批次无关模式后，底层核函数固定归约顺序，确保跨批次组成下数值严格一致——这为[第 24 章](chapter-24.md)的精度归因提供了理想的确定性参照。
+
+### 混合并行编排：Attention DP / Balanced CP ↔ MoE EP + EPLB
+
+面对 700B+ 超稀疏 MoE，把整网粗暴切成大张量并行（TP=8/16）是一笔极不划算的账：每层 Attention 都要反复 `AllReduce`，且各卡不得不重复存储或细碎切分 KV。DeepInfer 在 Attention 层与 MoE 层之间执行清晰的**并行范式切换**：
+
+- **Attention 侧：数据并行（DP）+ 均衡上下文并行（Balanced CP）**：
+  - 中短序列下，各 DP Rank 各自持有独立请求集合与独立 KV 池，免去 Attention 阶段的跨卡通信；
+  - 面对 128K–1M 超长 Prompt，单张卡串行 Prefill 会把首字延迟顶穿，必须启用 **上下文并行（Context Parallelism, CP）** 将单条长序列拆分到多张卡协同处理。然而因果注意力掩码下，位置越靠后的 token 需要关注越长的左侧历史，算力负载呈三角形剧烈倾斜！
+
+**手算一笔 Balanced CP 算力账**：假设把一条超长序列等长切分给 **4 张 CP 卡**，对比“朴素顺序切分”与 DeepInfer 的 **Balanced CP 镜像切分（`cp_align` 对齐）**：
+
+- **朴素顺序切分**（每卡连续领走 $L/4$ 个 token）：4 张卡各自覆盖的因果注意力下三角面积占比依次为：
+
+$$
+\frac{1}{16} = \mathbf{6.25\%},\qquad \frac{3}{16} = \mathbf{18.75\%},\qquad \frac{5}{16} = \mathbf{31.25\%},\qquad \frac{7}{16} = \mathbf{43.75\%}
+$$
+
+  最慢的 Rank 3 承担了全序列近一半注意力算力，是理想均摊值（25%）的 **$1.75\times$**；前 3 张卡算完后只能在同步栅栏前干等！
+- **Balanced CP 首尾镜像配对**：把序列细切成 $2 \times 4 = 8$ 块（各块算力权重依次正比于 $1, 3, 5, 7, 9, 11, 13, 15$，总和 $64$），按“头尾配对”分给 4 张卡——Rank 0 拿 `(块 1, 块 8)`、Rank 1 拿 `(块 2, 块 7)`、Rank 2 拿 `(块 3, 块 6)`、Rank 3 拿 `(块 4, 块 5)`：
+
+$$
+1 + 15 = 3 + 13 = 5 + 11 = 7 + 9 = 16 \implies \text{每卡精确均为 } \frac{16}{64} = \mathbf{25.0\%}
+$$
+
+  四张卡的因果注意力配对数达到 **100% 理论均衡**，彻底消除长上下文 Prefill 的尾卡木桶效应。
+
+- **MoE 侧：专家并行（EP）+ 热点负载均衡（EPLB）+ 双微批重叠（Two-Batch Overlap）**：
+  - 离开 Attention 层后，系统通过 DeepEP 执行 `All-to-All` Dispatch 将各 DP Rank 的 token 按路由发往目标专家所在卡，执行 Grouped GEMM 后再 `Combine` 归位；
+  - 真实业务语料中，专家路由存在严重长尾偏斜——少数“热门专家”可能吸引远超均值的 token，拖慢全集群同步步调。DeepInfer 集成 **<a class="term-ref" href="/books/llm-inference/glossary#eplb" title="Expert Parallelism Load Balancing，专家并行负载均衡：在 MoE 专家并行中将高热逻辑专家冗余复制到多个物理槽位并动态分流的均衡策略">EPLB</a>（专家并行负载均衡）**，统计路由热度后将高热逻辑专家冗余复制到多个物理槽位，把拥堵流量均匀摊开；
+  - 同时将单步大批拆成两个交替推进的微批（Microbatch A/B）：当微批 A 正在走 DeepEP `Dispatch / Combine` 通信时，计算单元无缝切去跑微批 B 的 Attention 或 MoE Grouped GEMM，把跨卡通信延迟严丝合缝藏在算力计算背后（见图 11-2 左侧下部）。
+
+### 五大深度定制底层算子栈
+
+为了不把调度层辛辛苦苦省下来的时间重新漏回低效通用内核，DeepInfer 将 DeepSeek 自研的五套底层算子库打通成一条垂直栈：
+
+| 底层算子库 | 核心攻坚对象 | 在 DeepInfer 中的关键工程角色 |
+|---|---|---|
+| **FlashMLA** | <a class="term-ref" href="/books/llm-inference/glossary#mla" title="Multi-head Latent Attention，多头潜变量注意力：将 K/V 压缩到低维潜变量缓存，并利用矩阵结合律在查询侧吸收上投影的注意力结构">MLA</a> 与 CSA2 稀疏压缩注意力 | 原生处理低维潜变量吸收、FP4/FP8 内联缩放 KV 读取与稀疏候选池索引访存，同步覆盖 SM100 与昇腾 950 |
+| **DeepGEMM** | 低精度矩阵乘与 MoE 分组乘 | 针对 FP8、FP4、INT8 与 BF16 精细压榨块缩放 GEMM、MoE Grouped GEMM 与稀疏索引打分吞吐 |
+| **DeepEP**（含 **DeepEP-Ascend**） | MoE `All-to-All` 专家通信 | 分别针对高吞吐 Prefill 与低延迟 Decode 提供无锁/低开销 Dispatch 与 Combine 原语（NVIDIA 侧压榨 NVLink/RDMA，昇腾侧基于 Ascend C + HCCL/URMA/UBMEM） |
+| **DeepSelect** | 高频 Top-$K$ 路由与稀疏索引筛选 | 替代通用 PyTorch `topk`，以数倍吞吐承接 MoE 专家路由、CSA2 稀疏索引筛选与采样候选挑选 |
+| **<a class="term-ref" href="/books/llm-inference/glossary#tilelang" title="基于 TVM 演进的 Pythonic 分块 GPU/NPU 算子领域专用语言与编译器，显式掌控线程块切分与片上存储搬运流水">TileLang</a> / TileKernels** | 跨架构定制融合算子编排 | 以 Pythonic 分块 DSL 显式掌控线程块 Tiling、片上存储搬运与硬件内联指令，在 `tilelang_ops/` 下生成近百个面向特定硬件布局的定制核 |
+
+---
+
+## 11.3 算法-系统协同加速与双一线硬件抉择
+
+DeepInfer 真正区别于传统框架的杀手锏，在于它把<strong>模型结构（CED / SWA）</strong>、<strong>投机算法（DSpark）</strong>和<strong>新一代硬件特性（SM100 / 昇腾 950）</strong>拧成了同一条优化闭环。
+
+### 一、SWA Bounded Replay：用 $O(140)$ 重放换掉半数 Prefill 与持久化 SWA KV
+
+回顾[专题 A](../topics/advanced-architectures.md)对 DeepSeek-V4.1-Flash 的账本拆解：模型 40 层切为前 20 层因果编码器 + 后 20 层因果解码器，解码器的全局 KV 由编码器末层投影跨层共享，而解码器每层的局部滑动窗口注意力（SWA，窗宽 128）只依赖最近窗口内的局部上下文。
+
+如果在 Prefill 阶段老老实实把长 Prompt 喂进全部 40 层，后 20 层解码器对前 $L - 128$ 个 token 算出的局部 SWA KV 根本活不到 Decode 第一步就会滑出窗口，纯属白算；而如果为了前缀复用或跨机换出把 40 层 FP8 SWA 缓存连同全局 KV 一起持久化到 HBM/SSD，又会额外增加每请求约 $2.58\text{ MiB}$ 的热写状态。
+
+DeepInfer 为此实现 **SWA Bounded Replay（有界滑窗重放）**，由环境变量 `DEEPINFER_YOCO_PREFILL_KEEP_TOKENS=140` 与 `DEEPINFER_YOCO_PREFILL_TRUNCATION_MODE=compact` 控制：
+
+- **完全不持久化 SWA 状态**：只把每 token 仅 **890 B** 的 FP4/FP8 全局历史与索引写入持久层（1M 上下文全局核心缓存不足 1 GiB）；
+- **截断有界重放**：在 Prefill 跨入后 20 层解码器或缓存重建时，引擎自动裁掉前 $L - 140$ 个历史 token，**仅重放最末尾固定 $n_{\text{win}} = 140$ 个 token**（覆盖 128 窗宽 + 投机解码回退与块对齐余量）。
+
+结果两本账同时大幅翻绿：8K Prompt 下，后 20 层解码器算力从 $140.20\text{ TFLOPs}$ 断崖跌至 $2.18\text{ TFLOPs}$，**整次 8K Prefill 总算力直降 49%**；更重要的是，无论上下文拉长到 128K 还是 1M，重建全部 40 层 SWA 状态的代价都被钉死在常数 $O(140)$，彻底与序列总长脱钩（当然，若请求本身短于 140 token，全部输入落入重放窗内，这项跳过红利便不会触发）。
+
+### 二、DSpark 投机解码：半自回归起草 + 置信度动态截断验证
+
+[第 9 章](chapter-09.md)已经算清传统投机解码的两道硬约束：一方面，纯并行多头草稿缺乏块内 token 间依赖，越往后接受率塌陷越快（“后缀衰减”）；另一方面，固定草稿长度 $\gamma$ 在低并发下如虎添翼，可一旦线上 QPS 跨过 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>脊点，大量低概率尾巴反而会挤占 Batch 算力拖垮吞吐。
+
+DeepInfer 原生集成由 DeepSeek 与北京大学联合提出的 <strong><a class="term-ref" href="/books/llm-inference/glossary#dspark" title="DeepSeek 与北大提出的置信度调度半自回归投机解码框架（arXiv:2607.05147），结合 Markov 头与负载感知动态截断验证">DSpark</a></strong>（arXiv:2607.05147），把“猜得准”与“验得巧”同步收进引擎调度循环：
+
+1. **半自回归起草（Semi-Autoregressive Generation）**：先由并行草稿主干在单次前向中并行输出整块候选的隐藏态 $h_k$，再用极轻量的串行头融合前一位草稿 token 的 **Markov Embedding（$W_1[x_{k-1}]$）**，以极低代价在块内注入从左到右的条件依赖，有效遏制纯并行起草器的后缀衰减。
+2. **置信度头 + 序列温度缩放（Confidence Head + STS）**：轻量线性投影 + Sigmoid 为每个草稿位置 $k$ 预测条件存活概率 $c_k \in (0, 1)$（以草稿分布与目标分布之间的解析接受率监督训练）。由于原始神经网络置信度普遍过度自信，直接连乘会高估长前缀存活率；DSpark 在留出校准集上执行 **序列温度缩放（Sequential Temperature Scaling, STS）**，把累计存活率预测误差从约 3%–8% 压低到约 **1%** 级别，使调度器敢拿它做真实算力预算决策。
+3. **负载感知置信度调度验证（Confidence-Scheduled Verification）**：结合 `mtp_varlen.hpp` 的变长验证路径，调度器根据实时集群吞吐曲线与每条请求逐位校准后的存活概率，**动态为每条请求截断最优验证长度**——轻载时放长验证块榨干单用户极限速度，重载高并发时果断截去低置信度后缀、把宝贵的 Batch 算力留给其他活跃请求。在 DeepSeek-V4 真实线上流量口径下，同等系统吞吐下较原生 MTP-1 单用户生成提速 **60%–85%**。
+
+<figure class="book-figure">
+  <img src="/figures/llm-inference/deepinfer-swa-dspark-parallel.svg" alt="DeepInfer 三大协同加速机制：左侧对比 Balanced CP 镜像切分消除因果注意力 1.75 倍拖尾与 MoE 双微批重叠；右侧展示 CED + SWA 仅重放末尾 140 token 与 DSpark 按置信度和负载动态截断验证长度" loading="lazy">
+  <figcaption><span class="book-figure__label">图 11-2</span>左侧对照 4 卡 CP 的因果算力占比（顺序切分尾卡 43.75% 拖尾 vs 镜像配对四卡精确 25%）及双微批隐藏 DeepEP 通信延迟；右侧上方展示 CED 后 20 层跳过前 <em>L</em> − 140 仅重放末尾 140 token，下方展示 DSpark 依据 STS 校准置信度与集群并发压力动态截断验证尾巴。结论：算法结构与底层调度一体协同，是垂直专精引擎跑赢通用框架的根因。</figcaption>
+</figure>
+
+### 三、双一线硬件绑定：为什么是 SM100 与昇腾 950，而非旧代 Hopper？
+
+DeepInfer 开源声明中最具战略信号的一条决策，在于其极其克制而锋利的硬件支持矩阵：**首发仅原生支持 NVIDIA SM100（Blackwell 架构 B200/GB200，要求 CUDA 13）与华为昇腾 Ascend 950 NPU（要求 CANN 9.2），明确未将上一代主力卡 NVIDIA Hopper（H100/H200，SM90）列入默认支持列表**。
+
+这背后不是随意取舍，而是赤裸的硬件第一性原理：
+
+- **为什么锚定 NVIDIA SM100（Blackwell）而非回兼容 SM90（Hopper）？**
+  - DeepSeek-V4.1-Flash 的显存与算力账本建立在 **原生 FP4（E2M1 块缩放）** 权重/主 KV 缓存与超高稀疏 MoE 通信之上。SM100 具备硬件原生 FP4 Tensor Core、Tensor Memory（TMEM）与更高代际 NVLink 域带宽；而 SM90 既缺乏原生 FP4 计算单元、底层指令流水与片上存储结构也与 SM100 迥异。如果为了兼容旧卡强行在内核里维护庞大的软件反量化与双架构条件分支，代码复杂度和性能折损会迅速拖慢核心演进。
+- **为什么华为昇腾 Ascend 950 获得与 SM100 同等的 Day-0 一线地位？**
+  - 在 DeepInfer 仓库中，华为昇腾 950 并非事后社区打补丁的“二等公民”，而是与 SM100 同步落地了完整生产算子闭环：底层依托 **CANN 9.2**、**DeepJIT** 与 **Ascend C** 实现 **DeepEP-Ascend**（打通 HCCL / URMA / UBMEM 的 MoE 低延迟 `All-to-All` 通信）与昇腾版 **FlashMLA**，中层通过 **TileLang** 复用定制融合算子，执行层利用 **ACLGraph** 对标 NVIDIA 的 <a class="term-ref" href="/books/llm-inference/glossary#cuda_graph" title="CUDA 图：将一连串 GPU kernel 启动录制成静态图单次重放，显著降低 CPU 发射开销">CUDA Graph</a>消除 Host 下发气泡。
+  - 这标志着国产顶尖 NPU 首次在“超大规模稀疏 MoE + 低比特压缩注意力 + 复杂专家通信”的最前沿模型上，与最新一代 NVIDIA 旗舰卡同步走通原生生产闭环（本书第四篇 [第 19–23 章](chapter-19.md) 将继续以昇腾 910B 为教学主线，深入拆解 CANN、AscendC 流水线、覆盖归因与跨芯片迁移的通用底层方法论）。
+
+::: warning 工程现实边界：切勿把 DeepInfer 当成普通单卡服务器的“一键替代品”
+如果你手里是消费级显卡（如 RTX 4090/5090）、上一代服务器卡（A100/H100/H200）或存量昇腾 910B，或者你需要快速部署 Qwen / Llama / Gemma 多模型对外提供 OpenAI 在线服务，**DeepInfer 并不是开箱即用的目标选项**。它的直接落地门槛极高（SM100 + CUDA 13 或 Ascend 950 + CANN 9.2 集群 + 外围在线编排栈）；对大多数团队而言，它既是特定旗舰硬件上跑 DeepSeek-V4.1-Flash 的极限武器，更是向社区公开的一份**超大规模 MoE 推理顶级工程参考源码**——其中诸如双微批重叠、DeepEP、DSpark 与 SWA 有界重放等设计思想，也正迅速被 vLLM 与 SGLang 社区吸收借鉴。
 :::
 
-## 11.2 PD 解耦的传输税与两池配比
+---
 
-把 Prefill 和 Decode 拆到两套独立实例后，干扰消失了，但 Prefill 刚算好的整段 <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>必须跨卡或跨节点搬给 Decode 实例——这就是解耦的**传输税（Transfer Tax）**。
+## 11.4 四大主流推理引擎全景横评与选型矩阵
 
-### 精确核算 KV 传输税：互联带宽决定生死
+走完 vLLM V1、SGLang、TensorRT-LLM 与 DeepInfer 四大代表性引擎，我们不再陷入“某周谁在某个脚本里高了 5%”的短期跑分口水战，而是把四者的**架构哲学、调度机制、算子栈、硬件矩阵与工程边界**摆在同一张九维总表上彻底看透。
 
-先守住一条绝不可混的单位换算铁律：网络标称带宽用十进制 **Gb/s**（除以 8 才等于 **GB/s**），而 KV 体积按二进制 **MiB / GiB** 计（$1\text{ GiB} = 1.0737\text{ GB}$）。以 **Llama-3.1-8B（128 KiB/token）** 为例，对比不同上下文长度在三档主流互联与低速以太网下的理想线速传输耗时，以及传输耗时与 H100（50% MFU）Prefill 耗时之比 $t_{\text{transfer}} / t_{\text{prefill}}$：
+### 九维深度架构横评：vLLM V1 vs SGLang vs TensorRT-LLM vs DeepInfer
 
-| Prompt 长度 | KV 体积 | H100 Prefill（50% MFU） | 同机 NVLink 4<br>（双向 900 / 单向 450 GB/s） | 跨机 400G InfiniBand<br>（50 GB/s） | 普通 100GbE<br>（12.5 GB/s） | 10GbE TCP<br>（1.25 GB/s） |
-|---|---:|---:|---:|---:|---:|---:|
-| 1K（1,024） | 128 MiB | 33.24 ms | 0.30 ms（0.90%） | 2.68 ms（8.08%） | 10.74 ms（32.3%） | 107.4 ms（323%） |
-| **4K（4,096）** | **512 MiB** | 132.96 ms | **1.19 ms**（0.90%） | **10.74 ms**（8.08%） | **42.95 ms**（32.3%） | 429.5 ms（323%） |
-| **8K（8,192）** | **1 GiB** | 265.92 ms | **2.39 ms**（0.90%） | **21.47 ms**（8.08%） | **85.90 ms**（32.3%） | 859.0 ms（323%） |
-| 32K（32,768） | 4 GiB | 1,063.68 ms | 9.54 ms（0.90%） | 85.90 ms（8.08%） | 343.60 ms（32.3%） | 3,436 ms（323%） |
+| 对比维度 | vLLM V1 | SGLang | TensorRT-LLM（PyTorch 后端） | DeepInfer（DeepSeek） |
+|---|---|---|---|---|
+| **1. 架构定位与演进范式** | **多模型通用底座**：V1 重构多进程架构，解耦 API 与 EngineCore，强调极致模块化与生态广度 | **程序级高并发先锋**：轻量紧凑 Python 引擎，深度围绕多轮 Agent、前缀复用与极低调度开销设计 | **硬件原厂通用专精**：从静态 `.engine` 全面转向原生 `PyExecutor` PyTorch 后端，保留 NVIDIA C++/CUDA 内核优势 | **模型原厂垂直协同**：从 DeepSeek 生产基础设施抽离，以 DeepSeek-V4.1-Flash 物理账本为中心全栈贯通 |
+| **2. 调度与 CPU-GPU 重叠** | 统一 Chunked Prefill 调度字典，支持优先级与抢占恢复，双进程隔离前端分词 | **Zero-Overhead 重叠调度器**将 CPU 组批与 GPU 前向异步重叠，小模型高并发优势突出 | **In-flight Batching**（Generation 优先护 ITL），围绕 `max_batch_size / max_seq_len / max_num_tokens` 三预算闭环 | **C++ 零开销异步调度器**（`scheduler.cpp`）乐观预组步 $N+1$ + 跨 Rank 同步投票防 EP 通信死锁 |
+| **3. KV 缓存与状态管理** | <a class="term-ref" href="/books/llm-inference/glossary#paged_attention" title="Paged Attention，分页注意力：将 KV 缓存切为固定大小 block，通过块表映射到非连续物理显存的注意力管理机制">PagedAttention</a>分页块表 + 自动前缀缓存（APC，块级哈希），支持多级 KV 卸载连接器 | <a class="term-ref" href="/books/llm-inference/glossary#radix_attention" title="Radix Attention，基数树注意力：用压缩前缀树（Radix Tree）按 token 粒度管理、共享与 LRU 淘汰 KV 缓存的机制">RadixAttention</a>基数树全局按 token/页粒度共享 + 缓存感知调度，天然契合树状分叉工作流 | 分页块管理器 + **基数树 KV 块复用**（支持部分块复用与优先级 LRU），默认开启跨请求共享 | `block_manager.hpp` 管理 **FP4 主 KV + 索引键 + SWA 环形窗**多态状态；<strong>SWA 有界重放（140 tok）</strong>免持久化局部缓存 |
+| **4. 编译、执行图与确定性** | 默认 `torch.compile` 融合 + **分段 CUDA Graph**，在动态 Attention 间隙拼合静态图 | 多档位预捕获 CUDA Graph + FlashInfer 融合路径，冷启动轻盈敏捷 | 自定义核 + JIT + `torch.compile` + CUDA Graph（含 padding/分段），精细面向 NVIDIA 调优 | NVIDIA 侧 **CUDA Graph** / 昇腾侧 **ACLGraph**；NVIDIA 平台提供 **`DEEPINFER_BATCH_INVARIANT=1`** 批次无关确定性推理 |
+| **5. 底层算子与量化生态** | **量化生态最全**（FP8/AWQ/GPTQ/Marlin/GGUF/BnB），兼容 FA / FlashInfer / Triton | 深度集成 **FlashInfer** 与 Triton/CUTLASS，原生 FP8、MLA 块量化与 MoE 核跟进极快 | **NVIDIA 标杆**：Hopper FP8、Blackwell NVFP4、CUTLASS/cuBLASLt GEMM 与专属融合核常年领先 | 全栈自研闭环：**FlashMLA + DeepGEMM（FP4/FP8）+ DeepEP + DeepSelect + TileLang（近百核）** |
+| **6. 并行范式与超大 MoE** | 支持 TP / PP / DP / EP 与 DBO（吸收自 DeepSeek 生态），通用多机扩展稳健 | 大规模 DP + EP、DeepEP 与双微批重叠跟进最快，是开源社区部署 DeepSeek MoE 的热门主力 | 深度压榨 NVIDIA NVLink / NVSHMEM 多卡 MoE 通信与低精度 Grouped GEMM | **原生 Attention DP + Balanced CP（镜像均衡）↔ MoE EP + EPLB 热专家冗余 + 双微批重叠** |
+| **7. 投机、结构化与服务化边界** | 全家桶投机（Draft/N-gram/EAGLE/MTP）+ XGrammar/Outlines；**完整在线 HTTP 服务 + K8s 编排** | EAGLE-2/3 & MTP + **压缩 FSM 零开销结构化标杆**；**完整在线 HTTP 服务 + Mooncake/NIXL PD** | EAGLE-3 & MTP + 引导解码；**完整在线服务 + 内置 NIXL `cache_transceiver` PD 编排** | **DSpark 置信度动态投机** + 文法掩码；**聚焦核心离线引擎 + Rust `deepseek-recipe`，刻意剥离分布式 KV 池、PD 编排与集群 LB** |
+| **8. 硬件与模型覆盖广度** | **广度第一**：新开源模型常年 Day-0 支持，覆盖 NVIDIA / AMD / TPU / 昇腾（`vllm-ascend`）等异构芯片 | 前沿旗舰模型（DeepSeek/Qwen3 等）适配极快；覆盖 NVIDIA / AMD / 部分国产 NPU | **仅限 NVIDIA GPU 矩阵**（Ampere 至 Blackwell）；主流旗舰模型稳健，冷门新架构偏慢 | **极度聚焦**：首发深度特化 DeepSeek-V4.1-Flash；**NVIDIA SM100（CUDA 13）与华为昇腾 950（CANN 9.2）双一线**，不主推 Hopper 等旧卡 |
+| **9. 典型工程定位** | 企业级多模型推理中台“默认安全牌” | 高前缀复用 Agent、结构化输出与通用集群 MoE 先锋 | 纯 NVIDIA H100/B200 集群榨取主流模型极限延迟与吞吐 | 拥有 SM100 / 昇腾 950 集群的 DeepSeek 专属极限降本引擎 & 顶级 MoE 架构源码标杆 |
 
-（若模型换为 36 层的 **Qwen3-8B**，每 token KV 为 144 KiB，8K KV 达 1.125 GiB，上表各格耗时按 $144/128 = 1.125\times$ 放大。）
+::: info 工程取舍：跨引擎基准横评必须守住“四同一”铁律
+做内部选型压测时，任何跨引擎对比都必须严格对齐四个前提：**同一硬件与驱动/工具链栈、同一权重文件/量化格式/协议模板（如对齐 `deepseek-recipe`）、同一精确输入输出 token 分布与采样参数、同一延迟分位数（p50/p95/p99）与稳态 <a class="term-ref" href="/books/llm-inference/glossary#goodput" title="goodput：同时满足延迟（TTFT/ITL）SLO 与正确性约束的有效请求吞吐">有效吞吐</a>口径**。常见“伪对比”包括：用 FP4/FP8 的专精引擎对比 BF16 的通用引擎、未清空 <a class="term-ref" href="/books/llm-inference/glossary#prefix_caching" title="prefix caching：跨请求复用相同 prompt 前缀已计算出的 KV 缓存，跳过重复 prefill">前缀缓存</a>导致第二轮 TTFT 虚低、或者拿离线核心批引擎的裸吞吐直接对比含 HTTP 网关与流式反分词的在线服务。
+:::
 
-这张表把解耦的盈亏平衡公式写得明明白白：
+### 按业务场景快速决策选型指南
 
-$$\text{解耦净收益} = \text{消除的混跑干扰与排队} + \text{异构硬件与独立并行红利} - \text{进入关键路径的 KV 传输税}$$
+回到真实业务架构评审，你可以直接按以下八类典型场景快速收口技术选型：
 
-- **同机 NVLink 4（单向 450 GB/s）与跨机 400G IB/RoCE RDMA（50 GB/s）**：传输税仅占 Prefill 计算的 **0.9%–8.1%**，配合**逐层流水线重叠**（第 $l$ 层刚算完即异步发出该层 KV，不必等全部 32 层算完），真正落入 TTFT 关键路径的只有最后几层的传输尾巴。省下的几十毫秒 ITL 阻塞与独立扩缩红利轻而易举盖过这笔税；
-- **100GbE 及以下慢网**：4K KV 就要传 43 ms、8K 要传 86 ms，在多请求争用与协议开销下极易翻倍，传输税反而成了 TTFT 的最大杀手，此时强行跨机拆池得不偿失。
+| 业务场景特征 | 首选推荐 | 备选方案 | 核心决策理由 |
+|---|---|---|---|
+| **1. 多模型中台 / 频繁上线新开源模型 / 企业级标准平台** | **vLLM V1** | SGLang | 模型覆盖最广、Day-0 响应快、K8s `production-stack` 与 Prometheus 生态成熟，团队运维与排障成本最低 |
+| **2. 多轮 Agent、Tree-of-Thought、复杂工具调用、重度 JSON/Schema 输出** | **SGLang** | vLLM V1 | RadixAttention 缓存感知调度 + 压缩 FSM 零开销结构化解码，高共享前缀与严格格式下综合吞吐优势最大 |
+| **3. 纯 H100 / B200 集群、主流单一主力模型（Llama/Qwen 等）、压榨 FP8/NVFP4** | **TensorRT-LLM** | SGLang | NVIDIA 原厂针对 Hopper/Blackwell 深度打磨的 FP8/NVFP4 算子与执行计划，在大流量稳定模型上把卡压到极致 |
+| **4. 存量 H100 / H200 / A100 集群部署 DeepSeek MLA / 超大稀疏 MoE 在线服务** | **SGLang** | vLLM V1 / TensorRT-LLM | SGLang 与 vLLM 在存量 Hopper/Ampere 卡上提供开箱即用的在线 API、MLA 吸收、DeepEP 与 PD 连接器支持 |
+| **5. 拥有 SM100 或昇腾 950 集群、主力 DeepSeek-V4.1-Flash、大吞吐离线批推理 / 自建在线集群** | **DeepInfer**（配 `deepseek-recipe` + 外围编排） | SGLang / TensorRT-LLM | 吃透 CED + CSA2 + FP4 KV、SWA 有界重放、Balanced CP、EPLB 与 DSpark，且同步解锁昇腾 950 原生生产性能；前提是团队具备自建分布式 KV/PD/LB 能力 |
+| **6. 多云异构硬件（含 AMD GPU、存量昇腾 910B 或其他国产 NPU 混合纳管）** | **vLLM V1**（配 `vllm-ascend` 等插件） | SGLang | vLLM 通过统一平台插件体系（见[第 20 章](chapter-20.md)）屏蔽多芯片差异，TensorRT-LLM 绑定 NVIDIA、DeepInfer 仅瞄准 SM100/950 双旗舰 |
+| **7. 超大规模跨节点 PD 解耦 + 分布式共享 KV 池集群** | **SGLang / vLLM V1**（配 Mooncake/NIXL） | TensorRT-LLM（配 NIXL） / DeepInfer（自建外围） | 前三者开箱支持 NIXL/Mooncake 编排；若以 DeepInfer 作核心执行域，则需在外围自行对接 3FS/Mooncake 级 KV 池与路由 |
+| **8. 极低并发交互式应用（代码补全、实时对话）或强化学习确定性 Rollout** | **TensorRT-LLM / SGLang**（开 EAGLE-3）或 **DeepInfer**（开 DSpark / Batch-Invariant） | vLLM V1（开 EAGLE-3） | 交互低延迟比拼目标模型上的 EAGLE-3 / DSpark 端到端 TPOT p95；需要跨批次严格数值可复现时重点关注 DeepInfer 的 `DEEPINFER_BATCH_INVARIANT=1` |
 
-### DistServe、Splitwise 与分布式 KV 池演进
+---
 
-围绕“怎么拆、怎么配卡、怎么搬 KV”，学术与工业界形成了三代清晰演进：
+## 11.5 小结
 
-- **DistServe（OSDI 2024）**：首次系统提出以 **Goodput（同时满足 TTFT 与 TPOT 双重 SLO 的有效请求速率）** 取代裸吞吐，将 Prefill 与 Decode 解耦至独立 GPU 池，允许两侧采用不同张量/流水并行策略，并结合集群互联拓扑就近放置两池以压低 KV 传输。
-- **Splitwise（ISCA 2024）**：直击两阶段的硬件错配——Prefill 留在 H100 等高算力卡，Decode 下放至更高性价比或降功耗的带宽型 GPU，以“同采购预算与同功耗下的集群总吞吐”为核心优化目标。
-- **以分布式 KV 池为枢纽（Mooncake / NIXL / LMCache）**：前两者仍把 KV 视作“P 算完发给 D、用完即扔”的一次性货物；在超长上下文与高前缀复用场景下，Mooncake 将集群节点闲置的 CPU DRAM 与 NVMe SSD 拼成全局共享 KV 池，由 **Conductor** 做全局前缀感知调度、**Transfer Engine** 经多网卡 RDMA 批量搬运（参见图 11-2 下半部）。关于大规模跨节点 KV 池的哈希寻址、热块复制、预测式提前拒绝与故障恢复细节，请参阅 **[专题 B：大规模集群 PD 与分布式 KV 池](../topics/cluster-pd-mooncake.md)**。
+如果说 vLLM V1、SGLang 与 TensorRT-LLM 共同确立了现代通用推理引擎的<strong>“加载期编译融合 + 图捕获 + 运行期迭代调度”</strong>底座，那么 DeepSeek 开源的 **DeepInfer** 则完整展示了当模型架构走向 700B+ 超稀疏 MoE、CED 编解码分离与 890 B/token 极致低比特压缩时，**模型原厂垂直协同**能把工程边界推到多远：
 
-### 两池实例数配比直觉：绝不能拿单请求时长直接分卡
+- 在**架构边界**上，它以 Rust 编写的 `deepseek-recipe` 死守协议与控制 Token 契约，以 C++ 零开销异步调度与五大自研算子栈（FlashMLA / DeepGEMM / DeepEP / DeepSelect / TileLang）吃透单域极限，同时果断剥离强耦合集群外围系统；
+- 在**算法-系统协同**上，Balanced CP 镜像切分消灭长序列 1.75× 尾卡拖尾，EPLB + 双微批隐藏超稀疏 MoE 通信，SWA 有界重放（140 token）腰斩长输入解码器 Prefill，DSpark 以半自回归 Markov 头 + STS 校准置信度破解高并发投机算力争抢；
+- 在**硬件生态**上，将华为昇腾 950（CANN 9.2）与 NVIDIA SM100（CUDA 13）置于同等 Day-0 原生地位，为超大规模国产算力落地树立了全新工程标杆。
 
-解耦上线前最常犯的架构错误，是用“单请求 TTFT vs 单请求生成总时长”直接拍板 P/D 卡数比（例如拍脑袋定个 1:4）。正确的起点是按<strong>单请求消耗的 GPU 卡时（GPU-seconds）</strong>结合连续到达率 $\lambda$ 与目标装载率 $\rho$（如 0.8）估算：
-
-$$N_{\text{pool}} = \left\lceil \frac{\lambda \cdot t_{\text{gpu}}}{\rho} \right\rceil$$
-
-最关键的直觉在于：<strong>Decode 池的权重读取是被整个并发 Batch $B$ 共同摊销的！</strong>设 P 阶段产出首字并复用，D 阶段需执行 $n = G - 1$ 步，第 $i$ 步读取累计历史 KV 长度 $L + i$，则在 H100（50% MFU Prefill，带宽主导 Decode）上运行 Llama-3.1-8B 时，每请求两池 GPU 卡时为：
-
-$$t_P = \frac{2 N L}{C_{\text{H100}} \times 0.5}, \qquad t_{D,\text{gpu}}(B) = \frac{n \cdot \frac{W}{B} + k \left(n L + \frac{n(n-1)}{2}\right)}{\text{BW}_{\text{H100}}}$$
-
-代入两种典型业务形状，立刻能看到 $P:D$ 配比的剧烈翻转：
-
-| 业务负载形状 | P GPU 卡时 $t_P$ | D 卡时（$B=1$ 错算） | D 卡时（$B=32$ 摊销） | 卡数比 $P:D$（$B=1 \to B=32$） | $\lambda=100\text{ req/s}, \rho=0.8$ 配卡示例 |
-|---|---:|---:|---:|---|---|
-| **长答对话**（2000 in / 200 out） | 64.92 ms | 970.35 ms | **46.16 ms** | $1:14.95 \to \mathbf{1.41:1}$ | **9 张 P 卡 + 6 张 D 卡** |
-| **RAG / 摘要**（4000 in / 20 out） | 129.84 ms | 94.07 ms | **5.83 ms** | $1.38:1 \to \mathbf{22.28:1}$ | **17 张 P 卡 + 1 张 D 卡**（按高可用配 $\ge 2$ 张） |
-
-同一套“2000 in / 200 out”对话负载，如果不做 Batch 摊销，会荒谬地算成需要 122 张 D 卡配 9 张 P 卡；一旦按稳态 $B=32$ 摊销权重搬运，每请求在 D 池实际只占 46.16 ms 卡时，反而变成 **P 卡略多于 D 卡**！可见生产中绝无放之四海而皆准的静态配比，两池卡数必须紧跟真实业务的输入输出长度比、可达到的稳态并发 $B$ 以及物理 KV 容量上限动态调整。
-
-## 11.3 Kubernetes 推理扩缩容原理
-
-将单机引擎或 PD 两池搬上 Kubernetes（例如借助 vLLM `production-stack` Helm Chart 声明两套独立 Deployment 与 Router），真正的挑战不在把 Pod 拉起来，而在于**选对自动扩缩容（Autoscaling）的控制信号**。
-
-### 为什么不能按 CPU 或 GPU 利用率做 HPA？
-
-在传统 Web 微服务中，按 CPU 利用率配置 HPA（Horizontal Pod Autoscaler）屡试不爽；但在 LLM 推理集群里，CPU 与 GPU 利用率都会系统性失灵：
-
-- **CPU 利用率与推理瓶颈毫无单调关系**：正向失灵——GPU 早已打满、请求排队几十条，但 vLLM 的 CPU 进程只做轻量的分词与 Python 调度，CPU 利用率长期趴在 15%，HPA 毫无察觉，队列越积越死；反向失灵——Prometheus 集中抓取、日志刷盘或一波突发长文本分词把 CPU 冲到 85%，GPU 却在空转，HPA 误判触发无意义的昂贵扩容。
-- **GPU SM 利用率（`nvidia-smi` GPU-Util）同样失真**：NVIDIA 驱动上报的 GPU Util 衡量的是“过去采样窗口内任意时刻有 kernel 在跑的时间占比”，而不是算力饱和度。在带宽受限的 Decode 阶段，即便 `batch=1` 刚刚起步，GPU Util 也常常直接顶到 90%–100%；换言之，它在“轻载畅通（0 排队）”和“严重过载（排队 100 条、TTFT 飙升 30 秒）”之间几乎没有区分度！
-
-真正与用户体验和系统瓶颈严格单调相关的控制信号，必须直接取自推理引擎内部暴露的业务级指标（第 7 章已详解监控体系）：
-
-1. **主信号：`vllm:num_requests_waiting`（排队等待深度）**——直接反映已有多少请求因算力或 KV 槽位耗尽而被拦在门外；
-2. **辅信号：`vllm:kv_cache_usage_perc`（KV 缓存水位）**——在排队还没彻底爆发前提前感知显存逼近抢占红线（如持续 $> 85\%$）；
-3. **联合校验：TTFT 变化率**——区分“真容量不足（等待数持续攀升且 TTFT 同步上涨）”与“瞬时微突发（等待数冲高后几秒内回落、TTFT 几乎不动）”。
-
-Kubernetes 原生 HPA 不直接读 Prometheus 指标，生产标准做法是通过 **KEDA（Kubernetes Event-driven Autoscaling）** 周期轮询 Prometheus 的引擎队列指标，自动生成并接管底层 HPA。
-
-### 流量突发、冷启动提前量与排空算例
-
-推理 Pod 的弹性扩缩容与普通无状态 Go/Java 服务最大的不同在于**高昂的冷启动时间**。拉起一个新的 **Llama-3.1-8B** GPU 副本，不仅要调度节点、拉取数 GB 容器镜像（生产务必预先预热节点镜像缓存），还要从存储读取 16 GB 权重（按 1 GB/s 读盘需 16 秒），再加上初始化显存池与捕获 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>Graph（约 15–30 秒）——整体冷启动窗口通常落在 **30–60 秒** 量级。
-
-用一组具体数字算清突发流量下的扩容、排空与防抖账：
-
-- **突发积压**：单副本稳态处理能力为 $2\text{ req/s}$，流量突然翻倍至 $\lambda = 4\text{ req/s}$。每秒净增 $4 - 2 = 2$ 条排队请求；经过 30 秒冷启动与观测窗口后，队列积压达到 **60 条**（此时新到队尾的请求若靠单副本消化需苦等 $60 \div 2 = 30\text{ 秒}$！）。
-- **HPA 超配排空公式**：HPA 按比例计算期望副本数：
-
-$$N_{\text{desired}} = \left\lceil N_{\text{current}} \times \frac{\text{Metric}_{\text{current}}}{\text{Metric}_{\text{target}}} \right\rceil$$
-
-目标阈值 `threshold = 10`（每副本最多容忍 10 条等待，对应约 5 秒排队上限；稳态下用利特尔法则 $L = \lambda W$ 验算：2 个副本共 20 条等待 + 2 条运行 = 22 条在途，到达率 $4\text{ req/s}$ 时平均停留 $22 \div 4 = 5.5\text{ s}$，恰好是 5 秒排队 + 0.5 秒服务）。面对当前 1 副本、60 条等待：
-
-$$N_{\text{desired}} = \left\lceil 1 \times \frac{60}{10} \right\rceil = \mathbf{6}\text{ 个副本}$$
-
-- **快速排空与缩容冷却**：稳态其实只需 $4 \div 2 = 2$ 个副本，但 2 个副本刚好与到达率打平，60 条历史存量永远排不掉！KEDA 短暂超配至 6 个副本，总能力飙升至 $12\text{ req/s}$，净排空速率 $12 - 4 = 8\text{ req/s}$，只需 **$60 \div 8 = 7.5\text{ 秒}$** 就将积压彻底清零。排空之后绝不可立刻缩容，否则新副本刚热完身就被销毁、下一波小波动立刻重新引发雪崩；因此必须配置**非对称防抖策略——扩容快（如轮询 15 秒、短稳定窗）、缩容慢（冷却窗口 `cooldownPeriod` 设 300–360 秒，每次缩容限步长）**，让副本数平滑回落到 2–3 个稳态值。
-
-在 vLLM `production-stack`（或标准 KEDA `ScaledObject`）中，基于排队深度与冷却窗口的核心声明清晰简洁：
-
-```yaml
-# 基于 KEDA + Prometheus 排队深度的推理弹性配置片段
-keda:
-  enabled: true
-  minReplicaCount: 2            # 保留基础冗余，避免冷启动击穿低谷突发
-  maxReplicaCount: 8
-  pollingInterval: 15           # 15s 轮询，快速响应持续积压
-  cooldownPeriod: 360           # 6 分钟缩容冷却，防止队列刚排空就剧烈抖动
-  triggers:
-    - type: prometheus
-      metadata:
-        serverAddress: http://kube-prometheus-stack-prometheus:9090
-        metricName: vllm_num_requests_waiting
-        query: avg(vllm:num_requests_waiting{model_name="llama-3.1-8b"})
-        threshold: "10"         # 单副本目标队列上限，由 SLO 等待预算倒推
-```
-
-在 PD 解耦部署下，Prefill 池与 Decode 池各自挂载独立的 KEDA 策略：Prefill 池紧盯 `prefill` 队列等待数与 TTFT，Decode 池紧盯 `kv_cache_usage_perc` 水位与 ITL，实现“输入变长扩 P、输出变长扩 D”的精准独立弹性。
-
-## 11.4 单位 Token 经济学与多后端路由器
-
-技术优化做到最后，一切指标都要汇成财务总监和产品经理能看懂的一行数字：**每百万 Token 硬件成本**。
-
-### 每百万 Token 硬件成本拆解：为何输出比输入贵 3–5 倍？
-
-GPU 按小时固定计费，而推理收入与消耗按 Token 流动。连接这两者的核心桥梁是**全天有效利用率 $U$**（实际产出 Token 除以峰值吞吐乘以窗口总秒数）与**请求成功率 $S$**：
-
-$$\text{每百万有效 Token 成本} = \frac{\text{GPU 小时价}}{P_{\text{peak}} \times 3600 \times U \times S} \times 10^6$$
-
-利用率放在分母里，带来两个残酷而直接的商业推论：第一，**利用率翻倍与 GPU 租金砍半完全等价**——同样一块 2.00 美元/小时、峰值 $1,000\text{ tok/s}$ 的 GPU，利用率从 $10\%$（5.56 美元/百万 token）提到 $80\%$（0.69 美元/百万 token），成本直降 8 倍，且低利用率下有 $90\%$ 的租金都白白买单了空转！第二，**切忌用晚高峰 80% 利用率填月底预算表**，夜间低谷往往把 24 小时均值拉回 40%–60%；同时失败重试不仅压低分母 $S$，还会让 Prefill 重复计费。
-
-更进一步，输入 Token 与输出 Token 的成本天差地别。我们以单张 **A100 80GB**（按示例综合租金 2.00 美元/小时，全天平均利用率 $U = 0.60$）运行 **Llama-3.1-8B（FP16）**、稳态拐点并发 $B = 32$ 时的两个工作点为例，用纯差分法把输入与输出边际单价彻底剥离出来：
-
-| 工作点 | 输入 / 输出长度 | 稳态输出吞吐 | 等效请求速率 | 单请求 GPU 时 | 单请求硬件成本（美元，含 $U=0.60$） |
-|---|---:|---:|---:|---:|---:|
-| **A** | 512 / 128 | 1,300 tok/s | 10.16 req/s | 0.0985 s | $9.12 \times 10^{-5}$ |
-| **B** | 2,048 / 128 | 480 tok/s | 3.75 req/s | 0.2667 s | $2.47 \times 10^{-4}$ |
-
-两个工作点的输出长度完全相同（128 token），唯一差异是 B 比 A 多了 $2,048 - 512 = 1,536$ 个输入 token，带来 $1.557 \times 10^{-4}$ 美元的单请求成本增量。由此立刻解出两项边际单价：
-
-$$\text{输入边际单价 } c_{\text{in}} = \frac{2.469 \times 10^{-4} - 9.117 \times 10^{-5}}{1536} \times 10^6 \approx \mathbf{0.101\text{ 美元 / M tokens}}$$
-
-$$\text{输出边际单价 } c_{\text{out}} = \frac{9.117 \times 10^{-5} - 512 \times 1.014 \times 10^{-7}}{128} \times 10^6 \approx \mathbf{0.307\text{ 美元 / M tokens}}$$
-
-我们可以立刻把这两个价格**反推回硬件物理规格**验算闭环：
-
-- $c_{\text{in}}$ 对应 $1,536$ 输入 token 耗时 $0.168\text{ s}$，即等效 Prefill 吞吐 $9,132\text{ tok/s}$，折合算力 $9,132 \times 16.06\text{ GFLOP} \approx 146.7\text{ TFLOPS}$，恰好是 A100 312 TFLOPS 峰值的 **$47\%$ MFU**；
-- $c_{\text{out}}$ 对应每输出 token 占 $0.331\text{ ms}$ GPU 时，32 路并发下每步约 $10.6\text{ ms}$，搬运 16.06 GB 权重 + 32 路 KV（约 2.6 GB）$\approx 18.7\text{ GB}$，等效 HBM 带宽 **$1.76\text{ TB/s}$**，精准贴近 A100 2 TB/s 的带宽天花板！
-
-这就是商业大模型 API **输出 Token 价格普遍高于输入 3–5 倍**的底层物理铁律：输入 Token 享受高度并行计算（算力受限、单 token 占用 GPU 时间极短），而输出 Token 必须串行逐字生成并反复搬运巨量权重与增长的 KV（带宽受限）；在更低并发或更长上下文下，Batch 摊销变薄，输出相对输入的单价倍率还会进一步放大至 4–5 倍以上。
-
-### 多后端路由器与原子令牌预算中间件
-
-算出不同尺寸模型的精确单价之后（例如同集群内 8B 模型单价往往只有 70B 模型的 $1/5$ 到 $1/10$），生产降本的最后一公里不再发生在单张 GPU 内部，而是发生在推理集群前面的**预算网关 + 多后端智能路由器**。
-
-要清晰区分<strong>负载均衡器（Load Balancer）</strong>与<strong>推理路由器（Model Router）</strong>：前者在同一模型的多个副本之间按健康状态与前缀亲和性分流；后者则在<strong>不同能力与单价的模型之间</strong>（如 8B 轻量集群 vs 70B 旗舰集群）做实时商业与质量决策。为了绝不因省钱酿成核心业务质量事故，路由决策必须严格遵守五级优先级：
-
-1. **质量红线最高**：核心付费等级或 `critical=True` 的关键任务强制锁定高能力大模型，即使预算逼近红线也记账超支而不静默降级；
-2. **故障安全保护**：账本不可读或单价缺失时默认走大模型并上报 `cost_unknown` 告警，拒绝静默降级；
-3. **实时延迟与队列门控**：结合各后端实时队列深度与 p95 TTFT 过滤掉注定超时的池子，两端都无法满足 deadline 时果断快速拒绝（HTTP 503），避免把注定被客户端丢弃的请求送进 GPU 白算；
-4. **成本封顶与按特征分流**：在满足预算与延迟前提下，根据 Prompt 长度、任务复杂度分类器（如分类、改写、简单提取）将简单请求导向 8B 轻量后端；
-5. **受控超时熔断降级**：仅当主后端超时/过载且**剩余请求 deadline 仍大于备选后端 p95 TTFT 加安全余量**、同时余额充足时，才触发一次降级回退。
-
-与路由器紧耦合的是**原子令牌预算中间件**。并发请求蜂拥而至时，若采取“先推理、后扣费”，几十个并发请求同时看到“还剩 0.01 美元”并全部放行，就会瞬间穿透租户配额。标准工业解法是经典的**两阶段原子记账（Reserve → Settle / Release）**：
-
-1. **请求入站（`reserve`）**：在推理执行前，按 `prompt_tokens + max_tokens` 的**最坏成本**在共享账本（生产通常由 Redis + Lua 脚本实现原子 CAS）中先锁定额度；超限则直接按策略执行拒绝（429）、截断 `max_tokens` 或降级小模型；
-2. **流式完成（`settle`）**：拿到推理引擎返回的真实 `usage`（含客户端中途断开时服务端已生成的实际 token）后，按实耗精准结算，自动退还 `预留 − 实耗` 差额；
-3. **前置失败（`release`）**：若请求在尚未产生任何 token 前即被上游拦截或连接失败，全额释放预留额度。
-
-<figure class="book-figure">
-  <img src="/figures/llm-inference/router-budget-flow.svg" alt="预算网关与多后端智能路由全链路：请求先经预算网关基于租户配额账本原子 reserve 最大预算，再由路由器按输入长度、任务复杂度和队列深度分流至 8B 或 70B 模型并带超时熔断降级，响应完成后回流精准 settle 退还多余差额" loading="lazy">
-  <figcaption><span class="book-figure__label">图 11-3</span>按 ①→②→③→④ 顺时针阅读全链路：入口预算网关先依托 Redis/Lua 账本原子 <code>reserve</code> 锁住最坏开销，智能路由器综合长度、复杂度与队列分流并保留 70B→8B 超时熔断降级，最终在响应流式结束后按真实 usage 回到网关 <code>settle</code> 多退少补。结论：路由管“走哪更划算”，原子账本管“并发不透支”。</figcaption>
-</figure>
-
-下面这段完整的纯 Python 核心实现浓缩了**多后端路由决策、受控超时回退与原子 `reserve / settle / release` 预算账本**的关键结构：
-
-```python
-from dataclasses import dataclass
-import threading
-import time
-from typing import Callable
-
-
-@dataclass(frozen=True)
-class BackendSpec:
-    name: str
-    c_in_per_m: float     # 美元 / 百万输入 token
-    c_out_per_m: float    # 美元 / 百万输出 token
-    ttft_p95_s: float     # 当前负载下的 p95 TTFT（秒）
-    queue_depth: int      # 当前实时排队深度
-
-
-@dataclass(frozen=True)
-class InferenceRequest:
-    tenant_id: str
-    task: str
-    prompt_tokens: int
-    max_tokens: int
-    ttft_budget_s: float
-    deadline_ts: float
-    critical: bool = False
-    quality_flexible: bool = True
-
-
-@dataclass(frozen=True)
-class BudgetHold:
-    tenant_id: str
-    reserved_usd: float
-    backend_name: str
-
-
-class BudgetError(Exception):
-    """预算超限或账本异常基类。"""
-
-
-class ServiceRejected(Exception):
-    """延迟不可达或过载快速拒绝（对应 HTTP 503 / 429）。"""
-
-
-SIMPLE_TASKS = frozenset({"classify", "rewrite", "extract", "summarize_short"})
-
-
-def estimate_cost_usd(be: BackendSpec, in_tokens: int, out_tokens: int) -> float:
-    return (in_tokens * be.c_in_per_m + out_tokens * be.c_out_per_m) / 1_000_000.0
-
-
-class BudgetLedger:
-    """线程安全的两阶段原子预算账本（生产环境以 Redis + Lua 替换本地锁）。"""
-
-    def __init__(self, per_request_cap: float, daily_cap: float) -> None:
-        self.per_request_cap = per_request_cap
-        self.daily_cap = daily_cap
-        self._lock = threading.Lock()
-        self._spent: dict[str, float] = {}
-
-    def remaining(self, tenant_id: str) -> float:
-        with self._lock:
-            return self.daily_cap - self._spent.get(tenant_id, 0.0)
-
-    def reserve(self, req: InferenceRequest, be: BackendSpec) -> BudgetHold:
-        worst_usd = estimate_cost_usd(be, req.prompt_tokens, req.max_tokens)
-        if not req.critical and worst_usd > self.per_request_cap:
-            raise BudgetError(f"per_request_cap_exceeded:{worst_usd:.6f}")
-
-        with self._lock:
-            used = self._spent.get(req.tenant_id, 0.0)
-            if not req.critical and used + worst_usd > self.daily_cap:
-                raise BudgetError(f"daily_cap_exhausted:{used:.6f}")
-            self._spent[req.tenant_id] = used + worst_usd
-
-        return BudgetHold(
-            tenant_id=req.tenant_id,
-            reserved_usd=worst_usd,
-            backend_name=be.name,
-        )
-
-    def settle(
-        self,
-        hold: BudgetHold,
-        actual_in: int,
-        actual_out: int,
-        be: BackendSpec,
-    ) -> float:
-        actual_usd = estimate_cost_usd(be, actual_in, actual_out)
-        delta = actual_usd - hold.reserved_usd
-        with self._lock:
-            self._spent[hold.tenant_id] = max(
-                0.0, self._spent.get(hold.tenant_id, 0.0) + delta
-            )
-        return actual_usd
-
-    def release(self, hold: BudgetHold) -> None:
-        with self._lock:
-            self._spent[hold.tenant_id] = max(
-                0.0, self._spent.get(hold.tenant_id, 0.0) - hold.reserved_usd
-            )
-
-
-def choose_backend(
-    req: InferenceRequest,
-    small: BackendSpec,
-    large: BackendSpec,
-    ledger: BudgetLedger,
-    max_queue_threshold: int = 32,
-) -> tuple[BackendSpec, str]:
-    """按 质量红线 -> 延迟与队列 -> 成本上限 -> 任务特征 优先级选择后端。"""
-    if req.critical:
-        return large, "quality_floor"
-
-    small_ok = (
-        small.ttft_p95_s <= req.ttft_budget_s
-        and small.queue_depth < max_queue_threshold
-    )
-    large_ok = (
-        large.ttft_p95_s <= req.ttft_budget_s
-        and large.queue_depth < max_queue_threshold
-    )
-
-    if not large_ok:
-        if req.quality_flexible and small_ok:
-            return small, "latency_or_queue_shed"
-        raise ServiceRejected("no_backend_meets_latency_slo")
-
-    rem = ledger.remaining(req.tenant_id)
-    large_worst = estimate_cost_usd(large, req.prompt_tokens, req.max_tokens)
-    small_worst = estimate_cost_usd(small, req.prompt_tokens, req.max_tokens)
-
-    if large_worst > min(rem, ledger.per_request_cap):
-        if req.quality_flexible and small_worst <= min(rem, ledger.per_request_cap) and small_ok:
-            return small, "budget_downgrade"
-        raise BudgetError("insufficient_budget_for_large")
-
-    if (
-        req.quality_flexible
-        and small_ok
-        and req.task in SIMPLE_TASKS
-        and req.prompt_tokens <= 2048
-    ):
-        return small, "simple_task_short_prompt"
-
-    return large, "default_large"
-
-
-def dispatch_with_budget(
-    req: InferenceRequest,
-    small: BackendSpec,
-    large: BackendSpec,
-    ledger: BudgetLedger,
-    invoke: Callable[[BackendSpec, InferenceRequest, float], tuple[str, int, int]],
-) -> tuple[str, str]:
-    """完整闭环：路由 -> 原子预留 -> 执行与受控超时降级 -> 精准结算/释放。"""
-    primary, reason = choose_backend(req, small, large, ledger)
-    hold = ledger.reserve(req, primary)
-
-    try:
-        timeout_s = max(0.05, req.deadline_ts - time.monotonic())
-        text, actual_in, actual_out = invoke(primary, req, timeout_s)
-        ledger.settle(hold, actual_in, actual_out, primary)
-        return text, reason
-    except TimeoutError:
-        ledger.release(hold)
-        # 仅在允许降级、原走大模型且剩余时间足以完成小模型首字时触发一次降级回退
-        remaining_s = req.deadline_ts - time.monotonic()
-        if (
-            primary.name == large.name
-            and req.quality_flexible
-            and remaining_s > small.ttft_p95_s + 0.05
-        ):
-            fb_hold = ledger.reserve(req, small)
-            try:
-                text, actual_in, actual_out = invoke(small, req, remaining_s)
-                ledger.settle(fb_hold, actual_in, actual_out, small)
-                return text, f"{reason}+fallback_small"
-            except Exception:
-                ledger.release(fb_hold)
-                raise
-        raise
-    except Exception:
-        ledger.release(hold)
-        raise
-```
-
-最后，将生产网关与账本最容易踩坑的六种异常场景收口为标准应对策略表：
-
-| 异常与边界场景 | 检测信号 | 推荐工程动作 |
-|---|---|---|
-| **流式输出中途客户端断连** | SSE 连接关闭但引擎已生成 $k$ 个 token | 绝不全额 `release`，必须按服务端已实际吐出的 $k$ 个 token 调用 `settle` 计费 |
-| **前端重试（Retry）** | 客户端或网关发起重试请求 | 每次重试独立执行 `reserve` 与 `settle`；漏记重试会导致成本账本系统性低估云账单 |
-| **价格表缺失或 `usage` 字段丢失** | 路由/中间件查不到单价或响应缺 token 统计 | 严禁按 `0` 记账！按已知最高单价保守计费并打 `cost_unknown` 告警，非关键请求降级 |
-| **前缀缓存命中带来的成本差** | 服务端实际跳过 Prefill，但网关仍按全价预留 | 记账口径需与计费策略统一（按全价预留或按引擎回传的 `cached_tokens` 折算结算），并在月度对账说明 |
-| **账本存储（Redis）不可用** | 锁超时或连接拒绝 | 触发熔断降级策略：非关键流量限流拒绝，关键请求带 `ledger_degraded` 标记放行并异步补账 |
-| **账本统计与云账单偏差** | 月度对账偏差 $> 5\%$ | 按顺序核查：漏记重试与断连、分词器口径差、合同预留价 vs 按需价、以及磁盘/网络/负载均衡等非 GPU 成本 |
-
-## 小结
-
-本章完成了从“单机推理引擎”到“生产级集群与商业闭环”的最后一块拼图：
-
-- **PD 解耦**用可控的 NVLink / RDMA KV 传输税，换取 Prefill 与 Decode 彻底的尾延迟隔离与异构硬件配比；两池实例数绝非拍脑袋的静态比例，而由输入输出比与稳态 Batch 摊销共同决定；
-- **Kubernetes 弹性扩缩容**彻底告别失效的 CPU/GPU 利用率，转而以引擎原生的 `num_requests_waiting` 与 KV 水位经 KEDA 驱动，用短时超配快速排空积压、用长冷却窗口守护稳态；
-- **单位 Token 经济学与智能路由**揭示了输出单价 3–5 倍于输入的物理根源，并以质量红线优先的多后端路由器叠加 `reserve / settle / release` 原子账本，守住线上服务的 SLA 与财务红线。
-
-至此，本书第二篇“推理引擎与部署优化”全部收官。从下一篇开始，我们将潜入推理引擎之下，直面 GPU 硬件与底层算子的世界——[第 12 章](chapter-12.md)将从 GPU 执行模型出发，一步步手推 <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>的四版性能阶梯。
+单机与单域推理引擎的潜力全部拆透之后，要把这些引擎真正组装成扛住亿级日活、严守 TTFT/ITL 双红线且算清每一分钱账单的线上集群，我们必须补上 DeepInfer 刻意留给外围的那一半拼图。[下一章](chapter-12.md)将系统展开 **PD 解耦、Kubernetes 队列弹性扩缩容、单位 Token 经济学与多后端成本路由**。

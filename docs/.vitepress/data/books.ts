@@ -21,10 +21,10 @@ export const books: BookItem[] = [
     category: 'AI Infra',
     status: '已完结',
     description:
-      '以 A100 / H100 与昇腾 910B 为统一算例，讲透 Roofline 拆账、vLLM / SGLang / TRT-LLM、量化与投机解码、CUDA / Triton 算子及跨芯片归因。',
+      '以 A100 / H100 与昇腾 910B 为统一算例，讲透 Roofline 拆账、vLLM / SGLang / TRT-LLM / DeepInfer、量化与投机解码、CUDA / Triton 算子及跨芯片归因。',
     cover: '/covers/llm-inference.svg',
     link: '/books/llm-inference/',
-    stats: ['5 篇 23 章', '5 专题', '35 机制图'],
+    stats: ['5 篇 24 章', '5 专题', '37 机制图'],
     featured: true,
   },
   {

@@ -167,7 +167,7 @@ $$
 
 总 FLOPs 一点没变，但速度直接提升 **3 倍**。省下来的 2 ms，全是从 HBM 传送带上抠出来的。
 
-**算例二：Attention 中间矩阵 $S = QK^T$ 与 $P = \text{Softmax}(S)$。** 这正是第 14 章 <a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>的物理原点。以序列长度 $N=4096$、单头、FP32 物化中间矩阵的参考实现估算：
+**算例二：Attention 中间矩阵 $S = QK^T$ 与 $P = \text{Softmax}(S)$。** 这正是第 15 章 <a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>的物理原点。以序列长度 $N=4096$、单头、FP32 物化中间矩阵的参考实现估算：
 
 - $S$ 包含 $4096 \times 4096 = 16,777,216$ 个 FP32 元素，占 **$64\text{ MiB}$**；归一化后的概率矩阵 $P$ 同样占 **$64\text{ MiB}$**。
 - **不融合**：$S$ 写一次、读一次，$P$ 写一次、读一次，单头单层四遍 HBM 往返就是 **$256\text{ MiB}$**（约 $268.4\text{ MB}$），A100 上耗时 $0.134\text{ ms}$；32 层仅计单头就达 $4.29\text{ ms}$。若乘上 Llama-3.1-8B 的 32 个 Q 头，全模型无融合中间矩阵的 HBM 往返高达 **$256\text{ GiB}$**，单搬运就吃掉约 **137 ms**。
@@ -189,8 +189,8 @@ $$
 
 | 瓶颈区间 | 核心特征与典型场景 | 物理解决方向 | 全书对应核心手段 |
 |---|---|---|---|
-| **显存带宽受限**（$I < I_{\text{ridge}}$） | 单/小批量 Decode、短 Prefill、逐元素算子链 | 少搬数据，或提高每字节复用率 | 连续批处理（第 5 章）、前缀复用（第 6 章）、权重量化与 KV 量化（第 8 章）、投机解码与 KV 淘汰（第 9 章）、算子融合与 FlashAttention（第 14–15 章） |
-| **计算受限**（$I > I_{\text{ridge}}$） | 长 Prompt Prefill、超大批量矩阵乘 | 提升计算单元有效利用率，或换用更高峰值算力格式 | GEMM 分块与流水线（第 12–13 章）、FlashAttention 2/3 与 CUTLASS（第 16 章）、原生 FP8 Tensor Core（第 8/15 章）、PD 解耦消除与 Decode 争抢（第 11 章） |
+| **显存带宽受限**（$I < I_{\text{ridge}}$） | 单/小批量 Decode、短 Prefill、逐元素算子链 | 少搬数据，或提高每字节复用率 | 连续批处理（第 5 章）、前缀复用（第 6 章）、权重量化与 KV 量化（第 8 章）、投机解码与 KV 淘汰（第 9 章）、算子融合与 FlashAttention（第 15–16 章） |
+| **计算受限**（$I > I_{\text{ridge}}$） | 长 Prompt Prefill、超大批量矩阵乘 | 提升计算单元有效利用率，或换用更高峰值算力格式 | GEMM 分块与流水线（第 13–14 章）、FlashAttention 2/3 与 CUTLASS（第 17 章）、原生 FP8 Tensor Core（第 8/15 章）、PD 解耦消除与 Decode 争抢（第 12 章） |
 | **启动开销受限**（微秒级小算子） | 小张量 RMSNorm、RoPE、采样、Python 调度密集 | 消除 CPU 逐次发射与主机/设备隐式同步 | 算子融合（第 13/17 章）、CUDA Graph 静态图重放（第 5/10 章）、双进程异步调度（第 5 章） |
 
 这一章我们只用了权重大小、KV 单价和两个硬件指标，就把推理快慢的底层逻辑立了起来（更多卡型与模型参数可随时查阅 [硬件规格与模型账本速查](../toolkit/hardware-models.md)）。但真实的大语言模型早已不止标准稠密 Transformer 一种形态——GQA、<a class="term-ref" href="/books/llm-inference/glossary#mla" title="Multi-head Latent Attention，多头潜变量注意力：将 K/V 压缩到低维潜变量缓存，并利用矩阵结合律在查询侧吸收上投影的注意力结构">MLA</a>、<a class="term-ref" href="/books/llm-inference/glossary#moe" title="Mixture of Experts，混合专家：每个 token 经路由仅激活少数专家子网络，实现总参数容量与单步计算量脱钩">MoE</a>稀疏专家、混合线性注意力都在彻底改写权重与 KV 的账本。在 [第 2 章](chapter-02.md)，我们打开模型内部，逐层算清显存、计算量与访存量这三本账。

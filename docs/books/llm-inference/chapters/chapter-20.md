@@ -1,269 +1,199 @@
-# 第 20 章 CANN 分层与 AscendC 算子全链路
+# 第 20 章 昇腾部署架构与 vllm-ascend 插件机制
 
-<p class="chapter-summary">解剖 CANN 五层逻辑架构与两代算子编程抽象的演化权衡，通过向量加法算清 AscendC 三级硬件流水与双缓冲的访存账，再沿 RMSNorm 走通“定义 → 编译 → 三处注册 → 三次解析”的完整调用链。</p>
+<p class="chapter-summary">理顺昇腾推理环境的“版本咬合链”与三层自下而上诊断模型，解剖 <code>vllm-ascend</code> 平台插件如何将一次算子调用透明路由至 NPU，并建立与 CUDA 部署的逐项排障对照。</p>
 
-在昇腾上跑通 `vllm-ascend` 之后，工程师很快会碰到两类更深层的问题：第一类是日志跳出 `aclnnAddRmsNormBias not found`，模型退回慢路径却找不到该修哪个文件；第二类是 Profiler 指出了一个占比可观的瓶颈算子，需要判断是否值得重写、以及到底该怎么读懂芯片侧的 <a class="term-ref" href="/books/llm-inference/glossary#ascendc" title="Ascend C，AscendC 算子编程语言：面向华为昇腾 NPU 的 C++ 自定义算子编程接口，显式管理片上 UB 与硬件流水">AscendC</a>实现。要彻底看透这两类问题，不能停留在 Python 插件层，必须下潜到昇腾底座 **CANN（Compute Architecture for Neural Networks）** 的内部架构与算子全链路。
+有了[第 19 章](chapter-19.md)的五层软件栈地图，接下来我们把同一个大语言模型真正部署到昇腾 Ascend 910B 上。把一条 `vllm serve` 命令从 NVIDIA GPU 搬到昇腾 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>，命令本身几乎一字不差，但真正让工程师第一次上手就频频碰壁的，是隐藏在命令之下的**版本咬合约束**、**三层启动诊断顺序**以及**树外（out-of-tree）平台插件的分发架构**。先跑通服务并看清插件全貌，下一章再钻进 <a class="term-ref" href="/books/llm-inference/glossary#cann" title="Compute Architecture for Neural Networks，昇腾神经网络计算架构：华为昇腾 NPU 的分层异构计算软件栈与算子开发平台">CANN</a>与 <a class="term-ref" href="/books/llm-inference/glossary#ascendc" title="Ascend C，AscendC 算子编程语言：面向华为昇腾 NPU 的 C++ 自定义算子编程接口，显式管理片上 UB 与硬件流水">AscendC</a>的底层算子链路。
 
-## 20.1 CANN 五层逻辑架构与两条执行路径
+## 20.1 为什么说昇腾环境是一条“版本咬合链”
 
-很多初学者把 CANN 当成“华为版 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>算子库”，这会让人在排障时完全找不到北。实际上，CANN 是一套横跨编译、算子库、运行时与集合通信的完整软件栈，官方逻辑架构自顶向下分为五层，最底部则依托宿主机驱动与固件：
+在 NVIDIA GPU 上，多数开发者习惯先装驱动、再 `pip install vllm`，多数情况下就能顺利跑通。但在昇腾生态里，这套“松散安装”的经验几乎必然翻车——因为昇腾推理环境不是几份互不干涉的软件包，而是一条环环相扣、跨层校验 ABI 的**版本咬合链**。
 
-### CANN 五层与通用软件栈的精确映射
+### 五环成对约束
 
-| CANN 逻辑分层 | 核心组件 | 对应第 18 章通用软件栈 | 失效时的典型症状与首选排查点 |
-|---|---|---|---|
-| **计算语言 / 接口层** | AscendCL（`acl`、`aclrt`、`aclnn` 对外编程接口） | SDK / 运行时（对外 API 面） | 调用处报参数/流/显存错误，或 `aclnnXxx not found`；先查接口名与 CANN 版本 |
-| **计算服务层** | 算子库 AOL（NN/BLAS/融合算子）、OPP 算子包目录、调优引擎 AOE、框架适配 | 算子库 + 框架桥接（`torch_npu` 承接 PyTorch 侧） | 算子能跑但慢或精度异常、自定义算子包检索不到；先查 OPP 路径与算子覆盖 |
-| **计算编译层** | 图引擎 GE（Graph Engine）、图编译器、算子编译器（Ascend C / TBE 编译器） | SDK / 运行时（编译子系统） | 算子源码编不过、片上 UB 超限、tiling 越界；先查编译日志与切分参数 |
-| **计算执行层** | Runtime、Graph Executor、集合通信库 HCCL、DVPP/AIPP | SDK / 运行时（执行子系统） | Kernel 无法下发、流与事件同步错乱、多卡通信卡死；先查 Runtime 与 HCCL 日志 |
-| **计算基础层** | 共享虚拟内存（SVM）、设备虚拟化、主机-设备通信 | SDK / 运行时（内核交互面） | 内存映射失败、设备句柄异常；核对设备节点与容器共享内存 |
-| *驱动与固件（五层之下）* | HDK（Driver / Firmware） | 驱动 / 固件 | `npu-smi info` 不可见或 Health 非 OK；排查宿主机驱动安装 |
+从宿主机内核态一直到用户态推理引擎，每一环都在编译或运行期调用下一环的头文件、动态库或内部扩展接口：
 
-把两张架构图对齐，就能明白为什么<strong>“写一个算子”绝不只是单层操作</strong>：算子源码在<strong>计算编译层</strong>被编译成 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>二进制；产物作为算子包安装进<strong>计算服务层</strong>的 OPP（Operator Package）检索目录；运行时由框架通过<strong>计算语言层</strong>的 `aclnn` C 接口调用，再经 `torch_npu` 与 `vllm-ascend` 接入模型。只写完 kernel 源码却漏掉安装注册，在推理引擎眼里这个算子就跟不存在一样。
-
-::: info 工程取舍：把五层当排查地图，而非严格 OSI 调用栈
-CANN 的五层划分是按功能职责切分的**定位地图**，不是“每层只能调紧邻下一层”的严格协议栈。例如 AscendCL 作为统一对外接口被多方直接调用，图引擎 GE 也可以被单算子直调绕过。拿到报错时，先看关键词（`aclnn`、UB overflow、HCCL、SVM）落入哪一层的职责域，排查方向立刻清晰。
-:::
-
-### Eager 单算子直调 vs 图引擎 / ACLGraph 路径
-
-同样一份模型代码跑在 CANN 底座上，存在两条截然不同的执行路径：
-
-- **单算子直调（Eager 路径）**：每个 PyTorch 算子经 `torch_npu` 或插件扩展直接翻译成一次 `aclnn` 调用，由 Runtime 逐个下发到 NPU 执行。优点是动态 shape 零阻力、调试极直观；缺点是在 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>这类小计算量阶段，host 侧频繁下发指令会留下大量调度空泡。
-- **图模式路径（ACLGraph 捕获重放 / GE 整图编译）**：前者类似 <a class="term-ref" href="/books/llm-inference/glossary#cuda_graph" title="CUDA 图：将一连串 GPU kernel 启动录制成静态图单次重放，显著降低 CPU 发射开销">CUDA Graph</a>，将一连串静态 shape 的下发序列捕获成图并整图重放，大幅压缩 CPU 下发开销；后者依托 GE 或 `torchair` 进行整图优化、跨算子融合与内存静态复用。
-
-两条路径的排障入口完全不同：单算子路径盯紧 `aclnn` 接口、OPP 搜索路径与单算子 Profiler 耗时；图模式路径则必须先核对图编译日志、静态分档 shape 与入图范围（有没有发生 graph break），确认异常究竟出在算子本身还是图捕获阶段。
-
-## 20.2 两代算子抽象演化：TBE 与 AscendC 的控制权权衡
-
-阅读昇腾算子库源码或文档时，会频繁看到 **TBE（Tensor Boost Engine）** 与 **AscendC** 两个名词。它们共用“定义 → 编译 → 注册 → 调用”同一条接入链路，本质差别在于**开发者和编译器之间如何划分控制权**。
-
-| 链路环节 | TBE（上一代 DSL 抽象） | AscendC（当前主力 C++ 抽象） |
-|---|---|---|
-| **定义方式** | 用 Python DSL 描述“算什么”及粗粒度调度原语（另有更底层 TIK 路径） | 用 C++ 算子类显式编写 `Init`（地址/Buffer 规划）与 `Process`（搬运/计算/搬回） |
-| **编译器职责** | 读 DSL 生成 IR，由编译 Pass 自动完成**双缓冲、流水同步、片上内存分配**并生成代码 | 将 C++ 编译为 NPU 指令，校验 API/对齐/UB 容量；**队列深度与同步节拍交还开发者** |
-| **调用与落点** | 打包进 OPP，经 `aclnn` 或框架算子名调用 | 同样打包进 OPP，经 `aclnn` 或 `torch.ops` 调用 |
-| **核心权衡** | 代码短小、上手快，但精细优化受限于 DSL 表达能力与编译器启发式策略 | 代码偏长、需要手动算清 UB 与同步账，但可把搬运粒度、双缓冲与核间切分捏在手里 |
-
-这种演进背后的系统逻辑非常清晰：TBE 像高级自动挡，把调度、片上内存、异步同步三件麻烦事隐藏在编译器 Pass 背后；但在大语言模型时代，<a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>、Fused <a class="term-ref" href="/books/llm-inference/glossary#moe" title="Mixture of Experts，混合专家：每个 token 经路由仅激活少数专家子网络，实现总参数容量与单步计算量脱钩">MoE</a>等复杂融合算子往往需要极致压榨每一字节片上存储与流水线重叠，自动调度常常力不从心。AscendC 把这三项控制权重新交还给工程师，代价则是写错队列深度、对齐边界或同步依赖会直接导致变慢甚至静默算错。
-
-### 编译产物“四件套”与三类失败现场
-
-无论采用哪一代抽象，算子工程编译出来的都不是一个孤零零的 `.o` 文件，而是一套完整的**算子包**，包含四类缺一不可的产物：
-
-1. **按目标 SoC 编译的 Kernel 二进制**：绑定具体芯片型号（如 `Ascend910B`），跨代往往不通用。
-2. **算子原型与信息库**：声明输入输出的 shape 推导规则、dtype 支持列表与张量 format 约束，供 OPP 检索注册。
-3. **Host 侧 Tiling 实现**：运行时根据真实输入 shape、硬件核数与片上 UB 容量，动态算出切分块数、每块长度与尾块长度。
-4. **Host 侧 `aclnn` 接口库**：对外暴露的 C 头文件（`op_api/include`）与动态链接库（`op_api/lib`）。
-
-理解了四件套，算子开发的失败就能精准归为三大第一现场：**编译错**（语法、不支持 API、静态 UB 超限）看编译日志；**加载错**（`aclnn` 找不到、符号未定义、SoC 不匹配）查 `ASCEND_CUSTOM_OPP_PATH` 与 `LD_LIBRARY_PATH`；**运行错**（输出数值偏差、越界、卡死）查 `op_host` 的 tiling 边界与 `op_kernel` 的对齐及队列同步。
-
-## 20.3 AscendC 硬件流水线模型剖析
-
-从 CUDA 转向 AscendC 时，最大的思维跃迁不是语法，而是**把计算看作三条独立硬件单元之间的接力流水线**。我们用最干净的逐元素向量加法 `add_custom`（计算 $z = x + y$）来拆解这套模型——没有归约也没有矩阵乘，恰好把 AscendC 的核心骨架毫无遮掩地暴露出来。
-
-<figure class="book-figure">
-  <img src="/figures/llm-inference/ascendc-pipeline.svg" alt="AscendC 三级硬件流水线与双缓冲示意图：展示 CopyIn(MTE2)、Compute(VEC)、CopyOut(MTE3) 三个独立硬件单元通过 TQue 队列接力重叠执行的过程" loading="lazy">
-  <figcaption><span class="book-figure__label">图 20-1</span>横向对比单缓冲串行执行（3<em>n</em>）与 <code>BUFFER_NUM=2</code> 双缓冲流水重叠（<em>n</em> + 2）。核心结论：MTE2、VEC、MTE3 是独立硬件流水，双缓冲通过倍增片上 UB 队列深度隐藏等待空泡，但不减少总搬运字节数。</figcaption>
-</figure>
-
-### 最小向量加法 `add_custom` 骨架精读
-
-下面是一段面向单核、整除长度场景的 AscendC 向量加法精简阅读骨架（完整生产工程还需包含核间切分、系统 workspace 判空与尾块处理）：
-
-```cpp
-#include "kernel_operator.h"
-using namespace AscendC;
-
-constexpr int32_t BUFFER_NUM = 2;      // 队列深度为 2：开启双缓冲（Double Buffer）
-constexpr int32_t TILE_LENGTH = 1024;  // 每块处理的元素个数（实际工程由 host tiling 传入）
-
-class KernelAdd {
-public:
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR z, uint32_t totalLength) {
-        // 1. 绑定全局内存（GM）张量视图
-        xGm.SetGlobalBuffer((__gm__ float*)x, totalLength);
-        yGm.SetGlobalBuffer((__gm__ float*)y, totalLength);
-        zGm.SetGlobalBuffer((__gm__ float*)z, totalLength);
-        // 2. 通过 TPipe 在片上统一缓冲区（UB）为三个队列分配双缓冲空间
-        pipe.InitBuffer(inQueueX, BUFFER_NUM, TILE_LENGTH * sizeof(float));
-        pipe.InitBuffer(inQueueY, BUFFER_NUM, TILE_LENGTH * sizeof(float));
-        pipe.InitBuffer(outQueueZ, BUFFER_NUM, TILE_LENGTH * sizeof(float));
-        // 3. 计算分块总轮数（多核场景下每个核仅负责自身分片）
-        tileCount = totalLength / TILE_LENGTH;
-    }
-
-    __aicore__ inline void Process() {
-        for (int32_t i = 0; i < tileCount; ++i) {
-            CopyIn(i);   // MTE2: GM -> UB
-            Compute(i);  // VEC:  UB 向量计算
-            CopyOut(i);  // MTE3: UB -> GM
-        }
-    }
-
-private:
-    __aicore__ inline void CopyIn(int32_t i) {
-        LocalTensor<float> xLocal = inQueueX.AllocTensor<float>();
-        LocalTensor<float> yLocal = inQueueY.AllocTensor<float>();
-        DataCopy(xLocal, xGm[i * TILE_LENGTH], TILE_LENGTH);
-        DataCopy(yLocal, yGm[i * TILE_LENGTH], TILE_LENGTH);
-        inQueueX.EnQue(xLocal);
-        inQueueY.EnQue(yLocal);
-    }
-
-    __aicore__ inline void Compute(int32_t i) {
-        LocalTensor<float> xLocal = inQueueX.DeQue<float>();
-        LocalTensor<float> yLocal = inQueueY.DeQue<float>();
-        LocalTensor<float> zLocal = outQueueZ.AllocTensor<float>();
-        Add(zLocal, xLocal, yLocal, TILE_LENGTH);
-        outQueueZ.EnQue(zLocal);
-        inQueueX.FreeTensor(xLocal);
-        inQueueY.FreeTensor(yLocal);
-    }
-
-    __aicore__ inline void CopyOut(int32_t i) {
-        LocalTensor<float> zLocal = outQueueZ.DeQue<float>();
-        DataCopy(zGm[i * TILE_LENGTH], zLocal, TILE_LENGTH);
-        outQueueZ.FreeTensor(zLocal);
-    }
-
-    TPipe pipe;
-    TQue<TPosition::VECIN, BUFFER_NUM> inQueueX, inQueueY;
-    TQue<TPosition::VECOUT, BUFFER_NUM> outQueueZ;
-    GlobalTensor<float> xGm, yGm, zGm;
-    int32_t tileCount;
-};
-
-extern "C" __global__ __aicore__ void add_custom(
-    GM_ADDR x, GM_ADDR y, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling) {
-    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);  // 编译期固化：仅使用向量核（AIV）
-    GET_TILING_DATA(tilingData, tiling);             // 反序列化 host 侧算好的切分参数
-    KernelAdd op;
-    op.Init(x, y, z, tilingData.totalLength);
-    op.Process();
-}
+```text
+宿主机 HDK（驱动 / 固件）
+   │  内核态设备节点与驱动 ABI
+   ▼
+CANN Toolkit / Ops + NNAL（含 ATB 神经网络加速库）
+   │  AscendCL / aclnn 动态库与环境变量
+   ▼
+PyTorch  ◀──强版本配对──▶  TorchNPU（torch_npu）
+   │  PrivateUse1 分发键与 C++ 扩展符号
+   ▼
+vLLM     ◀──同版本同步──▶  vllm-ascend（+ 可选 Triton-Ascend 等）
 ```
 
-逐一拆解这段代码里的五个核心对象与入口约定：
+这条链上有三组最容易咬断的**硬配对约束**：
 
-- <strong>入口五参数与核类型</strong>：`x`、`y`、`z` 是输入输出在全局内存（GM，即 HBM）的裸地址；`workspace` 是跨核交换或暂存用的显存工作区；`tiling` 承载 host 侧预计算的切分结构体，kernel 通过 `GET_TILING_DATA` 直接读取而不必在片上重算。`KERNEL_TYPE_AIV_ONLY` 在编译期声明仅启用<strong>向量核（AIV，AI Vector Core）</strong>；若为矩阵乘算子则需声明使用<strong>矩阵核（AIC，AI Cube Core）</strong>或 CV 混合模式——核类型直接决定了该算子的硬件算力天花板。
-- <strong>`GlobalTensor<T>` 与 `LocalTensor<T>`</strong>：前者封装全局显存 HBM 上的张量视图，后者封装片上<strong>统一缓冲区（UB，Unified Buffer）</strong>上的局部张量视图。NPU 的向量计算指令不能直接读写 HBM，数据必须先搬进 UB 才能算。
-- **`TPipe`、`TQue<..., N>` 与 `TBuf`**：`TPipe` 是算子内部的片上资源大管家，统一分配 UB 内存与硬件同步事件；`TQue` 是连接上下游硬件单元的队列，既承载 `LocalTensor` 内存块，又用 `EnQue` / `DeQue` 表达严格的生产者-消费者硬件事件同步；若需要纯临时片上暂存区（不跨流水交接），则用 `TBuf` 申请。
+1. **PyTorch 与 TorchNPU 强配对**：`torch_npu` 深入绑定 PyTorch 的底层 C++ Dispatcher 与存储结构，必须精确匹配次版本号（例如 PyTorch `2.10.0` 对应 TorchNPU `2.10.0.post7`），单升 PyTorch 会立即触发符号未定义或 `import` 失败。
+2. **vLLM 与 `vllm-ascend` 同版本锁死**：`vllm-ascend` 实现的是 vLLM 内部的 `Platform`、`WorkerBase`、`AttentionBackend` 等接口，随 vLLM 主干演进极快，两者必须保持版本对齐（例如 `vllm-ascend v0.30.0` 对应一套验证通过的组合：Python `3.12`、CANN `9.2.1`、NNAL `9.2.1`、PyTorch `2.10.0`、TorchNPU `2.10.0.post7`、vLLM `0.30.0`；可选依赖如 `Triton-Ascend 3.6.0.post2` 亦需核对适用芯片型号）。
+3. **CANN 与宿主机 HDK 兼容区间**：CANN 运行时依赖宿主机驱动提供的设备接口与<a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="shared memory：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">共享内存</a>机制，升级 CANN 大版本时必须核对宿主机 HDK 是否在官方兼容矩阵内。
 
-### 三级独立硬件流水与双缓冲的数学账
+### 容器镜像锁什么、不锁什么
 
-这段代码看起来像一个平平无奇的 `for` 循环，但落到昇腾 AI Core 硬件上，三个函数分别驱动**三个彼此独立的物理执行单元**：
+工程实践中，强烈建议优先采用官方预构建容器镜像（如 `quay.io/ascend/vllm-ascend:<tag>`），而非在裸机上从零逐包编译。容器镜像一次性锁死了 **CANN、NNAL、PyTorch/TorchNPU、vLLM 与 `vllm-ascend`** 整个用户态软件栈，省去大量编译与路径冲突。
 
-- `CopyIn` → **MTE2**（GM 到 UB 的专用 DMA 搬运引擎）；
-- `Compute` → **VEC**（片上 SIMD 向量计算单元）；
-- `CopyOut` → **MTE3**（UB 到 GM 的写回搬运引擎）。
-
-当 `BUFFER_NUM = 1` 时，队列里同一时刻只放得下一块数据：第 $i$ 块没算完并释放，MTE2 就无法预取第 $i+1$ 块，三条流水被迫退化成严格串行。假设三阶段各耗 $1$ 个时间单位、共切分 $n$ 块，串行总耗时为 $3n$。
-
-一旦把 `BUFFER_NUM` 设为 `2`（双缓冲），队列里可以同时挂着两块 buffer：当 VEC 正在计算第 $i$ 块时，MTE2 已经并行把第 $i+1$ 块搬进另一块空闲 buffer，同时 MTE3 正把第 $i-1$ 块的结果写回 HBM。第 1 块经历完整的 3 个单位后，此后每经过 1 个单位就产出 1 块，总耗时骤降为：
-
-$$
-T_{\text{pipe}} = 3 + (n - 1) = n + 2, \qquad \text{流水加速比} = \frac{3n}{n + 2}
-$$
-
-当 $n = 4$ 时，耗时从 $12$ 压到 $6$（$2\times$）；当 $n = 1024$ 时，耗时从 $3072$ 压到 $1026$，逼近三级流水的理论极值 $3\times$。
-
-但不要被 $3\times$ 冲昏头脑——立刻拉出 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>算一笔访存账。以 $N = 2^{20} = 1{,}048{,}576$ 个 FP32 元素为例：读入 $x, y$ 共 $8\,\text{MiB}$，写回 $z$ 共 $4\,\text{MiB}$，总搬运量 $12\,\text{MiB} = 12{,}582{,}912\,\text{B}$，仅做 $1{,}048{,}576$ 次浮点加法，<a class="term-ref" href="/books/llm-inference/glossary#arithmetic_intensity" title="arithmetic intensity：每搬运 1 字节数据所执行的浮点运算次数（FLOP/Byte）">算术强度</a>只有：
-
-$$
-\text{AI} = \frac{1{,}048{,}576\;\text{FLOP}}{12{,}582{,}912\;\text{B}} \approx 0.083\;\text{FLOP/B}
-$$
-
-这是一个极其典型的<strong><a class="term-ref" href="/books/llm-inference/glossary#memory_bound" title="memory-bound：运行时间主要受显存数据搬运速度限制的状态">显存带宽受限</a></strong>算子——实际中 `Compute` 的时间远小于 `CopyIn` 与 `CopyOut`。双缓冲真正消除的是阶段之间的“干等空泡”，让搬运尽量贴近 HBM 带宽上限，<strong>它绝不会让 12 MiB 的总搬运量变少</strong>；同时，双缓冲会让三个队列的片上 <strong>UB 占用直接翻倍</strong>（本例中 $3 \times 2 \times 1024 \times 4\,\text{B} = 24\,\text{KiB}$）。当中间张量很多、UB 告急时，只能在“缩小单块 `TILE_LENGTH`”与“降为单缓冲”之间做工程取舍。
-
-### 分块粒度与 32 字节对齐尾巴
-
-分块大小改变的是搬运次数而非总搬运量：对 $2^{20}$ 个 FP32 元素，每块 1024 个需搬运 1024 次，每块 4096 个只需 256 次。块越大，单次 DMA 事务越饱满、同步交互次数越少，但 UB 压力越大；块越小则相反。
-
-真实生产中的输入长度往往无法被 `TILE_LENGTH` 整除。假设向量总长为 $10{,}000$、块长为 $1024$：向上取整需 10 块，前 9 块各搬 1024 个元素，最后 1 块只剩 $10{,}000 - 9 \times 1024 = 784$ 个元素。如果粗暴按 1024 搬运，就会越界读取并污染相邻显存。更细的约束在于硬件对齐：**UB 搬运指令 `DataCopy` 要求按 32 字节对齐**（784 个 FP32 占 $3136\,\text{B}$ 刚好是 32 的倍数；但若是 785 个 FP32 即 $3140\,\text{B}$ 则非对齐）。针对非整除与非对齐尾块，必须由 host 侧 tiling 将尾块有效长度传入 kernel，并在 kernel 中借助 `DataCopyPad` 按有效字节搬运或走专用尾块分支处理。
-
-## 20.4 一个算子的完整链路：以 `RMSNorm` 为例
-
-弄懂单个 kernel 怎么在 AI Core 上跑起来之后，最后一个关键拼图是：**从一段 C++ 源码到 vLLM 前向里真正命中它，中间到底要过几道手？** 以 Transformer 每层出现两次的 `RMSNorm` 为例，它在 `vllm-ascend` 里恰好同时拥有 CANN 内置路径（`torch_npu.npu_rms_norm`）与插件自定义融合路径（`npu_add_rms_norm_bias`），能把整条链路照得清清楚楚。
-
-<figure class="book-figure">
-  <img src="/figures/llm-inference/cann-op-chain.svg" alt="CANN 分层与一个 AscendC 算子的四环全链路：定义、编译、三处注册与最终前向调用" loading="lazy">
-  <figcaption><span class="book-figure__label">图 20-2</span>左列是 CANN 到推理引擎的软件分层，右列是自定义算子落地的四道工序。核心结论：编译通过只完成了前半程，CANN OPP、PyTorch 与 vLLM 三处注册缺一不可。</figcaption>
-</figure>
-
-### 四道工序与三处注册
-
-| 链路环节 | 核心产物 | 代码与路径落点 | 工程核验要点 |
-|---|---|---|---|
-| **1. 定义** | 算子原型、tiling 切分、kernel 逻辑 | `op_host/<op>.cpp`（原型/shape 推导/`TilingFunc`）、`op_host/<op>_tiling.h`、`op_kernel/<op>.cpp` | 核对输入输出 dtype、eps 属性传参方式与边界 shape 推导 |
-| **2. 编译** | 算子包四件套（kernel/信息库/tiling/aclnn 库） | 算子工程 `build.sh` → `build_out/` 或 `vendors/<vendor>/` | 确认目标 SoC 与当前硬件一致，产物含 `op_api/include` 与 `op_api/lib` |
-| **3. 注册** | **三处独立登记**（CANN / PyTorch / vLLM） | 见下文三处注册拆解 | 三处分别核验，任何一处漏登都会在别处引发隐蔽故障 |
-| **4. 调用** | 模型前向透明路由至底层 kernel | `RMSNorm` → `CustomOp` → `AscendRMSNorm.forward_oot` → `aclnn` → Runtime → Kernel | 结合 `msprof` / Profiler 核对设备时间线上的真实 kernel 名 |
-
-整条链路里最容易踩坑、也最常被低估的是第 3 环——**三处注册**，它们各自管着一套独立的名字空间：
-
-1. **CANN 侧注册（OPP 搜索路径）**：将编译好的算子包安装进 OPP 目录，或通过 `ASCEND_CUSTOM_OPP_PATH` 指定自定义算子包路径，并把 `op_api/lib` 加入 `LD_LIBRARY_PATH`。缺这一步，底层 `aclnnAddRmsNormBias` 根本找不到二进制实现。
-2. **PyTorch 侧注册（`torch.ops._C_ascend`）**：`torch_npu` 的内置算子由自身的 `op_plugin` 注册；而 `vllm-ascend` 的自定义融合算子则通过 `csrc/torch_binding.cpp` 里的 `TORCH_LIBRARY_EXPAND` 与 `EXEC_NPU_CMD` 暴露为 `torch.ops._C_ascend.<name>`，在导入插件 C++ 扩展时触发登记。若扩展加载失败，插件通常会降级关闭 custom ops。
-3. **vLLM 侧注册（`CustomOp.register_oot`）**：`vllm_ascend/utils.py::register_ascend_customop()` 将类名 `"RMSNorm"` 映射到 `AscendRMSNorm`。缺这一步，即便前两处都已就绪，模型前向依然会跳过插件去走 `forward_native`。
-
-### 三次名称解析与极速验证命令
-
-三处注册在运行时精确对应**三次名称解析**：
-
-1. **Python 引擎层**：`RMSNorm` 类构造时经 `op_registry_oot` 解析为 `AscendRMSNorm`；
-2. **PyTorch 分发层**：Dispatcher 依据 `PrivateUse1` 分发键，把 `torch.ops._C_ascend.npu_add_rms_norm_bias` 解析至 C++ 绑定函数；
-3. **CANN 运行时层**：OPP 根据算子信息库将 `aclnnAddRmsNormBias` 解析至匹配当前 SoC 与 shape 的 NPU 二进制 kernel。
-
-排查链路是否畅通，四条命令就能把三处注册逐一验明：
+但必须牢记一条边界：**容器镜像只锁用户态，绝不锁宿主机驱动、固件与设备节点**。以昇腾 Atlas A2（910B）单卡容器启动为例，必须把宿主机设备节点、管理通道与驱动动态库显式映射进容器：
 
 ```bash
-# 1. 验证宿主机驱动与设备
-npu-smi info
-# 2. 验证框架层 torch_npu 可用
-python3 -c "import torch, torch_npu; print('torch_npu:', torch_npu.__version__)"
-# 3. 验证 PyTorch 侧自定义算子注册（必须导入 C++ 扩展模块）
-python3 -c "import torch, torch_npu, vllm_ascend.vllm_ascend_C; print(hasattr(torch.ops._C_ascend, 'npu_add_rms_norm_bias'))"
-# 4. 验证当前 shell 是否生效自定义 OPP 路径
-printenv ASCEND_CUSTOM_OPP_PATH
+export IMAGE=quay.io/ascend/vllm-ascend:v0.30.0
+docker run --rm --name vllm-ascend --shm-size=1g \
+  --device /dev/davinci0 \
+  --device /dev/davinci_manager \
+  --device /dev/devmm_svm \
+  --device /dev/hisi_hdc \
+  -v /usr/local/dcmi:/usr/local/dcmi \
+  -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
+  -v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ \
+  -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
+  -v /etc/ascend_install.info:/etc/ascend_install.info \
+  -p 8000:8000 -it "$IMAGE" bash
 ```
 
-### 典型报错 → 锁定四环速查表
+不同昇腾硬件形态的挂载项存在明显差异：例如 Atlas A3 采用双 DIE（双裸片）设计，单张物理卡需映射两个 `/dev/davinci*` 设备节点；而 300I Duo 等推理卡的设备节点与驱动路径也有专属清单。切忌把某一款卡的 `docker run` 脚本机械照搬到所有机型上。
 
-拿到异常现象后，先把它精准归到四环之一，再直奔对应文件或环境变量，避免盲目重装：
+::: warning 常见误区
+遇到 `ImportError` 或插件激活失败时，最糟糕的反应是随手执行 `pip install -U vllm` 或只升级 `torch_npu`。这只会把整条咬合链彻底拧断。正确动作是立刻用 `pip show vllm vllm-ascend torch torch_npu` 冻结当前版本快照，再对照 `vllm-ascend` 官方 README 的兼容矩阵整组对齐。
+:::
 
-| 观察到的异常现象 | 故障落在哪一环 | 第一现场排查动作 |
+## 20.2 三层自下而上诊断模型
+
+环境装好后，不要直接甩一个 8B 或 32B 模型上去赌运气。遵循[第 19 章](chapter-19.md)“自下而上”的排障铁律，用**三层最小探针**在 2 分钟内把驱动、框架与插件彻底验明正身。
+
+### 三层探针逐级验证
+
+1. **第一层：驱动与设备可见性（`npu-smi info`）**
+   在容器内执行 `npu-smi info`，核对三项信息：预期卡号全部列出、每张卡的 `Health` 状态为 `OK`、HBM 容量与当前占用（`HBM-Usage`）正常。如果这一层看不到卡或健康状态异常，立刻停下来查宿主机 HDK 与容器 `--device` 挂载，向上排查毫无意义。
+
+2. **第二层：框架设备识别与基础算子调度（`torch.npu`）**
+   用一段 10 行 Python 脚本验证 `torch_npu` 能正常加载、识别设备，并在 NPU 上真正跑通一次张量加法与同步：
+
+```python
+import torch
+import torch_npu  # 显式导入以向 PyTorch 注册 PrivateUse1/NPU 后端
+
+assert torch.npu.is_available(), "未检测到可用 Ascend NPU，请检查 CANN 环境变量与驱动"
+device_count = torch.npu.device_count()
+x = torch.randn(2, 2, device="npu:0", dtype=torch.float16)
+y = x + x
+torch.npu.synchronize()
+print(f"设备: {y.device}, 可见卡数: {device_count}, 结果均值: {y.float().mean().item():.4f}")
+```
+
+3. **第三层：推理引擎平台插件激活（vLLM 启动日志）**
+   仅仅 `import vllm_ascend` 成功，**绝不等于** vLLM 已经启用了昇腾平台。必须启动一次最小模型（或冒烟命令），在启动日志中亲眼核对三条关键信号：
+   - 发现插件组：`Available plugins for group vllm.platform_plugins`
+   - 列出昇腾条目：`- ascend -> vllm_ascend:register`
+   - 平台激活生效：`Platform plugin ascend is activated`
+
+   如果机器上同时安装了多个厂商插件，还必须检查环境变量 `VLLM_PLUGINS`——该变量用于白名单过滤允许加载的插件名，配置错误会把 `ascend` 直接屏蔽掉。
+
+### 2³ = 8 种组合中最常见的 4 类典型故障
+
+三层探针每层只有“通过 / 失败”两种结果，共 $2^3 = 8$ 种状态，但工程中 90% 的故障高度集中在以下 4 类典型组合：
+
+| `npu-smi`（驱动层） | `torch.npu`（框架层） | 插件激活（引擎层） | 故障精准定位 | 高频根因与首选处理动作 |
+|---|---|---|---|---|
+| 失败 | 失败 | 失败 | **驱动 / 固件与容器挂载层** | 宿主机 HDK 异常，或 `docker run` 漏挂 `/dev/davinci*`、`/dev/devmm_svm`、驱动库目录 |
+| 通过 | 失败 | 失败 | **SDK 环境或框架配对层** | 当前 shell 未 `source` CANN/NNAL 的 `set_env.sh` 环境变量脚本，或 PyTorch 与 `torch_npu` 版本不配对 |
+| 通过 | 通过 | 失败 | **平台插件注册层** | `vllm` 与 `vllm-ascend` 版本不一致、`setup.py` 入口点缺失，或被 `VLLM_PLUGINS` 环境变量过滤 |
+| 通过 | 通过 | 通过（但跑崩/极慢） | **图捕获、显存或算子库层** | 图模式捕获异常（先关图跑 Eager 定位）、HBM OOM（调小并发/长度）或关键算子静默回退（转第 20/21 章） |
+
+<figure class="book-figure">
+  <img src="/figures/llm-inference/vllm-ascend-plugin.svg" alt="vllm-ascend 平台插件架构：展示 Python 入口点注册、NPUPlatform 接管引擎核心组件以及 CustomOp 算子路由至昇腾实现的完整链路" loading="lazy">
+  <figcaption><span class="book-figure__label">图 20-1</span>从左上角插件入口点出发，向右追踪平台级接管（Worker、ModelRunner、Attention、通信、编译）与算子级分发（CustomOp 查表路由到 <code>forward_oot</code>）。核心结论：插件不是零散补丁，而是接管芯片相关全部执行面的平行架构层。</figcaption>
+</figure>
+
+## 20.3 `vllm-ascend` 平台插件架构剖析
+
+理解 `vllm-ascend` 的源码组织，能把排障效率提升一个量级：今后无论是查注意力后端走哪条路、查某算子有没有芯片实现，还是改图捕获配置，都不必在整个仓库盲搜，而是直接按图索骥。
+
+### 顶层模块职责与引擎 Hook 地图
+
+`vllm-ascend` 靠打包配置 `setup.py` 里的两组 Python 入口点（entry points）接入 vLLM：
+
+- **`vllm.platform_plugins`**：声明 `ascend = vllm_ascend:register`。vLLM 启动时调用 `register()`，拿到类路径 `vllm_ascend.platform.NPUPlatform` 并实例化，正式确立当前硬件平台。
+- **`vllm.general_plugins`**：注册平台之外的扩展能力（如 KV Connector、自定义模型加载器、服务级 Profiling 钩子等），在各个 Worker 进程中加载生效。
+
+`NPUPlatform` 继承自 vLLM 的 `Platform` 基类，几个类属性直接定义了昇腾后端的身份契约：`_enum = PlatformEnum.OOT`（树外平台）、`device_type = "npu"`、`device_control_env_var = "ASCEND_RT_VISIBLE_DEVICES"`，以及 `dispatch_key = "PrivateUse1"`（PyTorch 为非原生第三方加速卡保留的算子分发键）。
+
+整个插件按职责清晰划分为以下顶层模块（以 v0.30.0 结构为例，具体文件名随版本微调）：
+
+| 插件目录 / 文件 | 对接的 vLLM 核心接口 | 核心实现类与职责 |
 |---|---|---|
-| `aclnnXxx not found` | **注册（CANN 侧）** | 查算子包是否安装、`ASCEND_CUSTOM_OPP_PATH` 是否在当前 shell 生效、SoC 型号是否匹配 |
-| `undefined symbol` 或 `.so` 加载失败 | **注册（CANN 侧）或版本咬合** | 查 `LD_LIBRARY_PATH` 是否包含 `op_api/lib`，核对 CANN 与 `torch_npu` 版本矩阵 |
-| 编译期报 UB 超限、tiling 越界 | **定义 / 编译** | 核算 `InitBuffer` 总量（留意 `BUFFER_NUM=2` 翻倍）与单块 `TILE_LENGTH` |
-| 能跑通但输出数值偏差或随机乱码 | **定义 / 调用** | 查 32 字节对齐、非整除尾块、`EnQue`/`DeQue` 同步配对、host tiling 边界假设 |
-| 不报错但很慢，Profiler 显示零碎算子 | **注册（vLLM / PyTorch 侧）** | 查 `CustomOp.register_oot` 是否命中、custom ops 开关是否被降级禁用 |
+| `platform.py` | `Platform` 基类 | `NPUPlatform`：设备识别、环境变量控制、向引擎声明该用哪个注意力/通信/编译类 |
+| `worker/` | `WorkerBase`、`GPUModelRunner` | `NPUWorker` 与 `NPUModelRunner`：设备初始化、权重加载、组批、KV 缓存与图捕获编排 |
+| `ops/` | `CustomOp.register_oot` | 芯片侧逐算子实现（含 `layernorm.py`、`activation.py` 及 `ops/triton/`） |
+| `attention/` | `AttentionBackend` | `AscendAttentionBackend`（Dense）、`AscendMLABackend`（MLA）、`AscendFABackend`（FA3）等，负责注意力计算与 KV 布局 |
+| `quantization/` | 量化配置与线性层接口 | W8A8、W4A16 等昇腾侧量化加载与推理算子接入 |
+| `distributed/` | `CommunicatorBase` | `NPUCommunicator`：封装 HCCL 集合通信原语与多卡并行协同 |
+| `compilation/` | `get_compile_backend`、图封装接口 | `AscendCompiler` 与 `ACLGraphWrapper`：图编译与 ACLGraph 静态图捕获重放 |
+| `_cann_ops_custom/` | 自定义 C++/AscendC 扩展 | 随插件编译打包的昇腾自定义融合算子（如 `npu_add_rms_norm_bias`） |
 
-### 何时值得手写 AscendC：Amdahl 判据
+此外，仓库中通常还有一个 `patch/` 目录（分为 Worker 启动前的全局 platform patch 与每个进程内的 worker patch）。**它不是标准 Hook，而是标准插件接口尚未覆盖之处的定向补丁**——如果在源码里看到某个 vLLM 核心类的行为和上游不同却找不到注册点，去 `patch/` 按类名检索往往能立刻水落石出。
 
-手写并维护一个高性能 AscendC 融合算子的人力与版本升级成本不低。动手之前，先用 **Amdahl 定律**冷静算清端到端收益天花板：设目标算子占单步前向总耗时的比例为 $p$，手写优化把它加速了 $s$ 倍，则端到端理论加速比为：
+### 追踪一次 `RMSNorm` 的路由全景
 
-$$
-S_{\text{e2e}} = \frac{1}{(1 - p) + p / s}
-$$
+模型代码里写的依然是标准 vLLM 的 `RMSNorm(hidden_size, eps)`，一行针对昇腾的分支都没有。那么运行前向时，它究竟是如何精准落到昇腾芯片实现上的？整个过程跨越四站：
 
-| 算子原始耗时占比 $p$ | 单算子加速 $s = 2\times$ | 单算子加速 $s = 5\times$ | 单算子加速 $s = 10\times$ |
-|---:|---:|---:|---:|
-| **5%** | $1.026\times$ | $1.042\times$ | $1.047\times$ |
-| **20%** | $1.111\times$ | $1.190\times$ | $1.220\times$ |
-| **50%** | $1.333\times$ | $1.667\times$ | $1.818\times$ |
+1. **模型构造算子**：Llama 或 Qwen3 的 Decoder Layer 调用 `RMSNorm(...)`；`RMSNorm` 继承自 vLLM 的 `CustomOp`。
+2. **`CustomOp.__new__` 查树外注册表**：在初始化阶段，`vllm_ascend/utils.py::register_ascend_customop()` 已经把 `"RMSNorm": AscendRMSNorm`、`"SiluAndMul": AscendSiluAndMul` 等映射通过 `CustomOp.register_oot()` 登记进全局表 `op_registry_oot`。于是实例化 `RMSNorm` 时，`__new__` 截获类名并直接返回 `AscendRMSNorm` 实例。
+3. **绑定树外前向方法**：`CustomOp.__init__` 检查当前平台，因为 `NPUPlatform` 的 `_enum` 为 `PlatformEnum.OOT`（`is_out_of_tree()` 为真），自动将前向入口绑定到 `forward_oot`。
+4. **执行昇腾实现**：前向触发 `vllm_ascend/ops/layernorm.py::AscendRMSNorm.forward_oot`。它根据是否存在残差输入及自定义算子开关，选择调用融合自定义扩展 `torch.ops._C_ascend.npu_add_rms_norm_bias`，或 CANN 内置接口 `torch_npu.npu_rms_norm`。
 
-这张表给出了两条铁一般的工程准绳：
+::: tip 核心直觉：未登记算子的隐性回退
+这套查表机制同时揭示了“静默回退”的根源：如果某个模型用到的 `CustomOp` 没有被注册进 `op_registry_oot`，`CustomOp` 基类的默认 `forward_oot` 会自动退回到 `forward_native`——即在 NPU 上把融合算子拆成一堆零碎的 PyTorch 原生操作逐个下发。程序不报错、输出也能看，但性能会大打折扣。这也正是[第 22 章](chapter-22.md)<a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>分析要重点排查的对象。
+:::
 
-1. **占比低于 5% 的算子，写到极致也撬不动端到端**（即便提速 10 倍，整体收益不足 5%）；通常只有当单算子占比超过 **10%** 且确认为回退或明显低效时，才值得进入手写候选池。
-2. **边际收益递减极快**：即便占比高达 20%，把算子从 5 倍死磕到 10 倍，端到端仅多出不到 3% 的收益。
+注意力的路由则独立于 `CustomOp`：它由平台级方法 `NPUPlatform.get_attn_backend_cls()` 统一决策，根据模型是否使用 <a class="term-ref" href="/books/llm-inference/glossary#mla" title="Multi-head Latent Attention，多头潜变量注意力：将 K/V 压缩到低维潜变量缓存，并利用矩阵结合律在查询侧吸收上投影的注意力结构">MLA</a>、稀疏注意力或 FA3 特性，直接把整套计算与分页 KV 布局指向 `attention/` 下的对应后端。
 
-因此，算子工程的正确节奏是先借助 CANN 内置库、统一算子层与图捕获把能拿的“大块收益”吃干净，下一章我们就用系统化的<a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>分析，把真正值得动刀的那 1–2 个热点算子精准揪出来。
+### 多进程 `spawn`、ACLGraph 图捕获与常规部署要点
+
+把上述插件机制落回一条生产可用的部署命令，有三个工程细节值得牢记：
+
+- **强制 `spawn` 多进程模式**：导出 `VLLM_WORKER_MULTIPROC_METHOD=spawn`。Linux 默认的 `fork` 会把主进程已经初始化的 NPU/ACL 设备上下文一并复制给子进程，极易引发运行时死锁或显存状态损坏；`spawn` 启动干净的 Python 子进程，彻底规避上下文污染。
+- **先 Eager 通畅，再开 ACLGraph 图模式**：`vllm-ascend` 通过 ACLGraph（及图优化开关如 NPUGraph Ex）实现类似 <a class="term-ref" href="/books/llm-inference/glossary#cuda_graph" title="CUDA 图：将一连串 GPU kernel 启动录制成静态图单次重放，显著降低 CPU 发射开销">CUDA Graph</a>的捕获与重放，以消除 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>阶段的 Python 下发开销。排查精度异常或启动卡死时，先关闭图模式跑通 Eager 确认算子与权重无误，再按版本文档开启静态图捕获。
+- **规范的冒烟与显存观测口径**：启动后按“非流式校验语义 → 流式校验逐 chunk 输出”两步冒烟，同时区分 `npu-smi info` 的设备整卡占用（`HBM-Usage`）与进程内的框架分配峰值（`torch.npu.max_memory_allocated()`）：
+
+```bash
+export ASCEND_RT_VISIBLE_DEVICES=0
+export VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+# 以 Llama-3.1-8B（FP16 权重约 16 GB，在 910B 64 GB 单卡上预留充裕 KV 空间）为例启动服务
+vllm serve meta-llama/Llama-3.1-8B-Instruct \
+  --dtype float16 \
+  --max-model-len 8192 \
+  --max-num-seqs 32
+
+# 流式冒烟：-N 禁用 curl 本地缓冲，temperature=0 锁定贪心解码便于跨芯片肉眼初检
+curl -sS -N http://localhost:8000/v1/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"meta-llama/Llama-3.1-8B-Instruct","prompt":"Explain why the sky is blue.","max_tokens":64,"temperature":0,"stream":true}'
+```
+
+## 20.4 NVIDIA CUDA 与昇腾 Ascend 部署差异速查表
+
+把第二篇在 NVIDIA GPU 上的部署经验与本章的昇腾流程并排对照，你会发现**模型与业务语义完全一致，差异全部收敛在模型之下的运行栈**。日常排障时，按这张表从上往下核对即可：
+
+| 对比维度 | NVIDIA CUDA 部署路径 | 昇腾 Ascend 部署路径 | 工程排查优先级 |
+|---|---|---|---|
+| **设备管理与显存观测** | `nvidia-smi`、`torch.cuda.max_memory_allocated()` | `npu-smi info`（HBM-Usage）、`torch.npu.max_memory_allocated()` | 区分整卡设备占用与框架分配器峰值，不混用口径 |
+| **核心环境变量** | `CUDA_VISIBLE_DEVICES` | `ASCEND_RT_VISIBLE_DEVICES`、`VLLM_WORKER_MULTIPROC_METHOD=spawn`、`VLLM_PLUGINS` | 选卡失效查可见性变量；多卡/多进程卡死先核 `spawn` |
+| **软件安装依赖链** | 宿主机驱动 + CUDA/cuDNN → PyTorch → vLLM | 宿主机 HDK + CANN/NNAL → PyTorch + TorchNPU → vLLM + `vllm-ascend` | 按兼容矩阵整组核验，容器不锁宿主机 HDK |
+| **引擎平台加载** | 引擎内置树内（in-tree）平台，原生识别 CUDA | 树外平台（`PlatformEnum.OOT`），经 `vllm.platform_plugins` 注册激活 | 启动日志必须出现 `Platform plugin ascend is activated` |
+| **图捕获与编译优化** | CUDA Graph（`--compilation-config` 控制捕获模式） | ACLGraph 与 NPUGraph Ex（经 `compilation/` 封装控制） | 启动卡捕获或输出漂移时，先回退 Eager 隔离变量 |
+| **多卡集合通信** | NCCL（NVLink / PCIe / IB） | HCCL（HCCS / PCIe / RoCE），由 `NPUCommunicator` 接入 | 多卡建链失败或扩展性差时，查 HCCL 拓扑与网络配置 |
+| **算子覆盖与兜底** | 内置 CUDA / Triton 融合算子 + `CustomOp` | CANN 内置 + `register_ascend_customop` / `_cann_ops_custom`，缺项退回 `forward_native` | 未命中 `op_registry_oot` 会静默走慢路径，需做覆盖审计 |
+| **性能与精度调试工具** | `nsys`、`ncu`、PyTorch Profiler | `msprof`、`msprobe`、`torch_npu.profiler`、服务级 Profiling | 不同工具指标与采集方式各异，按阶段（Prefill/Decode）分采 |
+
+归根结底，排查一次昇腾部署异常的黄金顺序只有五步：**版本咬合链 → 三层探针（含平台激活）→ 图模式隔离 → 算子覆盖回退 → 显存与并发调优**。前两步没站稳，后面所有的性能调参都只是空中楼阁。
 
 ## 本章小结
 
-- **CANN 五层即排障地图**：算子源码在编译层变成包含四件套的算子包，落入服务层 OPP，经接口层 `aclnn` 调用；单算子 Eager 与图模式（ACLGraph/GE）拥有完全不同的排查入口。
-- **AscendC 用控制权换极限**：相比 TBE 由编译器包办调度与双缓冲，AscendC 将 MTE2（CopyIn）、VEC（Compute）、MTE3（CopyOut）三级独立硬件流水与 `BUFFER_NUM=2` 双缓冲交由开发者掌控；双缓冲隐藏等待空泡（理论耗时 $3n \to n+2$），但以 UB 翻倍为代价，无法减少总访存字节，且须严守 32 字节对齐与尾块边界。
-- **三处注册与 Amdahl 纪律**：自定义算子要在 vLLM 生效，必须同时打通 CANN OPP、PyTorch `_C_ascend` 与 vLLM `register_oot` 三处注册；是否值得手写 AscendC，永远先拿 $1/((1-p)+p/s)$ 算清收益上限。
+- **版本是一条咬合链**：HDK → CANN/NNAL → PyTorch/TorchNPU → vLLM/`vllm-ascend` 存在严格的成对 ABI 约束；容器镜像锁用户态不锁宿主机驱动，升级须整组核对兼容表。
+- **三层探针精准定位**：按 `npu-smi info` → `torch.npu` 最小计算 → vLLM 日志激活平台插件的顺序自下而上排查，可瞬间定位绝大多数环境与加载故障。
+- **插件接管整套芯片面**：`vllm-ascend` 通过 `vllm.platform_plugins` 注入 `NPUPlatform`，以平台级 Hook 接管 Worker、Attention、通信与图捕获，以 `CustomOp.register_oot` 将模型里的 `RMSNorm` 等算子透明路由到 `forward_oot`。
 
-**延伸阅读**：[昇腾 CANN 总体架构与官方文档](https://www.hiascend.com/document)、[Ascend C 算子开发与流水线编程指南](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/latest/programug/Ascendcopdevg/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/cpp_tensor_programming/static_tensor_programming.md)、[vLLM `custom_op.py` 树外分发源码](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/custom_op.py)。
+**延伸阅读**：[vllm-ascend 官方安装与快速上手文档](https://docs.vllm.ai/projects/ascend/en/latest/)、[vLLM 硬件插件架构设计博客（Introducing vLLM Hardware Plugin）](https://blog.vllm.ai/2025/05/12/hardware-plugin.html)、[昇腾社区 CANN 与 TorchNPU 兼容矩阵](https://www.hiascend.com/document)。

@@ -208,6 +208,30 @@ NVIDIA 面向数据中心 GPU 的高性能 LLM 推理系统，当前默认采用
 
 常见写法：`TensorRT-LLM`。
 
+## DeepInfer 推理引擎（DeepInfer） {#deepinfer}
+
+DeepSeek 开源的生产级高性能大模型推理引擎（Apache 2.0），面向 DeepSeek-V4.1-Flash 等超大稀疏 MoE 模型深度垂直协同，支持 NVIDIA SM100 与华为昇腾 950
+
+常见写法：`DeepInfer`、`deepseek-ai/DeepInfer`。
+
+## DSpark 投机解码（DSpark） {#dspark}
+
+DeepSeek 与北大提出的置信度调度半自回归投机解码框架（arXiv:2607.05147），结合 Markov 头与负载感知动态截断验证
+
+常见写法：`DSpark`。
+
+## 专家并行负载均衡（Expert Parallelism Load Balancing） {#eplb}
+
+在 MoE 专家并行中将高热逻辑专家冗余复制到多个物理槽位并动态分流的均衡策略
+
+常见写法：`EPLB`。
+
+## TileLang 算子编程语言（TileLang） {#tilelang}
+
+基于 TVM 演进的 Pythonic 分块 GPU/NPU 算子领域专用语言与编译器，显式掌控线程块切分与片上存储搬运流水
+
+常见写法：`TileLang`。
+
 ## 统一计算设备架构（Compute Unified Device Architecture） {#cuda}
 
 NVIDIA 的 GPU 并行计算平台与编程模型

@@ -33,8 +33,9 @@ const llmInferenceSidebar = [
       { text: '第 7 章 可观测性与容量评估', link: '/books/llm-inference/chapters/chapter-07' },
       { text: '第 8 章 量化原理与取舍', link: '/books/llm-inference/chapters/chapter-08' },
       { text: '第 9 章 投机解码与长上下文淘汰', link: '/books/llm-inference/chapters/chapter-09' },
-      { text: '第 10 章 TensorRT-LLM 与三引擎横评', link: '/books/llm-inference/chapters/chapter-10' },
-      { text: '第 11 章 PD 解耦、扩缩容与成本路由', link: '/books/llm-inference/chapters/chapter-11' },
+      { text: '第 10 章 TensorRT-LLM 与执行预算', link: '/books/llm-inference/chapters/chapter-10' },
+      { text: '第 11 章 DeepInfer 与四引擎架构横评', link: '/books/llm-inference/chapters/chapter-11' },
+      { text: '第 12 章 PD 解耦、扩缩容与成本路由', link: '/books/llm-inference/chapters/chapter-12' },
     ],
   },
   {
@@ -42,12 +43,12 @@ const llmInferenceSidebar = [
     collapsed: false,
     items: [
       { text: '本篇导览', link: '/books/llm-inference/part-3' },
-      { text: '第 12 章 GPU 执行模型与 GEMM 阶梯', link: '/books/llm-inference/chapters/chapter-12' },
-      { text: '第 13 章 Triton：从向量加到 2D GEMM', link: '/books/llm-inference/chapters/chapter-13' },
-      { text: '第 14 章 Fused Attention 深讲', link: '/books/llm-inference/chapters/chapter-14' },
-      { text: '第 15 章 量化 Matmul：W8A8 与 W8A16', link: '/books/llm-inference/chapters/chapter-15' },
-      { text: '第 16 章 FlashAttention 2/3 与 CUTLASS', link: '/books/llm-inference/chapters/chapter-16' },
-      { text: '第 17 章 自定义算子接入推理引擎', link: '/books/llm-inference/chapters/chapter-17' },
+      { text: '第 13 章 GPU 执行模型与 GEMM 阶梯', link: '/books/llm-inference/chapters/chapter-13' },
+      { text: '第 14 章 Triton：从向量加到 2D GEMM', link: '/books/llm-inference/chapters/chapter-14' },
+      { text: '第 15 章 Fused Attention 深讲', link: '/books/llm-inference/chapters/chapter-15' },
+      { text: '第 16 章 量化 Matmul：W8A8 与 W8A16', link: '/books/llm-inference/chapters/chapter-16' },
+      { text: '第 17 章 FlashAttention 2/3 与 CUTLASS', link: '/books/llm-inference/chapters/chapter-17' },
+      { text: '第 18 章 自定义算子接入推理引擎', link: '/books/llm-inference/chapters/chapter-18' },
     ],
   },
   {
@@ -55,11 +56,11 @@ const llmInferenceSidebar = [
     collapsed: false,
     items: [
       { text: '本篇导览', link: '/books/llm-inference/part-4' },
-      { text: '第 18 章 国产芯片全景与软件栈', link: '/books/llm-inference/chapters/chapter-18' },
-      { text: '第 19 章 昇腾部署与 vllm-ascend', link: '/books/llm-inference/chapters/chapter-19' },
-      { text: '第 20 章 CANN 与 AscendC 流水线', link: '/books/llm-inference/chapters/chapter-20' },
-      { text: '第 21 章 算子覆盖分析与回退定位', link: '/books/llm-inference/chapters/chapter-21' },
-      { text: '第 22 章 跨芯片算子迁移与 FlagGems', link: '/books/llm-inference/chapters/chapter-22' },
+      { text: '第 19 章 国产芯片全景与软件栈', link: '/books/llm-inference/chapters/chapter-19' },
+      { text: '第 20 章 昇腾部署与 vllm-ascend', link: '/books/llm-inference/chapters/chapter-20' },
+      { text: '第 21 章 CANN 与 AscendC 流水线', link: '/books/llm-inference/chapters/chapter-21' },
+      { text: '第 22 章 算子覆盖分析与回退定位', link: '/books/llm-inference/chapters/chapter-22' },
+      { text: '第 23 章 跨芯片算子迁移与 FlagGems', link: '/books/llm-inference/chapters/chapter-23' },
     ],
   },
   {
@@ -67,7 +68,7 @@ const llmInferenceSidebar = [
     collapsed: false,
     items: [
       { text: '本篇导览', link: '/books/llm-inference/part-5' },
-      { text: '第 23 章 精度回归、归因与报告范式', link: '/books/llm-inference/chapters/chapter-23' },
+      { text: '第 24 章 精度回归、归因与报告范式', link: '/books/llm-inference/chapters/chapter-24' },
     ],
   },
   {

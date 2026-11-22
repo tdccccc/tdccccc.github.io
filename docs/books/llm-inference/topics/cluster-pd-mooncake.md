@@ -2,7 +2,7 @@
 
 <p class="chapter-summary">当 PD 解耦走出单机、进入百卡千卡集群，调度核心从“算力分配”转向“KV 在哪、搬多慢、值不值得取回”。</p>
 
-[第 11 章](../chapters/chapter-11.md) 从单机与中小规模服务的视角，讲清了为什么必须把算力受限的 <a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>和带宽受限的 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>拆开。但当服务进入数十节点、数百张 GPU 的集群尺度，解耦本身立刻引出四个全新的分布式系统难题：
+[第 12 章](../chapters/chapter-12.md) 从单机与中小规模服务的视角，讲清了为什么必须把算力受限的 <a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>和带宽受限的 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>拆开。但当服务进入数十节点、数百张 GPU 的集群尺度，解耦本身立刻引出四个全新的分布式系统难题：
 
 1. **传输税进 <a class="term-ref" href="/books/llm-inference/glossary#ttft" title="Time to First Token，首 token 延迟：从发出请求到收到首个非空生成内容的时间，包含排队与 prefill">TTFT</a>**：KV 不再驻留本机显存，跨节点搬运直接计入首字延迟；
 2. **共享前缀如何资产化**：如果每个节点算完就扔，全集群的系统提示词与多轮历史仍在反复重算；

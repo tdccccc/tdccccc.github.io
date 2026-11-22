@@ -1,224 +1,376 @@
-# 第 16 章 工业级实现导读：FlashAttention 2/3 与 CUTLASS
+# 第 16 章 量化 Matmul 算子原理：W8A8 与 W8A16
 
-<p class="chapter-summary">同样的分块 Online Softmax 数学，决定 GPU 利用率是 35% 还是 75% 的，是线程块与 Warp 的工作划分、硬件级异步流水线，以及 CUTLASS / CuTe 将复杂内存布局抽象为可组合代数的工程功底。</p>
+<p class="chapter-summary">Scale 的粒度决定了反量化能否提到 K 循环外；W8A8 吃 Tensor Core 峰值翻倍，W8A16 吃权重搬运减半——两条算子路径在 Decode 与 Prefill 上各占主场。</p>
 
-在[第 14 章](chapter-14.md)中，我们用几十行 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>代码写出了数学精确的 Fused Attention：分块加载 $K, V$、片上完成 <a class="term-ref" href="/books/llm-inference/glossary#online_softmax" title="在线 Softmax：分块扫描时动态维护运行最大值与归一化分母、与整行计算精确等价的数值稳定算法">Online Softmax</a>、绝不物化 $O(N^2)$ 的注意力分数矩阵 $S$ 与概率矩阵 $P$。但把这套数学搬到工业界后，会撞上一道惊人的性能鸿沟：<a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>-2 论文曾报告，同样消灭了 $O(N^2)$ HBM 往返的 **FlashAttention-1 在 A100 上仅跑到理论峰值 FLOPs 的 25%–40%**，而调优到位的 <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>能跑到 **80%–90%**；同样的剧情在 Hopper 上再次上演——把 A100 上能跑 73% 的 FA2 直接搬到 H100，利用率又跌回 **35%**。
+在[第 8 章](chapter-08.md)中，我们从算法视角讨论了<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>误差、离群值与精度权衡；在[第 14 章](chapter-14.md)中，我们写出了 FP16 的 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>2D <a class="term-ref" href="/books/llm-inference/glossary#gemm" title="General Matrix Multiplication，通用矩阵乘法：Transformer 投影层、MLP 与输出头的核心基础计算算子">GEMM</a>。生产部署中常见的是 FP8（如 Hopper 上的 W8A8 FP8）与 W4A16（如 AWQ / GPTQ），而算子原理教学从对称 INT8 起手，因为它免去了 4-bit 位打包与非对称零点的工程细节，却完整暴露了 **scale 粒度如何决定 Kernel 架构**以及**算力红利与带宽红利如何分化**的核心规律。一旦掌握了对称 INT8 的 W8A8 与 W8A16 两条路径，迁移到 FP8 或 W4A16 只是替换解包指令与硬件计算单元。
 
-丢掉的那一半以上算力，不在公式推导里，而在**并行划分、异步流水线与指令级架构适配**里。本章带你读通 FlashAttention 1 → 2 → 3 的源码骨架与演进逻辑，并拆解其底层基石 <a class="term-ref" href="/books/llm-inference/glossary#cutlass" title="CUDA Templates for Linear Algebra Subroutines，CUTLASS 模板库：NVIDIA 开源的可组合高性能 GEMM 与流水线 C++/CuTe 模板库">CUTLASS</a>与 CuTe 的核心抽象。
+## 16.1 Scale 粒度如何决定 Kernel 结构
 
-## 16.1 从 FlashAttention 1 到 2：并行维度的彻底重构
+从算法直觉看，量化粒度越细（管辖的元素越少），单个离群值污染的范围越小，精度越高。但到了写 GPU Kernel 时，量化粒度不再只是精度超参——**它直接改写内层循环的代数结构**。
 
-FlashAttention-1 已经把**算法层**的访存复杂度从 $O(N^2)$ 压到了 $O(N)$，但它在 A100 上依然跑不满计算单元。FA2 的诊断直指**执行层的工作划分（Work Partitioning）**。
+### 16.1.1 四种粒度的广播维度与循环位置
 
-### 16.1.1 FA1 的两大性能枷锁：序列并行不足与 Warp 间 Split-K
+对称 INT8 量化将浮点张量线性映射到 $[-127, 127]$，零点固定为 $0$：
 
-在 A100 80GB SXM（**108 个 SM**、FP16 Tensor Core 稠密峰值 **312 TFLOPS**）上运行长序列注意力时，FA1 暴露出两个结构性瓶颈：
+$$
+s = \frac{\max |w|}{127}, \qquad w_q = \operatorname{clip}\!\left(\operatorname{round}\!\left(\frac{w}{s}\right), -127, 127\right), \qquad \hat{w} = w_q \cdot s
+$$
 
-1. **Grid 缺乏序列维并行**：FA1 仅在 `(batch, heads)` 两个维度切分 Thread Block。当推理场景遇到小 batch 长上下文（例如 Llama-3.1-8B 的单请求长 Prompt Prefill，$B = 1, H = 32$）时，全卡总共只发射 **$32$ 个 Block**——A100 上超过 **70% 的 SM 彻底闲置**。
-2. **Block 内 Warp 采用 Split-K 分工**：在每个 Block 内部，FA1 把 $K, V$ 块切分给不同 Warp（**Split-K**）。每个 Warp 都读取同一批 $Q$ 行，各自算出一部分 $K/V$ 的局部输出 $O^{(w)}$；为了拼出最终输出，所有 Warp 必须把局部结果写回 **<a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="共享内存：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">Shared Memory</a>**、执行 `__syncthreads()` 块内同步，再跨 Warp 累加归约。频繁的 Shared Memory 往返与同步栅栏让 Tensor Core 不断停等。
+由于四舍五入最多偏离半个格点，任意元素的绝对误差上界为 $|\hat{w} - w| \le s/2$。不同粒度的本质是决定“多少个元素共享同一个 $s$”。在矩阵乘 $C = A \cdot B$（其中激活 $A \in \mathbb{R}^{M \times K}$，权重 $B \in \mathbb{R}^{K \times N}$）中，决定 Kernel 架构的分水岭只有一个问题：**scale 是否依赖归约维下标 $k$？**
 
-### 16.1.2 FA2 的三刀重构：Split-Q、外层遍历 Q 块与削减非 Matmul 指令
+**情形一：scale 不依赖 $k$。** 例如激活使用 per-token scale $s_a[i]$（形状 $[M]$），权重使用 per-channel scale $s_b[j]$（形状 $[N]$）。此时两者对归约维 $k$ 都是常数，可以直接提到求和符号之外：
 
-针对这两处症结，FlashAttention-2 做了三项一针见血的改动：
+$$
+\hat{C}_{i,j} = \sum_{k=0}^{K-1} \left(a_q[i, k] \cdot s_a[i]\right)\left(b_q[k, j] \cdot s_b[j]\right) = s_a[i] \cdot s_b[j] \cdot \sum_{k=0}^{K-1} a_q[i, k] \, b_q[k, j]
+$$
 
-- **外层循环翻转 + 沿序列维切分 Block**：FA2 翻转了循环顺序，将前向 Grid 改为 `(num_m_block, batch, heads)`，让不同 Thread Block 并行处理同一个 Head 的不同 $Q$ 行块。哪怕 $B = 1$，一条 $8\text{K}$ 序列按 `kBlockM = 128` 也能切出 $64 \times 32 = 2048$ 个 Block，瞬间喂满全部 108 个 SM。
-- **Warp 间改用 Split-Q（彻底消灭跨 Warp 通信）**：在单个 Block 内，FA2 把 $Q$ 的行切分给不同 Warp（例如 `kBlockM = 128`、`kNWarps = 4`，每个 Warp 独占 $32$ 行 $Q$）。每个 Warp 用自己的 $Q$ 行去乘完整的 $K$ 块，在 Warp 内部用寄存器 shuffle 完成行内 Softmax，再乘对应的 $V$ 块累加到私有寄存器 `acc_o`。**每一行输出唯一归属一个 Warp，Warp 之间零 Shared Memory 通信、零归约同步！**
-- **削减非矩阵乘指令与块级 Causal 跳过**：A100 的 FP16 Tensor Core 峰值是 $312\text{ TFLOPS}$，但执行 `exp`、归约和重缩放的 FP32 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>Core / SFU 吞吐最多只有前者的 **$1/16$**（$19.5\text{ TFLOPS}$）。FA2 不再在每个 $K/V$ 块末尾除以归一化因子 $l$，而是全程维护未归一化的输出累加器 $\tilde{O}$，块间只需乘一次 $\exp(m_{\text{old}} - m_{\text{new}})$，循环彻底结束才统一除以最终 $l$。此外，对于因果注意力（Causal Mask），完全落在对角线右上方的块直接整块跳过，只对对角线附近的块做掩码，论文报告长序列下相对非 Causal 版本可额外获得约 **$1.7\text{–}1.8\times$** 加速。
+举个极简算例验证：$s_a = 0.01$、$s_b = 0.02$，$a_q = [3, -5]$、$b_q = [7, 2]$。先反量化再乘加得到 $0.03 \times 0.14 + (-0.05) \times 0.04 = 0.0022$；先做纯整数点积再乘一次 scale 得到 $0.01 \times 0.02 \times (21 - 10) = 0.0022$。两者数学严格等价，但在 $K = 4096$ 的真实线性层里，后者让整个 $K$ 维归约停留在整数 Tensor Core 中，循环结束才做一次浮点缩放。
 
-下表按严格论文口径汇总了 FlashAttention 三代演进的瓶颈定位与收益（注意：各代对比基线与负载口径不同，阅读论文加速比须同时核对基线、序列长度与算子/端到端口径）：
+**情形二：scale 依赖 $k$。** 例如权重使用 per-group 量化，沿 $K$ 维每 $g$ 个元素（常见 $g = 128$）共享一个 scale $s_b[\lfloor k/g \rfloor, j]$（形状 $[K/g, N]$）。此时不同分组的缩放因子不同，无法提出最外层求和，必须在 $K$ 循环内按组加载 scale 并完成反量化或分组累加：
 
-| 代际 | 演进层级 | 核心瓶颈诊断 | 关键工程改动 | 论文报告结果（含口径） |
-|---|---|---|---|---|
-| **FA1** | 算法层（访存） | $S, P$ 矩阵物化反复读写 HBM | 分块 Tiling + Online Softmax，片上消费 $S, P$ | 显存 $O(N^2) \to O(N)$；GPT-2（1K）端到端训练相对当时 PyTorch 快 $3\times$，算子级相对优化基线约 $2\text{–}4\times$ |
-| **FA2** | 执行层（并行与分工） | 序列并行不足、Split-K 同步开销大，A100 仅 $25\text{–}40\%$ 峰值 | 翻转循环按 $Q$ 切 Block、Warp 改 Split-Q、未归一化累加器、跳过全遮 Causal 块 | 摘要概括相对 FA1 约 $2\times$；**FA2 论文 Section 4** 基准跨序列长度相对 FA1 快 $1.7\text{–}3.0\times$、相对 PyTorch 标准实现快 $3\text{–}10\times$、相对 Triton 版 FA 快 $1.3\text{–}2.5\times$；A100 达 **$50\text{–}73\%$ 峰值**（GPT 风格训练 $225\text{ TFLOPs/s}$，$72\%$ MFU） |
-| **FA3** | 硬件层（Hopper 流水） | FA2 未利用 Hopper 异步硬件，H100 仅 $35\%$ 峰值 | TMA + WGMMA + Warp Specialization Ping-Pong + FP8 块量化与 Incoherent Processing | H100 SXM 上 FP16 前向相对 FA2 快 $1.5\text{–}2.0\times$、反向快 $1.5\text{–}1.75\times$，最高 **$740\text{ TFLOPs/s}$（约 $75\%$ 峰值）**；FP8 最高近 **$1.2\text{ PFLOPs/s}$**，RMSE 为 per-tensor FP8 基线的 $1/2.6$ |
+$$
+\hat{C}_{i,j} = \sum_{p=0}^{K/g - 1} s_b[p, j] \sum_{k = p g}^{(p+1)g - 1} a[i, k] \, b_q[k, j]
+$$
 
-## 16.2 读懂 FA2 `cp.async` 异步双缓冲主循环
+下表总结了四种常见粒度对 Kernel 结构与广播维度的直接影响：
 
-打开 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) 仓库，千万不要一头扎进几千行的模板实例化 `.cu` 文件。工业级 CUDA 库的正确阅读顺序与执行顺序正好相反：**先看 Dispatch，再看 Kernel Traits，最后读主循环**。
+| 粒度 | 典型对象 | Scale 形状 | 相对输出 $[M, N]$ 的广播方式 | 依赖的下标 | 能否提到 $K$ 循环外 |
+|---|---|---|---|---|---|
+| **per-tensor** | 权重或静态激活 | 标量 $(1,)$ | 全块标量广播 | 无 | 能（Epilogue 一次乘） |
+| **per-channel** | 权重 $B[K, N]$ | $[N]$ | `s_b[None, :]` | 输出列 $j$ | 能（Epilogue 一次乘） |
+| **per-token** | 动态激活 $A[M, K]$ | $[M]$ | `s_a[:, None]` | 输出行 $i$ | 能（Epilogue 一次乘） |
+| **per-group** | 权重 $B[K, N]$ | $[K/g, N]$ | $K$ 循环内按组取 `s_b[g_idx, :]` | 归约组 $k/g$ 与列 $j$ | 不能（须在 $K$ 循环内处理） |
 
-### 16.2.1 源码导览：Dispatch、Traits 与倒序循环
-
-FA2 的前向实现位于 `csrc/flash_attn/src/` 目录：
-
-1. **Dispatch 层（`flash_fwd_launch_template.h`）**：根据 `head_dim`（32/64/96/128/192/256）、数据类型、SM 架构与是否 Causal，选择编译期特化的分块参数 `Flash_fwd_kernel_traits<Headdim, kBlockM, kBlockN, kNWarps, ...>`。例如 `head_dim = 128` 在 A100（SM80）上常选 `128×64`，而在 Shared Memory 较小的 SM86/SM89 上可能收缩为 `64×64` 或 `128×32`。这些分支不是数学差异，而是 Shared Memory 容量与 <a class="term-ref" href="/books/llm-inference/glossary#occupancy" title="占用率：SM 上实际驻留活跃 warp 数占硬件最大支持 warp 数的比例">Occupancy</a>的静态权衡。
-2. **Grid 与 Warp 划分**：`run_flash_fwd` 发射 `dim3 grid(num_m_block, params.b, params.h)`；块内 `TiledMma` 使用 `Layout<Shape<Int<kNWarps>, _1, _1>>`，将所有 Warp 严格沿 $M$ 维排开——这就是 Split-Q 在源码中的直接落点。
-3. **为什么要倒序遍历 `n_block`**：主循环从 `n_block_max - 1` 倒着走到 `n_block_min`。在 Causal 场景下，右上方全遮蔽块根本不进循环；倒序先集中处理对角线附近需要掩码的前 `n_masking_steps` 步，随后整段切入完全无掩码的快路径，省去了主循环里每次迭代的分支判断。
-
-### 16.2.2 补齐 Prologue：看懂 `cp.async` 异步双缓冲节奏
-
-阅读 `flash_fwd_kernel.h` 时最容易卡壳的地方，是看到主循环第一行就是 `cp_async_wait<0>()`——在等谁？其实循环开始前有一段至关重要的 **Prologue（序幕）**：它负责一次性加载常驻的 $Q$ 块，并提前发出第一块 $K$ 的异步搬运。补齐 Prologue 后的主循环骨架如下（保留完整流水逻辑，省去模板与边界细节）：
-
-```cpp
-// 简化自 flash_fwd_kernel.h：包含 Prologue 与异步双缓冲节奏的前向主循环
-int n_block_max = ceil_div(seqlen_k, kBlockN);
-if (Is_causal) {
-    n_block_max = min(
-        n_block_max,
-        ceil_div((m_block + 1) * kBlockM + seqlen_k - seqlen_q, kBlockN));
-}
-
-// === Prologue：循环前常驻加载 Q，并异步预取倒序第一块 K ===
-copy(gQ[m_block], sQ);                       // Q 仅搬运一次，全程常驻片上
-copy(gK[n_block_max - 1], sK);               // 预取第一块 K，启动流水线
-cp_async_fence();                            // 提交第 1 组异步拷贝（Q + 首块 K）
-
-// === Mainloop：每轮分两拍，HBM 异步搬运与 Tensor Core 计算严格重叠 ===
-for (int n_block = n_block_max - 1; n_block >= n_block_min; --n_block) {
-    // [第 1 拍准备] 等上一轮预取的 K（首轮为 Q + 首块 K）到达 Shared Memory
-    cp_async_wait<0>();
-    __syncthreads();
-    copy(gV[n_block], sV);                   // 立刻后台异步搬运当前块 V
-    cp_async_fence();
-
-    // [第 1 拍重叠] 后台搬 V 的同时，Tensor Core 全速计算 S = Q * K^T
-    gemm(acc_s, sQ, sK);
-
-    // [第 2 拍准备] 等当前块 V 到达 Shared Memory
-    cp_async_wait<0>();
-    __syncthreads();
-    if (n_block > n_block_min) {
-        copy(gK[n_block - 1], sK);           // 立刻后台异步预取下一块 K
-        cp_async_fence();
-    }
-
-    // [第 2 拍重叠] 后台预取下一块 K 的同时，完成 Mask、Online Softmax 与 O += P * V
-    mask.apply(acc_s, n_block, m_block);
-    softmax.softmax_rescale_o(acc_s, acc_o, scale_log2);
-    gemm_rs(acc_o, P, sV);                   // P 留在寄存器，V 来自 Shared Memory
-}
-```
-
-把这段代码拆成节拍来看，精妙之处一目了然：
-
-1. **Prologue 点火**：循环开始前异步发射 `gQ` 和 `gK[n_block_max - 1]`，让第一轮进入主循环时手里已经有在途数据。
-2. **前半拍重叠（搬 $V$ ‖ 算 $QK^T$）**：`cp_async_wait<0>()` 确认 `sK` 就绪后，立即发射当前块 `gV[n_block] -> sV`，随即不等它搬完，直接让 Tensor Core 算 `S = sQ * sK^T`。
-3. **后半拍重叠（预取下一块 $K$ ‖ 算 Softmax + $PV$）**：`cp_async_wait<0>()` 确认 `sV` 就绪后，由于 `sK` 刚用完（或配合双缓冲切换槽位），立即异步预取下一轮的 `gK[n_block - 1]`；在下一块 $K$ 从 HBM 飞往 Shared Memory 的间隙里，CUDA Core 完成掩码与 Online Softmax（`softmax.h` 将 $1/\sqrt{d}$ 合并进 `exp2` 的底数缩放中以复用硬件快速 `ex2` 指令），紧接着 Tensor Core 完成 `acc_o += P * sV`。
-
-::: tip 核心直觉：检查自己读通 FA2 主循环的四个问题
-合上源码后，如果能流畅回答四个问题，说明已经把主循环读成了结构：$Q, K, V$ 各自搬几次（$Q$ 全程 1 次，$K/V$ 每块 1 次）；`m, l, acc_o` 在第几拍更新、rescale 因子乘在哪些量上；每轮结束后哪些状态跨轮保留在寄存器中（`acc_o, row_max, row_sum`）、哪些在循环外才写回 HBM；以及 `cp_async_fence` / `wait` 究竟重叠了哪两组操作。
+::: tip 核心直觉：Scale 的成本不在字节数，而在出现的位置
+以 Llama-3.1-8B 的 $4096 \times 4096$ 线性层为例，$N = 4096$ 的 FP32 per-channel scale 仅占 **$16\text{ KiB}$**，$M = 1024$ 的 per-token scale 仅占 **$4\text{ KiB}$**，对比 $16.78\text{ MB}$ 的 INT8 权重几乎可以忽略。真正影响算子效率的不是读取 scale 的字节数，而是两件事：一是 scale 落在 $K$ 循环外还是循环内；二是**动态激活量化的准备成本**——当 $M = 1024, K = 4096$ 时，单独跑一次动态 per-token 量化需读 $8.39\text{ MB}$ FP16 激活并写 $4.19\text{ MB}$ INT8 激活（共 $12.58\text{ MB}$，占同等 FP16 Matmul 总搬运量 $50.33\text{ MB}$ 的 **$25.0\%$**），因此生产引擎通常把动态量化融进上游 RMSNorm 或激活层的 Epilogue 中；而在 $M = 32$ 的 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>场景下，该搬运仅 $0.39\text{ MB}$（占 $1.2\%$），几乎无感。
 :::
 
-## 16.3 FlashAttention 3：为 Hopper 架构重写流水线
+### 16.1.2 为什么 Scale 必须在 FP32 中计算与保存
 
-在 **NVIDIA H100 80GB SXM**（FP16 稠密峰值 **989.5 TFLOPS**、FP8 稠密峰值 **1,979 TFLOPS**、HBM3 带宽 **3.35 TB/s**、**132 个 SM**、每 SM **228 KB Shared Memory**、CC 9.0）上，Tensor Core 算力相对 A100 暴涨超过 **$3\times$**，而执行 Softmax 的非矩阵乘单元与同步开销却没有同比例缩小。结果就是：FA2 那种“同一批 Warp 轮流干搬运、干 GEMM、再干 Softmax”的串行节拍搬到 H100 上，Tensor Core 在 Softmax 阶段大量空转，整体利用率掉到 **35%**。
+量化数据准备看似只有几行代码，却藏着一个极易引发静默 `NaN` 的浮点陷阱。
 
-FlashAttention-3（源码位于 `hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp`）正是围绕 Hopper 的三大新硬件能力彻底重排了执行流水线。图 16-1 直观对比了 FA2 与 FA3 的流水线架构差异。
+::: warning 常见误区：在 FP16 下调用 `clamp_min(1e-8)` 仍会除零
+IEEE 754 FP16 的最小正正规数是 $2^{-14} \approx 6.10 \times 10^{-5}$，最小正次正规数是 $2^{-24} \approx 5.96 \times 10^{-8}$。如果直接在 FP16 张量上计算 `(amax / 127.0).clamp_min(1e-8)`，由于 `1e-8` 小于最小正次正规数的一半，**FP16 会直接将其下溢舍入为 `0.0`**！一旦输入中出现全零行（如 padding token）或极小激活值，`x / scale` 会立刻变成 `0.0 / 0.0 = NaN` 并经矩阵乘污染整张输出张量。
+:::
+
+因此，统计 `amax`、计算 `scale`、执行除法与舍入都必须先提升到 **FP32**，并且 `scale` 必须以 **FP32** 传给后续的 Matmul Kernel（绝不可再转回 FP16）。下面给出可直接复用的量化数据准备参考实现：
+
+```python
+import torch
+
+
+def quant_per_token(x):
+    # x: [M, K] FP16/BF16/FP32 -> INT8 激活 + FP32 scale [M]
+    # 统计、scale、除法与舍入全程留在 FP32，防止 FP16 下溢除零
+    xf = x.float()
+    amax = xf.abs().amax(dim=1)
+    scale = (amax / 127.0).clamp_min(1e-8)
+    q = torch.round(xf / scale[:, None]).clamp(-127, 127).to(torch.int8)
+    return q, scale
+
+
+def quant_per_channel(w):
+    # w: [K, N] FP16/BF16/FP32 -> INT8 权重 + FP32 scale [N]
+    wf = w.float()
+    amax = wf.abs().amax(dim=0)
+    scale = (amax / 127.0).clamp_min(1e-8)
+    q = torch.round(wf / scale[None, :]).clamp(-127, 127).to(torch.int8)
+    return q, scale
+```
+
+全零行在 FP32 下得到 `scale = 1e-8`（严格正且有限），`0.0 / 1e-8 = 0`，既无除零也无精度畸变；遇到本身含 `NaN`/`Inf` 的脏输入则应在调用前直接拒绝，不要将其混作量化舍入。
+
+## 16.2 两条核心算子路径：W8A8 与 W8A16
+
+确定了 scale 粒度后，量化 Matmul 在 GPU 上分化为两条结构截然不同的算子路径，如图 16-1 所示。
 
 <figure class="book-figure">
-  <img src="/figures/llm-inference/fa2-fa3-pipeline.svg" alt="FA2 与 FA3 双泳道流水线对比：上泳道 FA2 由同组 Warp 串行交替 cp.async、GEMM 与 Softmax；下泳道 FA3 由 Producer Warpgroup 专职 TMA 异步搬运，两个 Consumer Warpgroup Ping-Pong 错峰执行 WGMMA 与 Softmax" loading="lazy">
-  <figcaption><span class="book-figure__label">图 16-1</span>自上而下对比两代架构的执行时间轴：上泳道展示 FA2（Ampere）在单组 Warp 内依赖 <code>cp.async</code> 交替推进搬运、GEMM 与 Softmax，Softmax 期间 Tensor Core 闲置；下泳道展示 FA3（Hopper）的 Warp Specialization——Producer 专职发起 TMA 搬运填充环形缓冲，两个 Consumer Warpgroup 通过 Ping-Pong 错峰运行 WGMMA 与 Softmax。结论：FA3 将“同一批线程轮流做三件事”改造为“专用硬件并行流转”，几乎消除了 Tensor Core 气泡。</figcaption>
+  <img src="/figures/llm-inference/quant-matmul-paths.svg" alt="量化 Matmul 双路径架构对比：左路为 W8A8 INT8 Tensor Core 累加后在 Epilogue 乘 scale，右路为 W8A16 在 K 循环内将 INT8 权重于寄存器反量化为 FP16 再进 FP16 Tensor Core" loading="lazy">
+  <figcaption><span class="book-figure__label">图 16-1</span>对比两条路径的数据流与反量化位置：左路（路径 A，W8A8）让 INT8 激活与 INT8 权重直接进入 INT8 Tensor Core 累加到 INT32，循环结束在 Epilogue 统一乘 <code>s_a[:, None] * s_b[None, :]</code>；右路（路径 B，W8A16）保持 FP16 激活，在 K 循环内将 INT8 权重于寄存器现场反量化成 FP16 再进 FP16 Tensor Core。结论：路径 A 赚算力峰值翻倍与双侧搬运减半，路径 B 赚权重搬运减半且免去激活量化误差。</figcaption>
 </figure>
 
-### 16.3.1 Hopper 三大硬件特性在 FA3 中的协同
+### 16.2.1 路径 A：W8A8 INT8 `tl.dot` + Epilogue 反量化
 
-文件名 `mainloop_fwd_sm90_tma_gmma_ws.hpp` 里的 `tma`、`gmma`、`ws` 正是 FA3 的三大支柱：
+在 W8A8 路径中，激活 $A_q$（per-token）与权重 $B_q$（per-channel）均以 INT8 存入 HBM 并直接送入 Tensor Core 执行 `int8 × int8 -> int32` 累加，循环结束后在 Epilogue 阶段一次性转为 FP32 并乘上 `sa[:, None] * sb[None, :]`。设计这条路径有三个关键硬件约束：
 
-1. **TMA（Tensor Memory Accelerator，张量内存加速器）**：
-   在 Ampere 的 `cp.async` 模式下，CTA 内上百个线程必须各自计算全局/共享地址、各自处理越界掩码，白白消耗大量寄存器与整数指令。Hopper 引入了独立的硬件 DMA 引擎 **TMA**：只需 **单个线程** 发射一条异步多维张量搬运指令，硬件自动完成步长计算、边界补零、Shared Memory Swizzle（消除 Bank Conflict）以及通过 `mbarrier` 发出就绪信号。
-2. **WGMMA（Warpgroup-level Asynchronous MMA）**：
-   矩阵乘的硬件执行粒度从单个 Warp（32 线程）升级为 **Warpgroup（4 个连续 Warp，共 128 线程）**。更关键的是，WGMMA 可以直接从 Shared Memory 读取操作数并且是**异步发射**的——Tensor Core 在后台吃着 WGMMA 指令的同时，CUDA Core 无需阻塞等待，可以立即并行推进其他指令。
-3. **Warp Specialization（线程束特化）与 Ping-Pong 错峰调度**：
-   既然搬运和计算都已经硬件异步化，FA3 干脆在 CTA 内部实行“专业分工”：
-   - **Producer Warpgroup（生产者）**：专职用极少量寄存器（通过 Hopper 的 `setmaxnreg` 指令把多余寄存器动态让渡给消费者）持续发 TMA 指令，把 $K, V$ 块源源不断填进多级环形 Shared Memory Buffer。
-   - **Consumer Warpgroups（消费者）**：拿到让渡来的充裕寄存器，专职计算。FA3 同时启用了**两层交错**：在单个 Consumer 内部，利用 WGMMA 的异步性把上一块的 Softmax 与下一块的 $QK^T$ / $PV$ 排成两级流水；在**两个 Consumer Warpgroup 之间采用 Ping-Pong 同步栅栏**——当 Consumer 0 在 CUDA Core / SFU 上算 Softmax 时，Consumer 1 正独占 Tensor Core 全速跑 WGMMA，下一拍角色互换。
+1. **累加器必须是 INT32**：INT8 绝对值上限是 $127$，单次乘法最大值 $127^2 = 16,129$。仅一个 `BLOCK_K = 32` 块的最坏局部和就是 $16,129 \times 32 = 516,128$，已达到 INT16 上限（$32,767$）的 **$15.8$ 倍**——第一个 $K$ 块就会溢出回绕成负数。而全长 $K = 4096$ 的最坏和为 $16,129 \times 4096 = 66,064,384$，仅占 INT32 上限（$2^{31}-1 \approx 2.15 \times 10^9$）的 $3.1\%$，余量超 $32$ 倍。
+2. **对齐 Tensor Core 指令形状**：在 NVIDIA Ampere（A100，CC 8.0）上，INT8 矩阵乘指令为 PTX `mma.sync.aligned.m16n8k32` 一族。将 `BLOCK_M`、`BLOCK_N` 取 16 的倍数、`BLOCK_K` 取 32 的倍数（如 `64, 64, 32`），才能稳定落到 INT8 Tensor Core 上兑现 **624 TOPS** 稠密算力。
+3. **正视 Epilogue 的执行单元差异**：每个输出元素在 Epilogue 执行 4 次操作（`int32 -> fp32`、乘 `sa`、乘 `sb`、`fp32 -> fp16`），相对总乘加量 $2MNK$ 的操作数占比为 $\frac{4MN}{2MNK} = \frac{2}{K}$，在 $K = 4096$ 时仅 $0.049\%$。但切忌把“操作数占比”等同于“时间占比”：Epilogue 运行在 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>Core 上（A100 FP32 峰值 $19.5\text{ TFLOPS}$），而主循环跑在 INT8 Tensor Core 上（$624\text{ TOPS}$），两者吞吐相差 **$32\times$**！按时间折算，Epilogue 在 $K = 4096$ 时占约 $1.6\%$ 仍可忽略，但若 $K$ 缩至 $256$ 以下，Epilogue 的耗时占比便会显著抬头。
 
-这三招叠加，让 FA3 在 H100 SXM 上把 FP16 算力利用率从 FA2 的 35% 直接拉回 **75%（740 TFLOPs/s）**。
+### 16.2.2 路径 B：W8A16 Fused Dequant（寄存器内现场反量化）
 
-### 16.3.2 FP8 低精度路径：块量化与 Incoherent Processing
+当激活的动态范围过大、激活量化会伤及模型质量时，生产系统往往只量化权重、保留 FP16 激活（W8A16 / W4A16）。此时有两种实现方式：
 
-H100 的 FP8 Tensor Core 峰值高达 **$1,979\text{ TFLOPS}$**（FP16 的 2 倍），但直接把整张 $Q, K, V$ 矩阵做 per-tensor FP8 <a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>，会被少数极大的离群值通道顶爆 scale，把其余有效数值全部压扁成 0。FA3 用两项技术稳住了 FP8 精度：
+- **两步基线（Unfused）**：先跑一个独立反量化 Kernel 把整块 INT8 权重展开成 FP16 写回 HBM，再调用常规 FP16 Matmul 把它读出来。以 $4096 \times 4096$ 权重为例，每个权重元素要过手 **5 字节**（读 INT8 $1\text{ B}$ + 写 FP16 $2\text{ B}$ + 读 FP16 $2\text{ B}$），仅权重搬运就高达 **$83.89\text{ MB}$**！
+- **融合反量化（Fused Dequant）**：在 Matmul 的 $K$ 循环内直接从 HBM 读取 INT8 权重分块 `b_int8`，在**寄存器**里乘上已提前加载的 `sb` 转成 FP16，紧接着送入 FP16 `tl.dot`。反量化后的 FP16 权重从不落盘 HBM，生命周期仅限于当次循环迭代。
 
-**块量化（Block Quantization）**：天然贴合 Attention 的分块循环——每个 $Q, K, V$ 分块维护独立的局部 scale，将离群值的影响锁死在单个分块内，并在片上借助寄存器转置对齐 FP8 WGMMA 严苛的布局要求。
+在 $M = 32, N = K = 4096$ 的 Decode 典型形状下，把激活与输出（共 $0.52\text{ MB}$）一起算进总搬运账：
 
-**Incoherent Processing（非相干处理）**：在计算 $QK^T$ 之前，对 $Q$ 和 $K$ 同时右乘一个随机正交矩阵 $M = D \cdot H$（其中 $D$ 是对角线随机取 $\pm 1$ 的对角阵，$H$ 是归一化 Hadamard 矩阵）。由于正交矩阵严格满足 $M M^T = I$，数学上完全不改变注意力分数：
+| 方案（$M=32, N=K=4096$） | 权重搬运量 | 总搬运量（含激活与输出） | 相对两步基线省流量 | 相对直接 FP16 省流量 |
+|---|---:|---:|---:|---:|
+| 两步基线（Dequant + FP16 Matmul） | $83.89\text{ MB}$ | $84.41\text{ MB}$ | 基线 | $-147.7\%$（更慢） |
+| 直接 FP16 Matmul（未量化权重） | $33.55\text{ MB}$ | $34.08\text{ MB}$ | $59.6\%$ | 基线 |
+| **Fused W8A16（寄存器内反量化）** | **$16.78\text{ MB}$** | **$17.30\text{ MB}$** | **$79.5\%$** | **$49.2\%$** |
+
+把三行放在一起才分得清两笔账：**融合**消灭的是两步基线的无意义 HBM 往返（省 $79.5\%$）；**量化**相对直接 FP16 省掉的是权重本身的一半体积（省 $49.2\%$）。
+
+不过，“融合总是更快”并不成立。每个权重元素在寄存器中需要做 3 次 CUDA Core 操作（`int8 -> fp32`、乘 `sb`、`fp32 -> fp16`——先在 FP32 中算准再转 FP16 喂给 Tensor Core），并且被 $M$ 方向的每个程序块各重复展开一次。相对主循环 $2MNK$ 的计算量，反量化操作数占比为：
 
 $$
-(Q M)(K M)^T = Q (M M^T) K^T = Q K^T
+\frac{3 \cdot \lceil M / \text{BLOCK\_M} \rceil \cdot K \cdot N}{2 M N K} = \frac{3 \cdot \lceil M / \text{BLOCK\_M} \rceil}{2 M}
 $$
 
-而快速 Hadamard 变换仅需 $O(d \log d)$ 的极低计算量，就能把集中在个别维度上的尖刺离群值均匀“摊平”到所有维度，使 FP8 路径的 RMSE 相对 per-tensor FP8 基线降低 **$2.6\times$**。
+当 $M = 32, \text{BLOCK\_M} = 64$ 时，该比例为 $4.7\%$，但此时算子深陷带宽受限区，反量化指令完全可以与 HBM 读延迟重叠；当 $M = 1024, \text{BLOCK\_M} = 128$ 时，比例摊薄至 $1.2\%$，但此时算子已进入<a class="term-ref" href="/books/llm-inference/glossary#compute_bound" title="compute-bound：运行时间主要受算力单元吞吐限制的状态">计算受限</a>区，W8A16 依然走 FP16 Tensor Core（A100 上限仍是 $312\text{ TFLOPS}$），省下的字节换不成时间，反量化指令反而白占指令发射带宽。
 
-::: info 工程取舍：理性看待 FA3 的 FP8 加速与精度
-两个容易误读的细节必须记牢：第一，**$2.6\times$ 的低误差是相对“per-tensor FP8 基线”而非相对 FP16**——论文测得 FP16 下 FA2 与 FA3 的 RMSE 为 $1.9 \times 10^{-4}$，而 FP8 版为 $9.1 \times 10^{-3}$，仍比 FP16 高出一个数量级以上；第二，**近 $1.2\text{ PFLOPs/s}$ 是特定配置下的峰值**，在长序列或特定 `head_dim` 带 Causal Mask 时，受限于格式转换与非矩阵乘开销，FP8 并不总是快于 FP16。此外，TMA、WGMMA 与原生 FP8 是 Hopper（SM90）专属能力，在 A100（SM80）上依然运行 FA2 路径。
-:::
+### 16.2.3 两条路径的核心代码对照（关键 3 行差异）
 
-## 16.4 CUTLASS 与 CuTe 抽象导读
+去掉外层地址初始化与校验样板，对比两条 Triton 路径的主循环与 Epilogue，你会发现两者骨架高度一致，核心差异恰恰浓缩在 **3 处**：
 
-无论是 FlashAttention 2/3，还是 vLLM / <a class="term-ref" href="/books/llm-inference/glossary#tensorrt_llm" title="TensorRT-LLM 推理引擎：NVIDIA 面向数据中心 GPU 的高性能 LLM 推理系统，当前默认采用 PyTorch 执行后端">TensorRT-LLM</a>的高性能量化 GEMM，底层都站在 **NVIDIA CUTLASS** 与 **CuTe** 的肩膀上。如果直接用原生 CUDA C++ 手算多维分片、Shared Memory Bank Conflict Swizzle、WGMMA 寄存器布局与 Cluster 广播，索引公式会迅速膨胀成难以维护的天书。读懂 CuTe 的布局直觉，工业级算子源码立刻清晰大半。
+```python
+import triton
+import triton.language as tl
 
-### 16.4.1 CuTe 核心直觉：`Layout = (Shape, Stride)` 代数对象
 
-在传统 CUDA 代码里，内存寻址是一堆散落在循环里的 `row * ld + col` 算术；而在 CuTe 中，**一切逻辑坐标到线性内存偏移的映射都被封装成一个可组合的代数对象：`Layout = (Shape, Stride)`**。
+@triton.jit
+def matmul_int8_core(
+    a_ptr, b_ptr, c_ptr, M, N, K,
+    stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+    scale_a_ptr, scale_b_ptr,
+    BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr,
+    BLOCK_K: tl.constexpr, GROUP_M: tl.constexpr,
+):
+    # ... 省略 GROUP_M 坐标映射，见 16.3 节 ...
+    pid = tl.program_id(0)
+    num_pid_n = tl.cdiv(N, BLOCK_N)
+    pid_m, pid_n = pid // num_pid_n, pid % num_pid_n
+    offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+    offs_n = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+    offs_k = tl.arange(0, BLOCK_K)
+    a_ptrs = a_ptr + offs_m[:, None] * stride_am + offs_k[None, :] * stride_ak
+    b_ptrs = b_ptr + offs_k[:, None] * stride_bk + offs_n[None, :] * stride_bn
 
-用一个小例子建立直觉：对于一个 $4 \times 8$ 的矩阵，逻辑坐标 $(i, j)$ 对应的线性偏移就是坐标与步长的内积 $\langle (i, j), \text{Stride} \rangle$：
+    # [差异 1] W8A8：INT32 累加器
+    acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.int32)
+    for k in range(0, tl.cdiv(K, BLOCK_K)):
+        k_rem = K - k * BLOCK_K
+        a = tl.load(a_ptrs, mask=(offs_m[:, None] < M) & (offs_k[None, :] < k_rem), other=0)
+        b = tl.load(b_ptrs, mask=(offs_k[:, None] < k_rem) & (offs_n[None, :] < N), other=0)
+        # [差异 2] W8A8：INT8 × INT8 直接进 INT8 Tensor Core
+        acc = tl.dot(a, b, acc, out_dtype=tl.int32)
+        a_ptrs += BLOCK_K * stride_ak
+        b_ptrs += BLOCK_K * stride_bk
 
-- **行主序（Row-Major）**：`Layout = ((4, 8), (8, 1))`，坐标 $(i, j) \mapsto 8i + j$；
-- **列主序（Column-Major）**：`Layout = ((4, 8), (1, 4))`，坐标 $(i, j) \mapsto i + 4j$；
-- **分层嵌套 Tile 布局**：`Shape` 和 `Stride` 可以任意嵌套元组！例如 `Layout = (((2, 2), (4, 2)), ((1, 4), (2, 8)))` 能用同一个数学对象直接表达“先切成 $2\times 4$ 小块、再按特定步长交错排布（Swizzle）”的复杂物理布局。
+    # [差异 3] W8A8：K 循环外一次性乘双侧 FP32 scale
+    sa = tl.load(scale_a_ptr + offs_m, mask=offs_m < M, other=0.0)
+    sb = tl.load(scale_b_ptr + offs_n, mask=offs_n < N, other=0.0)
+    c = acc.to(tl.float32) * sa[:, None] * sb[None, :]
+    c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_n[None, :] * stride_cn
+    tl.store(c_ptrs, c.to(tl.float16), mask=(offs_m[:, None] < M) & (offs_n[None, :] < N))
 
-一旦张量的物理排布、Thread Block 的分块、Warp 的分工以及 Tensor Core 指令的寄存器分片**全都被统一表示为 `Layout`**，算子开发就从“手推下标”升级成了简洁的代数操作：
 
-- `local_tile(tensor, tile_shape, coord)`：按给定分块形状切出属于当前 CTA 的子张量；
-- `local_partition(tensor, thread_layout, tid)`：按线程布局切出属于当前线程的寄存器切片；
-- `cute::copy(tiled_copy, src, dst)` 与 `cute::gemm(tiled_mma, A, B, C)`：把物理搬运和矩阵乘加变成与具体布局解耦的统一调用。
+@triton.jit
+def matmul_w8a16_core(
+    a_ptr, b_ptr, c_ptr, M, N, K,
+    stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+    scale_b_ptr,
+    BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr,
+    BLOCK_K: tl.constexpr, GROUP_M: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    num_pid_n = tl.cdiv(N, BLOCK_N)
+    pid_m, pid_n = pid // num_pid_n, pid % num_pid_n
+    offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+    offs_n = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+    offs_k = tl.arange(0, BLOCK_K)
+    a_ptrs = a_ptr + offs_m[:, None] * stride_am + offs_k[None, :] * stride_ak
+    b_ptrs = b_ptr + offs_k[:, None] * stride_bk + offs_n[None, :] * stride_bn
+    # per-channel scale 不依赖 k，循环外只读一次
+    sb = tl.load(scale_b_ptr + offs_n, mask=offs_n < N, other=1.0)
 
-### 16.4.2 CUTLASS 三级嵌套层次与 Hopper Cluster TMA Multicast
+    # [差异 1] W8A16：FP32 累加器
+    acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
+    for k in range(0, tl.cdiv(K, BLOCK_K)):
+        k_rem = K - k * BLOCK_K
+        a = tl.load(a_ptrs, mask=(offs_m[:, None] < M) & (offs_k[None, :] < k_rem), other=0.0)
+        b_int8 = tl.load(b_ptrs, mask=(offs_k[:, None] < k_rem) & (offs_n[None, :] < N), other=0)
+        # [差异 2] W8A16：寄存器内先按 FP32 反量化再转 FP16 进 FP16 Tensor Core
+        b = (b_int8.to(tl.float32) * sb[None, :]).to(tl.float16)
+        acc = tl.dot(a, b, acc, out_dtype=tl.float32)
+        a_ptrs += BLOCK_K * stride_ak
+        b_ptrs += BLOCK_K * stride_bk
 
-无论 2.x 还是 3.x，CUTLASS 都严格映射 GPU 的三级硬件层次：**Global Memory → Shared Memory（Block/CTA 级）→ Registers（Warp/Warpgroup 级）→ Tensor Core 指令（MMA Atom 级）**。下表对照了 CUTLASS 2.x 与 3.x 的核心抽象：
-
-| 层次 | 对应硬件单元 | CUTLASS 2.x 模板参数 | CUTLASS 3.x / CuTe 抽象 | 管辖职责 |
-|---|---|---|---|---|
-| **Threadblock / CTA Tile** | SM + Shared Memory | `ThreadblockShape`、`Stages` | `TileShape`、`ClusterShape`、`PipelineTmaAsync` | 定义单 CTA 输出块、多级环形 Shared Memory 与 TMA/`cp.async` 搬运 |
-| **Warp / Warpgroup Tile** | Warp 调度器 + 寄存器文件 | `WarpShape` | `TiledMMA`（由 Atom 与布局自动推导） | 决定每个 Warp/Warpgroup 持有的累加器切片与数据加载路径 |
-| **MMA Atom** | Tensor Core / SIMT 单元 | `InstructionShape`（如 `16×8×16`） | `MMA_Atom`（如 Hopper `SM90_*` WGMMA） | 映射到硬件单条矩阵乘加指令与 `TiledCopy` 微操作 |
-
-CUTLASS 3.x 最大的工程简化是引入了 **`CollectiveBuilder`**：开发者不再需要手动拼装三层嵌套形状与底层同步原语，只需声明 `TileShape`、`ClusterShape` 以及 `StageCountAuto` / `KernelScheduleAuto`，编译器就能自动推导出匹配的 WGMMA Atom、TMA 拷贝和 Warp-Specialized 主循环：
-
-```cpp
-// CUTLASS 3.x Hopper GEMM Collective 声明骨架（示意参数顺序，随版本微调）
-using TileShape    = cute::Shape<cute::_128, cute::_128, cute::_64>;
-using ClusterShape = cute::Shape<cute::_2, cute::_1, cute::_1>;
-
-using CollectiveMainloop = typename cutlass::gemm::collective::CollectiveBuilder<
-    cutlass::arch::Sm90, cutlass::arch::OpClassTensorOp,
-    cutlass::half_t, cutlass::layout::RowMajor, 8,
-    cutlass::half_t, cutlass::layout::ColumnMajor, 8,
-    float,
-    TileShape, ClusterShape,
-    cutlass::gemm::collective::StageCountAuto,
-    cutlass::gemm::collective::KernelScheduleAuto
->::CollectiveOp;
+    # [差异 3] W8A16：Epilogue 直接截断写回 FP16，无需再乘 scale
+    c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_n[None, :] * stride_cn
+    tl.store(c_ptrs, acc.to(tl.float16), mask=(offs_m[:, None] < M) & (offs_n[None, :] < N))
 ```
 
-特别注意上面代码里的 `ClusterShape = <2, 1, 1>`——这是 Hopper 新增的 **Thread Block Cluster** 能力。传统 GPU 中不同 CTA 彼此隔离，同一输出列上的 2 个 CTA 必须各自从 HBM 读一遍完全相同的权重块 $B$；而在 Hopper 上，组成 `2×1×1` Cluster 的 2 个 CTA 共享分布式共享内存（DSMEM），借助 **TMA Multicast（多播）**，硬件只需从 HBM 读取**一次** $B$ 块，就能经片上互连同时广播到 2 个 CTA 的 Shared Memory 中，直接把权重 HBM 流量砍半！（前提是发射的 Grid 对应维度必须能被 `ClusterShape` 整除。）
+::: warning 常见误区：指针步进、二维 Mask 与双层验收
+1. **指针步进写错步长**：$K$ 循环内必须是 `b_ptrs += BLOCK_K * stride_bk`（行主序下 `stride_bk = N`）。如果误写成 `stride_bn`（$= 1$），指针每步只挪 `BLOCK_K` 个元素而不是 `BLOCK_K` 行，程序不报越界却悄无声息算出一片垃圾值。
+2. **漏掉 $M/N$ 方向 Mask**：方阵测试时 $M, N, K$ 都是分块的整倍数，只写 `offs_k < k_rem` 也能蒙混过关；一旦遇到 Decode 典型形状 $M = 32 < \text{BLOCK\_M} = 64$，缺少 `offs_m[:, None] < M` 会立刻越界读脏数据。
+3. **混淆 Kernel 误差与算法量化误差**：校验正确性必须拆成两层——先拿**同一份量化后的 `a_q, b_q, sa, sb`** 与高精度参考（如 CPU INT64 点积后乘 scale）比对，确认 Kernel 实现零 Bug；再拿输出与原始 FP16 矩阵乘比对，评估算法级量化误差。
+:::
 
-### 16.4.3 Tile 配置、流水级数与吞吐的定量权衡
+## 16.3 L2 Cache Swizzle（`GROUP_M`）与 `@triton.autotune`
 
-选择 `TileShape` 和流水级数 `Stages` 本质上是一笔 Shared Memory、寄存器与并行度的三角账。以 FP16 GEMM 的典型分块 `TileShape = 128×128×64` 为例：
+写对数值只是第一步。同样的分块大小，仅仅改变程序块的遍历顺序与按形状自动选配分块，往往就能把有效带宽和吞吐拉升一个台阶。
 
-- 单级（1 Stage）Shared Memory 占用：$A$ 块 $128 \times 64 \times 2\text{ B} = 16\text{ KiB}$，$B$ 块 $64 \times 128 \times 2\text{ B} = 16\text{ KiB}$，合计 **$32\text{ KiB}$**。
-- 3 级流水占 **$96\text{ KiB}$**，4 级流水占 **$128\text{ KiB}$**，6 级流水占 **$192\text{ KiB}$**。
-- 对照硬件上限：**A100** 单 Block Shared Memory 上限为 **$163\text{ KB}$**（每 SM $164\text{ KB}$），6 级流水直接超限；**H100** 每 SM 提升至 **$228\text{ KB}$**，可以轻松塞下 5–6 级深流水以掩盖 HBM3 延迟。但流水级数越高，单 SM 能同时驻留的 CTA 数量（Occupancy）越低。
+### 16.3.1 用 8×8 输出块看清 `GROUP_M` 如何拯救 L2 缓存
 
-| 调参维度 | 对数据复用与延迟隐藏的影响 | 资源代价（Shared Mem / 寄存器） | 吞吐权衡与适用场景 |
-|---|---|---|---|
-| **增大 $M/N$ Tile**（如 $64\times 128 \to 128\times 256$） | 单块算术强度上升，HBM 重复读减少 | Shared Memory 与累加器寄存器显著上升 | 大矩阵 / Prefill 吞吐上升；小 $M$ Decode 会导致 CTA 总数低于 SM 数（108/132），反而变慢 |
-| **减小 $K$ Tile**（如 $64 \to 32$） | 每级 Shared Memory 减半，便于加深流水 | Mainloop 迭代步数翻倍，同步与指令开销占比上升 | 仅在 Shared Memory 吃紧、无法维持多级流水时考虑 |
-| **增加 `StageCount`**（如 $3 \to 5$） | 预取更深，更能掩盖高延迟 HBM 访问 | Shared Memory 线性增长，驻留 CTA 数下降 | HBM 延迟未藏住时收益明显；一旦把活跃 CTA 压过头导致寄存器/调度吃紧，反而退化 |
-| **增大 `ClusterShape`**（如 $1\times 1\times 1 \to 2\times 1\times 1$） | TMA Multicast 减少 $B$（或 $A$）的 HBM 流量 | 受 Grid 整除约束，小形状容易出现尾部空转 | 适合中大型带宽敏感 GEMM；超小形状开启反而增加调度开销 |
+设想输出矩阵被切成了 **$8 \times 8$ 共 64 个输出块**，每一行块需要 $A$ 的 1 条行带，每一列块需要 $B$ 的 1 条列带。观察调度器依次发射前 9 个输出块（CTA）时 L2 缓存发生了什么：
 
-### 16.4.4 工程选型：何时用 Triton，何时下沉 CUTLASS
+- **默认行优先调度（`GROUP_M = 1`）**：前 9 个块是 `(0,0), (0,1), ..., (0,7), (1,0)`。为了算完这 9 个块，SM 必须从 HBM 加载 **$2$ 条 $A$ 行带 + 全部 $8$ 条 $B$ 列带 = $10$ 条数据带**。更糟的是，当第 0 行一路扫到 `(0,7)` 时，早先读入的 $B$ 第 0 列带大概率已被后续 $B$ 列带挤出 L2 缓存；等到第 1 行 `(1,0)` 开算，只能重新从 HBM 把 $B$ 第 0 列带再搬一遍——形成典型的 **L2 缓存颠簸（Cache Thrashing）**。
+- **分组列优先调度（`GROUP_M = 3`，实际工程常取 `8`）**：每 `GROUP_M` 行划为一个水平组，组内按**列优先**顺序派发。此时前 9 个块变成 `(0,0), (1,0), (2,0), (0,1), (1,1), (2,1), (0,2), (1,2), (2,2)`——它们集中在 $3 \times 3$ 的方阵局部窗口里，只需加载 **$3$ 条 $A$ 行带 + $3$ 条 $B$ 列带 = $6$ 条数据带**！每条刚读进 L2 的 $B$ 列带都会立刻被同列的 3 个块连续复用，相对行优先直接减少 **$40\%$** 的 HBM 重复读取。
 
-对比[第 13–15 章](chapter-13.md)的 Triton 实践与本章的工业级 CUTLASS / FlashAttention 实现，两者并不是“谁替代谁”的竞争关系，而是对应不同层级的优化抓手：
+在 Triton 中，只需要 7 行整数映射就能把一维 `pid` 转换为 L2 友好的 `(pid_m, pid_n)`：
 
-| 对比维度 | Triton（高级块级 DSL） | CUTLASS / FlashAttention（底层 C++ 模板库） |
-|---|---|---|
-| **代码量与可维护性** | 数十至百行 Python，改分块只需改 `BLOCK_*` 或加 Autotune | 模板层层嵌套，按 head_dim / 架构 / Causal 静态展开实例 |
-| **可移植性** | 编译到 PTX / 多后端，同一份源码可跨 NVIDIA、AMD 及国产芯片后端迁移 | 深度绑定 CUDA 与具体微架构（SM80 与 SM90 主循环彻底重写） |
-| **硬件控制上限** | 块级 Tiling、自动软件流水已成熟，新特性（TMA / WS）随版本逐步开放 | 完整暴露 Warp Specialization、WGMMA、Cluster Multicast 与手写寄存器布局 |
-| **迭代与调试周期** | 分钟级迭代，支持 Python 级检查与快速原型验证 | 编译缓慢、模板报错冗长，需配合 `ncu` / SASS 级剖析 |
+```python
+num_pid_m = tl.cdiv(M, BLOCK_M)
+num_pid_n = tl.cdiv(N, BLOCK_N)
+num_pid_in_group = GROUP_M * num_pid_n
+group_id = pid // num_pid_in_group
+first_pid_m = group_id * GROUP_M
+group_size_m = min(num_pid_m - first_pid_m, GROUP_M)
+pid_m = first_pid_m + ((pid % num_pid_in_group) % group_size_m)
+pid_n = (pid % num_pid_in_group) // group_size_m
+```
 
-一条实用的工程判断法则：**当瓶颈在“算法融合与消除 HBM 中间往返”时，首选 Triton**——用一天写出原型就能拿到 80%–90% 的大头收益，并且可维护性与跨平台移植成本极低（[第 22 章](chapter-22.md)跨芯片迁移时会再次看到这一优势）；**当瓶颈已压榨到微架构极限（如核心 Attention、主力 FP8/W4A16 量化 GEMM），需要精细控制每一个 Warp 的分工与 TMA 多播时，直接复用 FlashAttention / CUTLASS 等工业库或在其基础上扩展**，把最稀缺的工程精力花在刀刃上。
+注意一个边界直觉：当 Decode 形状 $M = 32 \le \text{BLOCK\_M} = 64$ 时，`num_pid_m = 1`，`group_size_m` 自动退化为 $1$，分组调度不起作用；`GROUP_M` 真正发威是在 $M$ 方向切出多个行块的大 batch 或 <a class="term-ref" href="/books/llm-inference/glossary#prefill" title="预填充：并行处理输入 prompt 并写入初始 KV 缓存的前向阶段">Prefill</a>阶段。
 
-**延伸阅读**：[FlashAttention（Dao 等，2022）](https://arxiv.org/abs/2205.14135)、[FlashAttention-2（Dao，2023）](https://arxiv.org/abs/2307.08691)、[FlashAttention-3（Shah 等，2024）](https://arxiv.org/abs/2407.08608)、[Dao-AILab/flash-attention 源码](https://github.com/Dao-AILab/flash-attention)、[NVIDIA CUTLASS 与 CuTe 文档](https://github.com/NVIDIA/cutlass)。
+### 16.3.2 无冲突的 `@triton.autotune` 写法与计时要点
+
+固定的 `BLOCK_M=64, BLOCK_N=64` 不可能在 Decode（$M=32$）和 Prefill（$M=1024$）上同时最优。以 **A100（108 个 SM）** 与 $N = 4096$ 为例：
+
+- **Decode（$M = 32$）**：`64×64` 切出 $1 \times 64 = 64$ 个程序块，SM 覆盖率约 $59\%$；若盲目增大到 `128×128`，程序块骤减为 $1 \times 32 = 32$ 个，近 **$70\%$ 的 SM 彻底空转**！因此小 $M$ 偏爱小 tile 换并行度。
+- **Prefill（$M = 1024$）**：`128×128` 仍能切出 $8 \times 32 = 256$ 个程序块（超过 108 个 SM 两倍以上），此时大 tile 显著提高寄存器与<a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="shared memory：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">共享内存</a>复用、压低 HBM 流量并摊薄反量化开销。
+
+把分块搜索交给 `@triton.autotune` 时，**有一个极常见的 API 签名冲突**：`triton.Config` 提供的元参数（`BLOCK_M`、`BLOCK_N`、`BLOCK_K`、`GROUP_M`、`num_warps`、`num_stages`）会由自动调优器注入，**Host Wrapper 绝对不能再以关键字参数重复传入同名参数**，并且发射网格必须改写为接收 `META` 字典的 `lambda` 函数：
+
+```python
+import torch
+import triton
+import triton.language as tl
+
+
+@triton.autotune(
+    configs=[
+        triton.Config(
+            {"BLOCK_M": 64, "BLOCK_N": 64, "BLOCK_K": 32, "GROUP_M": 8},
+            num_warps=4, num_stages=3,
+        ),
+        triton.Config(
+            {"BLOCK_M": 128, "BLOCK_N": 64, "BLOCK_K": 32, "GROUP_M": 8},
+            num_warps=4, num_stages=3,
+        ),
+        triton.Config(
+            {"BLOCK_M": 64, "BLOCK_N": 128, "BLOCK_K": 32, "GROUP_M": 8},
+            num_warps=8, num_stages=3,
+        ),
+        triton.Config(
+            {"BLOCK_M": 128, "BLOCK_N": 128, "BLOCK_K": 32, "GROUP_M": 8},
+            num_warps=8, num_stages=4,
+        ),
+    ],
+    key=["M", "N", "K"],
+)
+@triton.jit
+def matmul_int8_autotuned_kernel(
+    a_ptr, b_ptr, c_ptr, M, N, K,
+    stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+    scale_a_ptr, scale_b_ptr,
+    BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr,
+    BLOCK_K: tl.constexpr, GROUP_M: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    num_pid_m = tl.cdiv(M, BLOCK_M)
+    num_pid_n = tl.cdiv(N, BLOCK_N)
+    num_pid_in_group = GROUP_M * num_pid_n
+    group_id = pid // num_pid_in_group
+    first_pid_m = group_id * GROUP_M
+    group_size_m = min(num_pid_m - first_pid_m, GROUP_M)
+    pid_m = first_pid_m + ((pid % num_pid_in_group) % group_size_m)
+    pid_n = (pid % num_pid_in_group) // group_size_m
+
+    offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+    offs_n = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+    offs_k = tl.arange(0, BLOCK_K)
+    a_ptrs = a_ptr + offs_m[:, None] * stride_am + offs_k[None, :] * stride_ak
+    b_ptrs = b_ptr + offs_k[:, None] * stride_bk + offs_n[None, :] * stride_bn
+
+    acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.int32)
+    for k in range(0, tl.cdiv(K, BLOCK_K)):
+        k_rem = K - k * BLOCK_K
+        a = tl.load(a_ptrs, mask=(offs_m[:, None] < M) & (offs_k[None, :] < k_rem), other=0)
+        b = tl.load(b_ptrs, mask=(offs_k[:, None] < k_rem) & (offs_n[None, :] < N), other=0)
+        acc = tl.dot(a, b, acc, out_dtype=tl.int32)
+        a_ptrs += BLOCK_K * stride_ak
+        b_ptrs += BLOCK_K * stride_bk
+
+    sa = tl.load(scale_a_ptr + offs_m, mask=offs_m < M, other=0.0)
+    sb = tl.load(scale_b_ptr + offs_n, mask=offs_n < N, other=0.0)
+    c = acc.to(tl.float32) * sa[:, None] * sb[None, :]
+    c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_n[None, :] * stride_cn
+    tl.store(c_ptrs, c.to(tl.float16), mask=(offs_m[:, None] < M) & (offs_n[None, :] < N))
+
+
+def matmul_int8_autotuned(a_q, b_q, scale_a, scale_b):
+    M, K = a_q.shape
+    N = b_q.shape[1]
+    c = torch.empty((M, N), dtype=torch.float16, device=a_q.device)
+    # grid 必须是接收 META 的 callable，且调用处不再重复传 BLOCK_* / num_warps
+    grid = lambda META: (
+        triton.cdiv(M, META["BLOCK_M"]) * triton.cdiv(N, META["BLOCK_N"]),
+    )
+    matmul_int8_autotuned_kernel[grid](
+        a_q, b_q, c, M, N, K,
+        a_q.stride(0), a_q.stride(1), b_q.stride(0), b_q.stride(1),
+        c.stride(0), c.stride(1), scale_a.contiguous(), scale_b.contiguous(),
+    )
+    return c
+```
+
+::: info 工程取舍：微基准计时的 L2 陷阱
+使用 `triton.testing.do_bench(..., warmup=25, rep=100, return_mode="median")` 计时时（Triton 3.x 默认返回均值，建议显式指定 `median` 抗抖动），需先预热一次完成 JIT 与 Autotune。特别要注意评估“两步基线 vs Fused W8A16”时的 **L2 陷阱**：`do_bench` 只在两次完整调用**之间**清空 L2 缓存，清不掉同一次调用里“第一步写完 FP16 权重、第二步紧接着读它”的 L2 命中。A100 的 L2 高达 **40 MB**，刚好能兜住 $4096 \times 4096$ 的 $33.55\text{ MB}$ FP16 权重！因此仅看微基准耗时可能会低估融合收益，用 Nsight Compute（`ncu`）核对真实 DRAM 读字节数才不会误判。
+:::
+
+## 16.4 Decode vs Prefill 收益拆账：A100 Roofline 定量分水岭
+
+把 W8A8 与 W8A16 两条路径放回[第 1 章](chapter-01.md)的 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline 模型</a>，就能把“何时该用哪条路径”算得一清二楚。
+
+以 **NVIDIA A100 80GB SXM**（稠密 FP16 峰值 **$312\text{ TFLOPS}$**，稠密 INT8 峰值 **$624\text{ TOPS}$**，HBM2e 带宽 **$2\text{ TB/s}$**，FP16 脊点 **$156\text{ FLOP/B}$**，INT8 脊点 **$312\text{ FLOP/B}$**）上运行 Llama-3.1-8B 典型的 $N = K = 4096$ 线性层为例（按理想单次搬运模型，A100 40 MB L2 在小 $M$ 下接近该假设，不计 2:4 结构化稀疏）：
+
+- 总计算量恒为 $\text{FLOPs} = 2 M N K$；
+- 理想搬运字节数：
+  - **FP16**：$B_{\text{FP16}} = 2(MK + KN + MN)$；
+  - **W8A8**（输出 FP16，忽略 $16\text{ KiB}$ scale）：$B_{\text{W8A8}} = MK + KN + 2MN$；
+  - **W8A16**（激活与输出 FP16，权重 INT8）：$B_{\text{W8A16}} = 2MK + KN + 2MN$。
+
+代入从 Decode 到 Prefill 的五档典型 $M$，得到完整拆账表：
+
+| 形状（$N=K=4096$） | 路径 | 理想搬运量 | 算术强度（FLOP/B） | 瓶颈区间 | A100 理论时间下限 | 相对 FP16 理论加速 | 收益来源 |
+|---|---|---:|---:|---|---:|---:|---|
+| **$M = 32$**（Decode） | FP16 | $34.08\text{ MB}$ | $31.5$ | 带宽受限 | $17.0\ \mu\text{s}$ | $1.00\times$ | 基线（权重占 $98.5\%$） |
+| $M = 32$ | **W8A16** | $17.30\text{ MB}$ | $62.1$ | 带宽受限 | **$8.7\ \mu\text{s}$** | **$1.97\times$** | 权重搬运减半 |
+| $M = 32$ | **W8A8** | $17.17\text{ MB}$ | $62.5$ | 带宽受限 | **$8.6\ \mu\text{s}$** | **$1.98\times$** | 权重搬运减半 |
+| **$M = 128$**（大 batch Decode） | FP16 | $35.65\text{ MB}$ | $120.5$ | 带宽受限 | $17.8\ \mu\text{s}$ | $1.00\times$ | 接近 FP16 脊点 |
+| $M = 128$ | **W8A16** | $18.87\text{ MB}$ | $227.6$ | **计算受限** | $13.8\ \mu\text{s}$ | $1.29\times$ | 先撞 $312\text{ TFLOPS}$ 顶板 |
+| $M = 128$ | **W8A8** | $18.35\text{ MB}$ | $234.1$ | 带宽受限 | **$9.2\ \mu\text{s}$** | **$1.94\times$** | 吃带宽且未撞 $624\text{ TOPS}$ |
+| **$M = 1024$**（Prefill） | FP16 | $50.33\text{ MB}$ | $682.7$ | 计算受限 | $110.1\ \mu\text{s}$ | $1.00\times$ | 算力打满 |
+| $M = 1024$ | **W8A16** | $33.55\text{ MB}$ | $1024.0$ | 计算受限 | $110.1\ \mu\text{s}$ | **$1.00\times$** | 无算力增益 + 反量化开销 |
+| $M = 1024$ | **W8A8** | $29.36\text{ MB}$ | $1170.3$ | 计算受限 | **$55.1\ \mu\text{s}$** | **$2.00\times$** | Tensor Core 峰值翻倍 |
+| **$M = 4096$**（长 Prefill） | FP16 | $100.66\text{ MB}$ | $1365.3$ | 计算受限 | $440.5\ \mu\text{s}$ | $1.00\times$ | 算力打满 |
+| $M = 4096$ | **W8A16** | $83.89\text{ MB}$ | $1638.4$ | 计算受限 | $440.5\ \mu\text{s}$ | **$1.00\times$** | 无算力增益 |
+| $M = 4096$ | **W8A8** | $67.11\text{ MB}$ | $2048.0$ | 计算受限 | **$220.3\ \mu\text{s}$** | **$2.00\times$** | Tensor Core 峰值翻倍 |
+
+### 16.4.1 三段分水岭与“为什么不是 4 倍”
+
+从表中的数据可以直接推导出一条极其清晰的架构判断——**W8A8 的两笔收益（搬运减半 + 峰值翻倍）绝不会相乘变成 $4\times$**：
+
+1. **纯带宽红利区（A100 上 $M \lesssim 84$）**：令 W8A16 的<a class="term-ref" href="/books/llm-inference/glossary#arithmetic_intensity" title="arithmetic intensity：每搬运 1 字节数据所执行的浮点运算次数（FLOP/Byte）">算术强度</a>等于 A100 FP16 脊点 $156$，解 $\frac{2MNK}{2MK + KN + 2MN} = 156$ 得 $M \approx 84.4$。在此左侧，FP16、W8A16、W8A8 全部落在带宽斜线上，耗时由权重体积决定。此时 W8A16 与 W8A8 的搬运量仅差 $0.8\%$（$17.30\text{ MB}$ vs $17.17\text{ MB}$），理论加速双双逼近 **$2\times$**——而 W8A16 免去了激活量化误差与动态量化成本，是 Decode 小 batch 的绝对首选。
+2. **过渡收窄区（A100 上 $84 < M < 169$）**：W8A16 因为搬运减半、算术强度翻倍，率先在 $M \approx 84$ 撞上 FP16 $312\text{ TFLOPS}$ 的算力顶板，而原始 FP16 要到 $M \approx 169$ 才撞上顶板。因此在这个夹缝里，W8A16 的理论加速从 $1.9\times$ 逐渐滑向 $1.0\times$；而 W8A8 凭借 $624\text{ TOPS}$ 的高顶板，依然稳守近 $2\times$ 提速。
+3. **计算受限区（A100 上 $M \ge 169$）**：FP16 与 W8A16 同受 $312\text{ TFLOPS}$ 限制，W8A16 省下的权重字节彻底换不成时间，循环内的 CUDA Core 反量化反而让它持平或略慢于 FP16。此时唯有 **W8A8**（A100 INT8 $624\text{ TOPS}$，或 H100 原生 FP8 **$1,979\text{ TFLOPS}$**）能凭硬件峰值翻倍再拿走一笔近 $2\times$ 的计算红利（若未把动态激活量化融进上游算子，单独搬运 $12.58\text{ MB}$ 在 $M=1024$ 时约耗 $6.3\ \mu\text{s}$，会吃掉约 $11\%$ 的 W8A8 净收益）。
+
+::: info 工程取舍：换到 H100 上分水岭怎么漂移？
+在 **NVIDIA H100 80GB SXM** 上，FP16 脊点从 A100 的 $156$ 跃升至 **$295\text{ FLOP/B}$**（$989.5\text{ TFLOPS} \div 3.35\text{ TB/s}$）。按同样公式反解，W8A16 的纯带宽红利区直接延伸到 **$M \approx 172$**！但反过来，H100 提供了原生硬件 **FP8 Tensor Core（$1,979\text{ TFLOPS}$）**，精度远好于 INT8 且免去了 INT32 累加的某些限制，因此在 Hopper 及后续架构上，W8A8 FP8 成为了兼顾 Prefill 与大 batch Decode 的主力生产方案。
+:::
+
+**延伸阅读**：[Triton 矩阵乘官方教程](https://triton-lang.org/main/getting-started/tutorials/03-matrix-multiplication.html)（`GROUP_M` Swizzle 与 Autotune 范式）、[Triton `tl.dot` API 文档](https://triton-lang.org/main/python-api/generated/triton.language.dot.html)、[NVIDIA A100 Tensor Core Architecture Whitepaper](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet.pdf)、[PTX ISA `mma` 指令手册](https://docs.nvidia.com/cuda/parallel-thread-execution/#warp-level-matrix-instructions-mma)。

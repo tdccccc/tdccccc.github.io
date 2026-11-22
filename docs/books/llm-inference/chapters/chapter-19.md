@@ -1,199 +1,177 @@
-# 第 19 章 昇腾部署架构与 vllm-ascend 插件机制
+# 第 19 章 国产芯片全景与软件栈地图
 
-<p class="chapter-summary">理顺昇腾推理环境的“版本咬合链”与三层自下而上诊断模型，解剖 <code>vllm-ascend</code> 平台插件如何将一次算子调用透明路由至 NPU，并建立与 CUDA 部署的逐项排障对照。</p>
+<p class="chapter-summary">脱离单看峰值算力的参数表陷阱，用「四面墙」与「五层软件栈」建立评估国产 AI 芯片推理能力的统一坐标系，看清平台插件与统一算子层两条生态接入路线。</p>
 
-有了[第 18 章](chapter-18.md)的五层软件栈地图，接下来我们把同一个大语言模型真正部署到昇腾 Ascend 910B 上。把一条 `vllm serve` 命令从 NVIDIA GPU 搬到昇腾 <a class="term-ref" href="/books/llm-inference/glossary#npu" title="Neural Processing Unit，神经网络处理器：专为矩阵与向量张量计算设计的专用人工智能加速处理器">NPU</a>，命令本身几乎一字不差，但真正让工程师第一次上手就频频碰壁的，是隐藏在命令之下的**版本咬合约束**、**三层启动诊断顺序**以及**树外（out-of-tree）平台插件的分发架构**。先跑通服务并看清插件全貌，下一章再钻进 <a class="term-ref" href="/books/llm-inference/glossary#cann" title="Compute Architecture for Neural Networks，昇腾神经网络计算架构：华为昇腾 NPU 的分层异构计算软件栈与算子开发平台">CANN</a>与 <a class="term-ref" href="/books/llm-inference/glossary#ascendc" title="Ascend C，AscendC 算子编程语言：面向华为昇腾 NPU 的 C++ 自定义算子编程接口，显式管理片上 UB 与硬件流水">AscendC</a>的底层算子链路。
+前面三篇围绕 NVIDIA GPU 构建了完整的推理性能直觉、引擎架构与底层算子方法论。当同一套大语言模型业务走向国产加速卡（昇腾、海光、摩尔线程、沐曦等）时，工程师最先遇到的往往不是芯片本身的物理极限，而是**缺少坐标系**——厂商规格书各标各的算力口径，支持状态散落在社区追踪表、镜像仓库与发行说明里；同一句“支持 vLLM”，可能意味着服务刚能拉起来，也可能意味着全套融合算子与多卡并行都已打磨成熟。
 
-## 19.1 为什么说昇腾环境是一条“版本咬合链”
+本章先画出这张评估与排障的总地图：用「四面墙」判断一块芯片能否扛起目标推理负载，用「五层软件栈」将模糊的报错收敛到精确的工程层，再拆解平台级插件与统一算子层两种主流生态接入范式。
 
-在 NVIDIA GPU 上，多数开发者习惯先装驱动、再 `pip install vllm`，多数情况下就能顺利跑通。但在昇腾生态里，这套“松散安装”的经验几乎必然翻车——因为昇腾推理环境不是几份互不干涉的软件包，而是一条环环相扣、跨层校验 ABI 的**版本咬合链**。
+## 19.1 脱离参数表陷阱：用「四面墙」评估国产芯片
 
-### 五环成对约束
+拿到一块新的国产加速卡，最容易犯的错误是直接拿规格书里的 FP16 峰值 TFLOPS 与 HBM 容量去和 A100 / H100 做除法，从而得出“算力相当，性能应该差不多”的草率判断。正如[第 1 章](chapter-01.md)用 <a class="term-ref" href="/books/llm-inference/glossary#roofline" title="Roofline model，屋顶线模型：用峰值算力、峰值显存带宽和算术强度估算 kernel 性能上限的模型">Roofline</a>揭示的那样，纸面峰值只是物理上限；在国产芯片推理落地中，能否真正触及这个上限，取决于由开源社区追踪表 [awesome-china-gpu](https://github.com/bytetora/awesome-china-gpu) 提炼出的**四面墙（Four Walls）**：生态墙、显存墙、通信墙与精度墙。
 
-从宿主机内核态一直到用户态推理引擎，每一环都在编译或运行期调用下一环的头文件、动态库或内部扩展接口：
+### 显存墙：先算清权重、KV 与量化的硬算术
 
-```text
-宿主机 HDK（驱动 / 固件）
-   │  内核态设备节点与驱动 ABI
-   ▼
-CANN Toolkit / Ops + NNAL（含 ATB 神经网络加速库）
-   │  AscendCL / aclnn 动态库与环境变量
-   ▼
-PyTorch  ◀──强版本配对──▶  TorchNPU（torch_npu）
-   │  PrivateUse1 分发键与 C++ 扩展符号
-   ▼
-vLLM     ◀──同版本同步──▶  vllm-ascend（+ 可选 Triton-Ascend 等）
-```
+四面墙里最像算术、最容易一票否决的是**显存墙**。推理服务能否启动，首先要看单卡显存装不装得下“模型权重 + <a class="term-ref" href="/books/llm-inference/glossary#kv_cache" title="Key-Value Cache，键值缓存：保存历史 token 注意力 K/V 向量、避免 decode 阶段重复计算的显存区域">KV 缓存</a>+ 中间激活 + 框架开销”。
 
-这条链上有三组最容易咬断的**硬配对约束**：
+以全书主线模型 **Llama-3.1-8B**（8.03B 参数，32 层，8 个 KV 头，头维 128）与 32B 级别模型为例，按十进制容量（$1\,\text{GB} = 10^9\,\text{B}$）和二进制缓存（$1\,\text{GiB} = 2^{30}\,\text{B}$）直接算账：
 
-1. **PyTorch 与 TorchNPU 强配对**：`torch_npu` 深入绑定 PyTorch 的底层 C++ Dispatcher 与存储结构，必须精确匹配次版本号（例如 PyTorch `2.10.0` 对应 TorchNPU `2.10.0.post7`），单升 PyTorch 会立即触发符号未定义或 `import` 失败。
-2. **vLLM 与 `vllm-ascend` 同版本锁死**：`vllm-ascend` 实现的是 vLLM 内部的 `Platform`、`WorkerBase`、`AttentionBackend` 等接口，随 vLLM 主干演进极快，两者必须保持版本对齐（例如 `vllm-ascend v0.30.0` 对应一套验证通过的组合：Python `3.12`、CANN `9.2.1`、NNAL `9.2.1`、PyTorch `2.10.0`、TorchNPU `2.10.0.post7`、vLLM `0.30.0`；可选依赖如 `Triton-Ascend 3.6.0.post2` 亦需核对适用芯片型号）。
-3. **CANN 与宿主机 HDK 兼容区间**：CANN 运行时依赖宿主机驱动提供的设备接口与<a class="term-ref" href="/books/llm-inference/glossary#shared_memory" title="shared memory：同一线程块（SM）内可见、带宽极高、延迟仅数十周期的可编程片上存储">共享内存</a>机制，升级 CANN 大版本时必须核对宿主机 HDK 是否在官方兼容矩阵内。
+- **FP16/BF16 权重（每参数 2 字节）**：Llama-3.1-8B 仅权重就需要 $8.03 \times 10^9 \times 2\,\text{B} \approx 16.06\,\text{GB}$；32B 模型权重高达 $32 \times 10^9 \times 2\,\text{B} = 64\,\text{GB}$。一块 64 GB HBM 的昇腾 Ascend 910B 单卡放 Llama-3.1-8B 绰绰有余，但若直接塞 FP16 的 32B 模型，仅权重就把显存占满，连 1 个 token 的 KV 缓存都分不出来。
+- **权重<a class="term-ref" href="/books/llm-inference/glossary#quantization" title="quantization：用更低位宽表示权重或激活，以降低显存占用与带宽搬运量">量化</a>折半（INT8 / FP8，每参数 1 字节）**：把权重压到 8 bit 后，Llama-3.1-8B 权重降至约 $8\,\text{GB}$，32B 权重降至约 $32\,\text{GB}$，单张 64 GB 卡立刻腾出一半空间给 KV 缓存与运行时激活。
+- **KV 缓存随上下文与并发线性膨胀**：Llama-3.1-8B 每 token 的 FP16 KV 占用为 $2 \times 32 \times 8 \times 128 \times 2\,\text{B} = 128\,\text{KiB}$，单条 8K 上下文请求即消耗 $1\,\text{GiB}$；如果 32 条 8K 请求并发在途，仅 KV 缓存就需要 $32\,\text{GiB}$，直接成为比权重更大的显存消费者。
 
-### 容器镜像锁什么、不锁什么
+权重规模翻倍，显存刚性翻倍；量化把权重折半，但省下的空间需要去精度墙兑现代价。
 
-工程实践中，强烈建议优先采用官方预构建容器镜像（如 `quay.io/ascend/vllm-ascend:<tag>`），而非在裸机上从零逐包编译。容器镜像一次性锁死了 **CANN、NNAL、PyTorch/TorchNPU、vLLM 与 `vllm-ascend`** 整个用户态软件栈，省去大量编译与路径冲突。
+### 生态墙、通信墙与精度墙
 
-但必须牢记一条边界：**容器镜像只锁用户态，绝不锁宿主机驱动、固件与设备节点**。以昇腾 Atlas A2（910B）单卡容器启动为例，必须把宿主机设备节点、管理通道与驱动动态库显式映射进容器：
+越过显存墙之后，另外三面墙决定服务能不能跑顺、跑大、跑准：
 
-```bash
-export IMAGE=quay.io/ascend/vllm-ascend:v0.30.0
-docker run --rm --name vllm-ascend --shm-size=1g \
-  --device /dev/davinci0 \
-  --device /dev/davinci_manager \
-  --device /dev/devmm_svm \
-  --device /dev/hisi_hdc \
-  -v /usr/local/dcmi:/usr/local/dcmi \
-  -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
-  -v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ \
-  -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
-  -v /etc/ascend_install.info:/etc/ascend_install.info \
-  -p 8000:8000 -it "$IMAGE" bash
-```
+| 评估维度 | 核心追问 | 工程落点与决定因素 | 典型短板症状 |
+|---|---|---|---|
+| **生态墙** | 能否无缝接入主流推理引擎？ | 平台插件（如 `vllm-ascend`）、官方容器镜像、原生推理框架三种接入形态 | 版本咬合困难、新模型架构长期滞后、社区优化特性用不上 |
+| **显存墙** | 权重、KV 与激活能否放下并跑满带宽？ | HBM 容量、实际可用显存带宽、分页 KV 缓存与内存池碎片管理 | 权重加载即 OOM、并发稍高就频繁抢占、Decode 延迟卡死在低有效带宽 |
+| **通信墙** | 单卡不够时，多卡并行能否线性扩展？ | 卡间互联拓扑（如 HCCS / PCIe）、集合通信库（HCCL / MCCL 等）与计算通信重叠 | 单卡吞吐尚可，切到 TP=4/8 后 AllReduce 占比飙升、扩展效率骤降 |
+| **精度墙** | 量化与底层算子替换后，输出质量是否守住底线？ | 低比特算子支持、scale 粒度（per-channel / per-token）、累加精度与舍入方式 | 标称支持 INT8/FP8，实跑数学与代码评测准确率断崖下跌或长文重复乱码 |
 
-不同昇腾硬件形态的挂载项存在明显差异：例如 Atlas A3 采用双 DIE（双裸片）设计，单张物理卡需映射两个 `/dev/davinci*` 设备节点；而 300I Duo 等推理卡的设备节点与驱动路径也有专属清单。切忌把某一款卡的 `docker run` 脚本机械照搬到所有机型上。
+其中，**生态墙**的接入方式比单季度的算力榜单稳定得多。目前国产芯片接入推理引擎主要呈现三种形态：
 
-::: warning 常见误区
-遇到 `ImportError` 或插件激活失败时，最糟糕的反应是随手执行 `pip install -U vllm` 或只升级 `torch_npu`。这只会把整条咬合链彻底拧断。正确动作是立刻用 `pip show vllm vllm-ascend torch torch_npu` 冻结当前版本快照，再对照 `vllm-ascend` 官方 README 的兼容矩阵整组对齐。
+1. **引擎平台插件**（如 `vllm-ascend`、`vllm-metax`）：复用 vLLM 等主流引擎的调度、<a class="term-ref" href="/books/llm-inference/glossary#paged_attention" title="Paged Attention，分页注意力：将 KV 缓存切为固定大小 block，通过块表映射到非连续物理显存的注意力管理机制">PagedAttention</a>块管理与模型代码，只需对齐引擎与插件版本，生态迭代最快。
+2. **厂商预装容器镜像**：一次性打包用户态 SDK、框架与推理引擎，显著降低环境搭建门槛，但**容器镜像锁的是用户态，锁不住宿主机驱动与内核固件**，跨机器迁移仍需核对宿主机版本。
+3. **独立原生推理框架**（如厂商自研推理引擎）：能针对自家硬件做激进的整图编译与定制融合，但新模型适配周期和业务接入门槛相对更高。
+
+::: tip 核心直觉
+评估一块国产芯片时，永远不要笼统地问“它比 A100 慢多少”，而要按**四面墙**逐项拆问：当前卡住的是显存装不下（显存墙）、多卡通信拖后腿（通信墙）、插件缺热点融合算子（生态墙），还是量化误差超标（精度墙）？四面墙呈木桶短板效应，任意一面没过关，其余三面的纸面优势都无法兑现。
 :::
 
-## 19.2 三层自下而上诊断模型
+## 19.2 五层软件栈与自下而上的排障直觉
 
-环境装好后，不要直接甩一个 8B 或 32B 模型上去赌运气。遵循[第 18 章](chapter-18.md)“自下而上”的排障铁律，用**三层最小探针**在 2 分钟内把驱动、框架与插件彻底验明正身。
-
-### 三层探针逐级验证
-
-1. **第一层：驱动与设备可见性（`npu-smi info`）**
-   在容器内执行 `npu-smi info`，核对三项信息：预期卡号全部列出、每张卡的 `Health` 状态为 `OK`、HBM 容量与当前占用（`HBM-Usage`）正常。如果这一层看不到卡或健康状态异常，立刻停下来查宿主机 HDK 与容器 `--device` 挂载，向上排查毫无意义。
-
-2. **第二层：框架设备识别与基础算子调度（`torch.npu`）**
-   用一段 10 行 Python 脚本验证 `torch_npu` 能正常加载、识别设备，并在 NPU 上真正跑通一次张量加法与同步：
-
-```python
-import torch
-import torch_npu  # 显式导入以向 PyTorch 注册 PrivateUse1/NPU 后端
-
-assert torch.npu.is_available(), "未检测到可用 Ascend NPU，请检查 CANN 环境变量与驱动"
-device_count = torch.npu.device_count()
-x = torch.randn(2, 2, device="npu:0", dtype=torch.float16)
-y = x + x
-torch.npu.synchronize()
-print(f"设备: {y.device}, 可见卡数: {device_count}, 结果均值: {y.float().mean().item():.4f}")
-```
-
-3. **第三层：推理引擎平台插件激活（vLLM 启动日志）**
-   仅仅 `import vllm_ascend` 成功，**绝不等于** vLLM 已经启用了昇腾平台。必须启动一次最小模型（或冒烟命令），在启动日志中亲眼核对三条关键信号：
-   - 发现插件组：`Available plugins for group vllm.platform_plugins`
-   - 列出昇腾条目：`- ascend -> vllm_ascend:register`
-   - 平台激活生效：`Platform plugin ascend is activated`
-
-   如果机器上同时安装了多个厂商插件，还必须检查环境变量 `VLLM_PLUGINS`——该变量用于白名单过滤允许加载的插件名，配置错误会把 `ascend` 直接屏蔽掉。
-
-### 2³ = 8 种组合中最常见的 4 类典型故障
-
-三层探针每层只有“通过 / 失败”两种结果，共 $2^3 = 8$ 种状态，但工程中 90% 的故障高度集中在以下 4 类典型组合：
-
-| `npu-smi`（驱动层） | `torch.npu`（框架层） | 插件激活（引擎层） | 故障精准定位 | 高频根因与首选处理动作 |
-|---|---|---|---|---|
-| 失败 | 失败 | 失败 | **驱动 / 固件与容器挂载层** | 宿主机 HDK 异常，或 `docker run` 漏挂 `/dev/davinci*`、`/dev/devmm_svm`、驱动库目录 |
-| 通过 | 失败 | 失败 | **SDK 环境或框架配对层** | 当前 shell 未 `source` CANN/NNAL 的 `set_env.sh` 环境变量脚本，或 PyTorch 与 `torch_npu` 版本不配对 |
-| 通过 | 通过 | 失败 | **平台插件注册层** | `vllm` 与 `vllm-ascend` 版本不一致、`setup.py` 入口点缺失，或被 `VLLM_PLUGINS` 环境变量过滤 |
-| 通过 | 通过 | 通过（但跑崩/极慢） | **图捕获、显存或算子库层** | 图模式捕获异常（先关图跑 Eager 定位）、HBM OOM（调小并发/长度）或关键算子静默回退（转第 20/21 章） |
+如果说四面墙是**选型评估的横轴**，那么**五层软件栈**就是**工程排障的纵轴**。无论底层是昇腾、海光、摩尔线程还是沐曦，一套能跑通大语言模型服务的软件栈都由自底向上的五个层次咬合而成。
 
 <figure class="book-figure">
-  <img src="/figures/llm-inference/vllm-ascend-plugin.svg" alt="vllm-ascend 平台插件架构：展示 Python 入口点注册、NPUPlatform 接管引擎核心组件以及 CustomOp 算子路由至昇腾实现的完整链路" loading="lazy">
-  <figcaption><span class="book-figure__label">图 19-1</span>从左上角插件入口点出发，向右追踪平台级接管（Worker、ModelRunner、Attention、通信、编译）与算子级分发（CustomOp 查表路由到 <code>forward_oot</code>）。核心结论：插件不是零散补丁，而是接管芯片相关全部执行面的平行架构层。</figcaption>
+  <img src="/figures/llm-inference/chip-stack.svg" alt="国产芯片五层软件栈：自底向上依次为驱动与固件、SDK 与运行时、算子库、框架插件、推理引擎" loading="lazy">
+  <figcaption><span class="book-figure__label">图 19-1</span>从底部驱动/固件逐层向上读至推理引擎。核心结论：适配建设按“先跑通（驱动/SDK）→ 再覆盖（算子/插件）→ 再调优（调度/显存）”推进；排障则必须遵循同一条自下而上的顺序。</figcaption>
 </figure>
 
-## 19.3 `vllm-ascend` 平台插件架构剖析
+### 五层职责与失效画像
 
-理解 `vllm-ascend` 的源码组织，能把排障效率提升一个量级：今后无论是查注意力后端走哪条路、查某算子有没有芯片实现，还是改图捕获配置，都不必在整个仓库盲搜，而是直接按图索骥。
+将庞杂的组件收束到 5 个确定层次后，任何一个报错的候选根因就不再是大海捞针：
 
-### 顶层模块职责与引擎 Hook 地图
+| 软件栈层级 | 核心职责 | 代表组件示例 | 缺失或版本错位时的典型症状 |
+|---|---|---|---|
+| **第 5 层：推理引擎** | 模型结构表达、连续批处理调度、KV 缓存管理、采样与 API 服务 | vLLM、SGLang | 看似应用层问题：并发排队异常、配置参数未生效、请求超时 |
+| **第 4 层：框架插件** | 把芯片接进引擎：注册平台类、算子分发、注意力后端、图捕获与通信适配 | `vllm-ascend`、`vllm-metax`、`vllm-plugin-FL` | 引擎启动失败、日志未激活目标平台、或静默落入 PyTorch 原生慢路径 |
+| **第 3 层：算子库** | 芯片侧基础算子与融合算子实现（MatMul、Attention、RMSNorm、SwiGLU） | AscendC / AOL / TBE、muBLAS、mcBLAS、FlagGems | 吞吐远低于预期、部分算子静默走通用实现或回退 CPU、数值精度偏差 |
+| **第 2 层：SDK / 运行时** | 厂商核心工具链：编译器、运行时调度、显存管理、集合通信库 | CANN、DTK、MUSA Toolkit、MACA SDK | 算子编译失败、`undefined symbol`、找不到动态库或集合通信建链卡死 |
+| **第 1 层：驱动 / 固件** | 硬件识别、设备节点暴露、物理显存分配与底层指令下发 | NPU/DCU/GPU 宿主机驱动与固件 | `npu-smi` 等管理工具看不到卡、容器内设备不可见、上层全部无法启动 |
 
-`vllm-ascend` 靠打包配置 `setup.py` 里的两组 Python 入口点（entry points）接入 vLLM：
+### 症状在上，根因在下
 
-- **`vllm.platform_plugins`**：声明 `ascend = vllm_ascend:register`。vLLM 启动时调用 `register()`，拿到类路径 `vllm_ascend.platform.NPUPlatform` 并实例化，正式确立当前硬件平台。
-- **`vllm.general_plugins`**：注册平台之外的扩展能力（如 KV Connector、自定义模型加载器、服务级 Profiling 钩子等），在各个 Worker 进程中加载生效。
+推理排障最反直觉的一条规律是：**症状出现的位置与根因所在的位置经常错开两到三层**。
 
-`NPUPlatform` 继承自 vLLM 的 `Platform` 基类，几个类属性直接定义了昇腾后端的身份契约：`_enum = PlatformEnum.OOT`（树外平台）、`device_type = "npu"`、`device_control_env_var = "ASCEND_RT_VISIBLE_DEVICES"`，以及 `dispatch_key = "PrivateUse1"`（PyTorch 为非原生第三方加速卡保留的算子分发键）。
+例如，算子库漏掉了一个融合激活实现，用户在第 5 层（推理引擎）观察到的现象是“<a class="term-ref" href="/books/llm-inference/glossary#itl" title="Inter-Token Latency，token 间延迟：同一请求相邻两个输出 token 之间的时间间隔，决定流式输出是否卡顿">ITL</a>偏高、吞吐上不去”；宿主机驱动与容器设备节点没映射全，用户在第 5 层看到的报错是“vLLM 初始化 Worker 超时退出”。正因如此，排查顺序**绝不能倒过来**：先在最底层确认硬件设备可见且健康，再确认 SDK 运行时与 PyTorch 后端能正常执行张量运算，再确认算子库与插件成功激活，最后才去怀疑推理引擎的调度参数或模型代码。
 
-整个插件按职责清晰划分为以下顶层模块（以 v0.30.0 结构为例，具体文件名随版本微调）：
+把 19.1 节的「四面墙」叠加到五层栈上，可以迅速将模糊症状收敛到一两个格子：
 
-| 插件目录 / 文件 | 对接的 vLLM 核心接口 | 核心实现类与职责 |
+| 四面墙 | 主要落点层级 | 排查时的分叉追问 |
 |---|---|---|
-| `platform.py` | `Platform` 基类 | `NPUPlatform`：设备识别、环境变量控制、向引擎声明该用哪个注意力/通信/编译类 |
-| `worker/` | `WorkerBase`、`GPUModelRunner` | `NPUWorker` 与 `NPUModelRunner`：设备初始化、权重加载、组批、KV 缓存与图捕获编排 |
-| `ops/` | `CustomOp.register_oot` | 芯片侧逐算子实现（含 `layernorm.py`、`activation.py` 及 `ops/triton/`） |
-| `attention/` | `AttentionBackend` | `AscendAttentionBackend`（Dense）、`AscendMLABackend`（MLA）、`AscendFABackend`（FA3）等，负责注意力计算与 KV 布局 |
-| `quantization/` | 量化配置与线性层接口 | W8A8、W4A16 等昇腾侧量化加载与推理算子接入 |
-| `distributed/` | `CommunicatorBase` | `NPUCommunicator`：封装 HCCL 集合通信原语与多卡并行协同 |
-| `compilation/` | `get_compile_backend`、图封装接口 | `AscendCompiler` 与 `ACLGraphWrapper`：图编译与 ACLGraph 静态图捕获重放 |
-| `_cann_ops_custom/` | 自定义 C++/AscendC 扩展 | 随插件编译打包的昇腾自定义融合算子（如 `npu_add_rms_norm_bias`） |
+| **生态墙** | 框架插件、推理引擎 | 平台插件是否激活？算子是否命中专用分发路径？ |
+| **显存墙** | 驱动 / 固件、SDK / 运行时 | 是底层根本分不出来（驱动/硬件上限），还是分配器碎片与 KV 管理不当（SDK/引擎）？ |
+| **通信墙** | SDK / 运行时、框架插件 | 是底层集合通信库（如 HCCL）拓扑与带宽受限，还是插件通信切分与重叠配置未生效？ |
+| **精度墙** | 算子库、框架插件 | 是底层量化/融合 kernel 数值行为偏差，还是插件层 cast 顺序与量化路由选错？ |
 
-此外，仓库中通常还有一个 `patch/` 目录（分为 Worker 启动前的全局 platform patch 与每个进程内的 worker patch）。**它不是标准 Hook，而是标准插件接口尚未覆盖之处的定向补丁**——如果在源码里看到某个 vLLM 核心类的行为和上游不同却找不到注册点，去 `patch/` 按类名检索往往能立刻水落石出。
+### 切半排查范围的黄金边界
 
-### 追踪一次 `RMSNorm` 的路由全景
+在框架插件（第 4 层）与推理引擎（第 5 层）之间，有一条极好用的二分界线——每次遇到怪异故障时，先问自己一句：
 
-模型代码里写的依然是标准 vLLM 的 `RMSNorm(hidden_size, eps)`，一行针对昇腾的分支都没有。那么运行前向时，它究竟是如何精准落到昇腾芯片实现上的？整个过程跨越四站：
+> **把完全相同的模型、输入和启动参数换到另一块芯片（如 NVIDIA GPU）上，这个问题还会不会出现？**
 
-1. **模型构造算子**：Llama 或 Qwen3 的 Decoder Layer 调用 `RMSNorm(...)`；`RMSNorm` 继承自 vLLM 的 `CustomOp`。
-2. **`CustomOp.__new__` 查树外注册表**：在初始化阶段，`vllm_ascend/utils.py::register_ascend_customop()` 已经把 `"RMSNorm": AscendRMSNorm`、`"SiluAndMul": AscendSiluAndMul` 等映射通过 `CustomOp.register_oot()` 登记进全局表 `op_registry_oot`。于是实例化 `RMSNorm` 时，`__new__` 截获类名并直接返回 `AscendRMSNorm` 实例。
-3. **绑定树外前向方法**：`CustomOp.__init__` 检查当前平台，因为 `NPUPlatform` 的 `_enum` 为 `PlatformEnum.OOT`（`is_out_of_tree()` 为真），自动将前向入口绑定到 `forward_oot`。
-4. **执行昇腾实现**：前向触发 `vllm_ascend/ops/layernorm.py::AscendRMSNorm.forward_oot`。它根据是否存在残差输入及自定义算子开关，选择调用融合自定义扩展 `torch.ops._C_ascend.npu_add_rms_norm_bias`，或 CANN 内置接口 `torch_npu.npu_rms_norm`。
+如果换卡后问题依然复现，根因大概率落在推理引擎的配置、调度逻辑、tokenizer 或模型权重本身；如果换卡后问题立刻消失，就可以放心把怀疑范围瞬间砍半，直接锁定在插件层及以下的四层栈里。下一章在昇腾实战中，我们会把这条思路固化成可一键执行的三层诊断探针。
 
-::: tip 核心直觉：未登记算子的隐性回退
-这套查表机制同时揭示了“静默回退”的根源：如果某个模型用到的 `CustomOp` 没有被注册进 `op_registry_oot`，`CustomOp` 基类的默认 `forward_oot` 会自动退回到 `forward_native`——即在 NPU 上把融合算子拆成一堆零碎的 PyTorch 原生操作逐个下发。程序不报错、输出也能看，但性能会大打折扣。这也正是[第 21 章](chapter-21.md)<a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>分析要重点排查的对象。
+::: warning 常见误区
+层与层之间的**接口 ABI 与版本号**是最隐蔽的故障温床。引擎调插件的平台接口、插件调 PyTorch/算子库的绑定符号、算子库调 SDK 的运行时接口，任意相邻两层跨大版本混搭，都会在完全意想不到的位置抛出符号未定义或段错误。不要靠“把某个包升级到最新版”去碰运气，必须整组核对兼容矩阵。
 :::
 
-注意力的路由则独立于 `CustomOp`：它由平台级方法 `NPUPlatform.get_attn_backend_cls()` 统一决策，根据模型是否使用 <a class="term-ref" href="/books/llm-inference/glossary#mla" title="Multi-head Latent Attention，多头潜变量注意力：将 K/V 压缩到低维潜变量缓存，并利用矩阵结合律在查询侧吸收上投影的注意力结构">MLA</a>、稀疏注意力或 FA3 特性，直接把整套计算与分页 KV 布局指向 `attention/` 下的对应后端。
+## 19.3 两种生态接入范式：平台插件 vs 统一算子层
 
-### 多进程 `spawn`、ACLGraph 图捕获与常规部署要点
+面对十余家架构各异的国产芯片，推理引擎社区不可能为每家芯片维护一套独立的 vLLM 分支——一旦上游重构调度器或新增模型架构，分叉仓库很快就会沦为孤岛。为了实现“**一份引擎与模型代码跑遍多家芯片**”，业界演化出了两种互补的接入范式。
 
-把上述插件机制落回一条生产可用的部署命令，有三个工程细节值得牢记：
+### 范式一：平台级插件（以 `vllm-ascend` 为代表）
 
-- **强制 `spawn` 多进程模式**：导出 `VLLM_WORKER_MULTIPROC_METHOD=spawn`。Linux 默认的 `fork` 会把主进程已经初始化的 NPU/ACL 设备上下文一并复制给子进程，极易引发运行时死锁或显存状态损坏；`spawn` 启动干净的 Python 子进程，彻底规避上下文污染。
-- **先 Eager 通畅，再开 ACLGraph 图模式**：`vllm-ascend` 通过 ACLGraph（及图优化开关如 NPUGraph Ex）实现类似 <a class="term-ref" href="/books/llm-inference/glossary#cuda_graph" title="CUDA 图：将一连串 GPU kernel 启动录制成静态图单次重放，显著降低 CPU 发射开销">CUDA Graph</a>的捕获与重放，以消除 <a class="term-ref" href="/books/llm-inference/glossary#decode" title="autoregressive decoding，解码：逐 token 自回归生成输出、并每步复用历史 KV 缓存的阶段">Decode</a>阶段的 Python 下发开销。排查精度异常或启动卡死时，先关闭图模式跑通 Eager 确认算子与权重无误，再按版本文档开启静态图捕获。
-- **规范的冒烟与显存观测口径**：启动后按“非流式校验语义 → 流式校验逐 chunk 输出”两步冒烟，同时区分 `npu-smi info` 的设备整卡占用（`HBM-Usage`）与进程内的框架分配峰值（`torch.npu.max_memory_allocated()`）：
+初学者很容易把[第 18 章](chapter-18.md)讲的 `CustomOp` 与平台级插件混为一谈，实际上两者的抽象粒度相差一个数量级：
 
-```bash
-export ASCEND_RT_VISIBLE_DEVICES=0
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
+- **算子级替换（`CustomOp`）**：仅把单个算子（例如 `SiluAndMul`）换成自定义 <a class="term-ref" href="/books/llm-inference/glossary#triton" title="Triton GPU 编程语言：以 Block 级张量抽象用 Python 编写高性能 GPU kernel 的语言与编译器">Triton</a>或 <a class="term-ref" href="/books/llm-inference/glossary#cuda" title="Compute Unified Device Architecture，统一计算设备架构：NVIDIA 的 GPU 并行计算平台与编程模型">CUDA</a>实现，引擎其余部分纹丝不动。
+- **平台级插件（Hardware Plugin）**：面向整块芯片提供一整套平行适配实现，涵盖设备识别（`Platform`）、工作进程（`Worker`）、执行器（`ModelRunner`）、算子库（`ops/`）、注意力后端（`attention/`）、多卡通信（`distributed/`）与图编译封装（`compilation/`）。
 
-# 以 Llama-3.1-8B（FP16 权重约 16 GB，在 910B 64 GB 单卡上预留充裕 KV 空间）为例启动服务
-vllm serve meta-llama/Llama-3.1-8B-Instruct \
-  --dtype float16 \
-  --max-model-len 8192 \
-  --max-num-seqs 32
+从推理引擎的视角看，平台级插件靠一条简洁的四步注册链运转：
 
-# 流式冒烟：-N 禁用 curl 本地缓冲，temperature=0 锁定贪心解码便于跨芯片肉眼初检
-curl -sS -N http://localhost:8000/v1/completions \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"meta-llama/Llama-3.1-8B-Instruct","prompt":"Explain why the sky is blue.","max_tokens":64,"temperature":0,"stream":true}'
+1. **自动发现与加载**：引擎启动时扫描 Python 打包元数据中的插件入口点（如 `vllm.platform_plugins`）。
+2. **注册平台类**：插件向引擎返回自己的 `Platform` 子类（例如昇腾的 `NPUPlatform`）。
+3. **按硬件激活平台**：引擎检测当前可用设备，选中对应平台，将设备类型、可见性环境变量、PyTorch 分发键（`PrivateUse1`）一并定死。
+4. **按平台分发组件**：平台选定之后，注意力后端、集合通信器、图捕获封装与各 `CustomOp` 的芯片实现自动挂接生效。
+
+这套机制的精髓在于把“与芯片无关的公共复杂性”（连续批处理调度、PagedAttention 块表管理、模型前向结构、采样逻辑）留在上游引擎里只写一份，把“与芯片强绑定的底层实现”全部收口到独立插件仓库。模型代码里不需要出现任何 `if is_ascend():` 分支；新增一家芯片的工程门槛，从“重写一座推理引擎”降级为“实现一个标准硬件插件”。
+
+### 范式二：统一算子与通信层（FlagGems + FlagCX + `vllm-plugin-FL`）
+
+平台级插件解决了引擎复用问题，但如果 10 家芯片厂商各自维护一套插件，仍然意味着常见的几十上百个算子和集合通信原语要被重复写 10 遍。以 FlagOS 生态为代表的**统一算子与通信层**（`FlagGems` + `FlagCX` + `vllm-plugin-FL`）试图再向下抽象一层：
+
+- **FlagGems（统一算子库）**：基于 Triton 编写通用算子源码（同时也支持针对特定后端的专用实现与调参），注册进 PyTorch ATen 分发体系，运行时交由各家芯片对应的 Triton 后端编译器降维生成目标指令。
+- **FlagCX（统一集合通信库）**：抽象跨卡通信原语（AllReduce、AllGather、ReduceScatter 等），向下桥接各厂商原生通信库（NCCL、HCCL、MCCL 等），解决多卡<a class="term-ref" href="/books/llm-inference/glossary#tensor_parallelism" title="tensor parallelism：将单层权重矩阵切分到多张加速卡上并行计算并通过集合通信汇总的并行策略">张量并行</a>时的通信墙接入问题。
+- **`vllm-plugin-FL`（统一引擎插件）**：把 FlagGems 与 FlagCX 接入 vLLM 的平台插件框架，形成一条覆盖多芯片（包括 NVIDIA、昇腾、海光、摩尔线程、沐曦、天数智芯、昆仑芯、燧原等十余家平台）的**三级优先级分发链**：
+
+```text
+模型发起算子调用
+   │
+   ▼
+[第一级] FlagGems 统一实现 ── 命中 ──► 走统一（或后端特化）Triton Kernel
+   │ 未覆盖
+   ▼
+[第二级] 厂商原生 / 插件实现 ── 命中 ──► 走芯片专用算子库（如 aclnn / muBLAS）
+   │ 未覆盖
+   ▼
+[第三级] PyTorch 参考实现兜底 ── 可执行 ──► 在目标设备或 CPU 兜底执行（最慢，缺底层原语则报错）
 ```
 
-## 19.4 NVIDIA CUDA 与昇腾 Ascend 部署差异速查表
+### 量化关键路径回退的代价
 
-把第二篇在 NVIDIA GPU 上的部署经验与本章的昇腾流程并排对照，你会发现**模型与业务语义完全一致，差异全部收敛在模型之下的运行栈**。日常排障时，按这张表从上往下核对即可：
+三级分发链极大提升了“跑得起来”的速度，但也藏着一个致命隐患：当某个算子掉到第三级兜底（或未融合的通用慢路径）时，服务往往**不会报错**，只会默默变慢。那么，一次回退究竟有多致命？
 
-| 对比维度 | NVIDIA CUDA 部署路径 | 昇腾 Ascend 部署路径 | 工程排查优先级 |
-|---|---|---|---|
-| **设备管理与显存观测** | `nvidia-smi`、`torch.cuda.max_memory_allocated()` | `npu-smi info`（HBM-Usage）、`torch.npu.max_memory_allocated()` | 区分整卡设备占用与框架分配器峰值，不混用口径 |
-| **核心环境变量** | `CUDA_VISIBLE_DEVICES` | `ASCEND_RT_VISIBLE_DEVICES`、`VLLM_WORKER_MULTIPROC_METHOD=spawn`、`VLLM_PLUGINS` | 选卡失效查可见性变量；多卡/多进程卡死先核 `spawn` |
-| **软件安装依赖链** | 宿主机驱动 + CUDA/cuDNN → PyTorch → vLLM | 宿主机 HDK + CANN/NNAL → PyTorch + TorchNPU → vLLM + `vllm-ascend` | 按兼容矩阵整组核验，容器不锁宿主机 HDK |
-| **引擎平台加载** | 引擎内置树内（in-tree）平台，原生识别 CUDA | 树外平台（`PlatformEnum.OOT`），经 `vllm.platform_plugins` 注册激活 | 启动日志必须出现 `Platform plugin ascend is activated` |
-| **图捕获与编译优化** | CUDA Graph（`--compilation-config` 控制捕获模式） | ACLGraph 与 NPUGraph Ex（经 `compilation/` 封装控制） | 启动卡捕获或输出漂移时，先回退 Eager 隔离变量 |
-| **多卡集合通信** | NCCL（NVLink / PCIe / IB） | HCCL（HCCS / PCIe / RoCE），由 `NPUCommunicator` 接入 | 多卡建链失败或扩展性差时，查 HCCL 拓扑与网络配置 |
-| **算子覆盖与兜底** | 内置 CUDA / Triton 融合算子 + `CustomOp` | CANN 内置 + `register_ascend_customop` / `_cann_ops_custom`，缺项退回 `forward_native` | 未命中 `op_registry_oot` 会静默走慢路径，需做覆盖审计 |
-| **性能与精度调试工具** | `nsys`、`ncu`、PyTorch Profiler | `msprof`、`msprobe`、`torch_npu.profiler`、服务级 Profiling | 不同工具指标与采集方式各异，按阶段（Prefill/Decode）分采 |
+设某个算子在理想芯片实现下，占一次前向总耗时的比例为 $p$；当它回退到慢 $s$ 倍的实现且其余部分保持不变时，新的端到端耗时 $T'$ 与原耗时 $T$ 的比值为：
 
-归根结底，排查一次昇腾部署异常的黄金顺序只有五步：**版本咬合链 → 三层探针（含平台激活）→ 图模式隔离 → 算子覆盖回退 → 显存与并发调优**。前两步没站稳，后面所有的性能调参都只是空中楼阁。
+$$
+\frac{T'}{T} = (1 - p) + p \cdot s = 1 + p(s - 1)
+$$
+
+代入两组数字，直觉立刻分明：
+
+- **落在关键路径上**：若某算子占前向总时间的 $p = 20\%$，回退后变慢 $s = 5$ 倍，则总耗时放大为 $0.80 + 0.20 \times 5 = 1.80$ 倍，端到端凭空慢了 **80%**。
+- **落在长尾边缘上**：若某算子只占 $p = 1\%$，同样变慢 $s = 5$ 倍，总耗时仅为 $0.99 + 0.01 \times 5 = 1.04$ 倍，端到端仅慢 **4%**。
+
+由此可见，**回退本身并不可怕，落在热点路径上的静默回退才致命**。评估回退影响永远要把“算子耗时占比 $p$”与“劣化倍数 $s$”相乘，绝不能只看算子清单里的“是否支持”布尔值。
+
+::: info 工程取舍：先统一层拉覆盖，再原生算子冲峰值
+统一算子层与手写原生算子不是你死我活的替代关系，而是工程落地的两个阶段。**第一阶段用统一层或平台内置实现从 0 到 1 拉通服务**，避免团队陷入上百个长尾算子的无底洞；**第二阶段用 Profiler 揪出占比最高、且落在低效或回退路径上的少数热点算子**，集中人力做后端特化或手写原生实现（如 AscendC / 专用融合 kernel），向硬件带宽与算力上限冲刺。
+:::
+
+## 19.4 主流国产芯片五层软件栈全景对照
+
+为了让抽象的五层模型真正落地，下表选取当前大模型推理适配最活跃的四家代表性国产加速卡平台——<strong>华为昇腾（Ascend）</strong>、<strong>海光（DCU）</strong>、<strong>摩尔线程（MUSA）</strong>与<strong>沐曦（MetaX）</strong>——给出它们在五层软件栈上对应的核心组件参考地图。各组件名称、支持矩阵与默认通信路径随版本持续迭代，正式选型与部署时请核对对应软件栈当期发行说明，并养成“状态 + 版本 + 核实日期”三要素同步记录的习惯。
+
+| 平台代表 | 第 1 层：驱动 / 固件 | 第 2 层：SDK / 运行时 | 第 3 层：算子库与底层编程 | 第 4 层：框架适配与引擎插件 | 第 5 层：主流推理引擎 |
+|---|---|---|---|---|---|
+| **华为昇腾 Ascend**<br>（如 910B / Atlas A2） | HDK（NPU Driver / Firmware，`npu-smi`） | CANN（AscendCL / Runtime / GE / HCCL）+ NNAL（ATB） | AOL 预置算子库、AscendC、TBE、Triton-Ascend | `torch_npu` + `vllm-ascend`（亦支持 `vllm-plugin-FL`） | vLLM、SGLang、MindIE |
+| **海光 DCU**<br>（如 K100 / Z100 系列） | DCU 驱动与固件（`hy-smi` / 类 ROCm 管理工具） | DTK（DCU Toolkit，兼容 HIP 运行时与 RCCL/HCCL 通信） | rocBLAS / MIOpen / HIP 融合算子库 | PyTorch DTK/ROCm 适配 + vLLM DCU 官方镜像/插件（及 `vllm-plugin-FL`） | vLLM、SGLang |
+| **摩尔线程 MUSA**<br>（如 MTT S4000 等） | MUSA 驱动与固件（`mthreads-gmi`） | MUSA Toolkit（MCC 编译器 / MUSA Runtime / MCCL） | muBLAS、muDNN、MUSA 融合算子与 Triton-MUSA | `torch_musa` + `vllm-musa`（及 `vllm-plugin-FL`） | vLLM、llama.cpp |
+| **沐曦 MetaX**<br>（如曦云 C500 系列） | MetaX 驱动与固件（`mx-smi`） | MACA SDK（编译器 / 运行时 / MCCL 集合通信） | mcBLAS、mcDNN、FlashAttention 适配与融合算子 | PyTorch MACA 适配 + `vllm-metax`（及 `vllm-plugin-FL`） | vLLM、SGLang |
+
+读这张表时，请特别留意两个跨平台共性：第一，**类 CUDA 路线**（海光 DTK 走 HIP 兼容、摩尔线程 MUSA 与沐曦 MACA 均提供面向 CUDA 习惯的迁移工具链）能极大复用既有算子直觉，而**独立达芬奇架构路线**（华为昇腾 NPU 将矩阵核 AIC 与向量核 AIV 分离、片上引入显式 UB/L1/L0 层次）则在编程抽象上差异最显著，也最具剖析价值；第二，几乎所有主流厂商如今都同时押注“**自研 vLLM 平台插件 + 接入 FlagGems/FlagCX 统一层**”双轨并进。
+
+如需了解寒武纪（MLU）、昆仑芯（XPU）、天数智芯（Iluvatar）、壁仞（Biren）、燧原（Enflame）等更多国产平台的架构特色、生态切入点与版本记录范式，请查阅[专题 E：主流国产芯片生态速查](../topics/domestic-ecosystems.md)。接下来，[第 20 章](chapter-20.md)至[第 23 章](chapter-23.md)将以资料最透明、架构差异最具代表性的**华为昇腾 Ascend** 作为贯穿主线，带你走通“部署与插件 → <a class="term-ref" href="/books/llm-inference/glossary#cann" title="Compute Architecture for Neural Networks，昇腾神经网络计算架构：华为昇腾 NPU 的分层异构计算软件栈与算子开发平台">CANN</a>与 AscendC → <a class="term-ref" href="/books/llm-inference/glossary#operator_coverage" title="operator coverage：模型推理所需算子在目标硬件上由原生或专用实现承接的比例与清单">算子覆盖</a>分析 → 跨芯片算子迁移”的完整工程闭环。
 
 ## 本章小结
 
-- **版本是一条咬合链**：HDK → CANN/NNAL → PyTorch/TorchNPU → vLLM/`vllm-ascend` 存在严格的成对 ABI 约束；容器镜像锁用户态不锁宿主机驱动，升级须整组核对兼容表。
-- **三层探针精准定位**：按 `npu-smi info` → `torch.npu` 最小计算 → vLLM 日志激活平台插件的顺序自下而上排查，可瞬间定位绝大多数环境与加载故障。
-- **插件接管整套芯片面**：`vllm-ascend` 通过 `vllm.platform_plugins` 注入 `NPUPlatform`，以平台级 Hook 接管 Worker、Attention、通信与图捕获，以 `CustomOp.register_oot` 将模型里的 `RMSNorm` 等算子透明路由到 `forward_oot`。
+- **四面墙定坐标**：脱离单一 TFLOPS 参数表，用生态墙、显存墙、通信墙、精度墙综合评估推理可行性；先算清 FP16/量化权重与 KV 缓存的显存账，再核对接入方式、多卡通信与量化精度底线。
+- **五层栈定排障**：驱动/固件 → SDK/运行时 → 算子库 → 框架插件 → 推理引擎；牢记“症状在上、根因在下”，坚持自下而上排查，并用“换一块芯片问题是否消失”一键切分引擎层与底层芯片栈。
+- **双范式接生态**：平台级插件让一份引擎代码通过 `Platform` 与分发机制跑通多家芯片；统一算子与通信层（FlagGems + FlagCX + `vllm-plugin-FL`）通过三级优先级分发链加速多芯片覆盖，但必须警惕热点路径的静默回退（总耗时放大 $1 + p(s - 1)$ 倍）。
 
-**延伸阅读**：[vllm-ascend 官方安装与快速上手文档](https://docs.vllm.ai/projects/ascend/en/latest/)、[vLLM 硬件插件架构设计博客（Introducing vLLM Hardware Plugin）](https://blog.vllm.ai/2025/05/12/hardware-plugin.html)、[昇腾社区 CANN 与 TorchNPU 兼容矩阵](https://www.hiascend.com/document)。
+**延伸阅读**：[awesome-china-gpu 社区追踪表](https://github.com/bytetora/awesome-china-gpu)、[vllm-ascend 官方仓库](https://github.com/vllm-project/vllm-ascend)、[vllm-plugin-FL 架构文档](https://docs.flagos.io/projects/vllm-plugin-FL/en/latest/overview/features.html)、[FlagGems 统一算子库](https://github.com/flagos-ai/FlagGems)、[专题 E：主流国产芯片生态速查](../topics/domestic-ecosystems.md)。

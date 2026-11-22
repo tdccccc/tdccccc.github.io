@@ -4,7 +4,7 @@
 
 系统工程论文中最容易误导人的，往往不是方法本身，而是从摘要里孤立摘出来的倍数——“吞吐提升 24 倍”“容量提升 525%”“最高加速 6.5 倍”。每一组数字背后，都绑着特定的年份基线、模型几何、负载长度分布与统计分母。
 
-本档案将全书 23 章主线与专题涉及的里程碑论文统一收拢，按最新章节编号建立索引，把**核心机制、原文实验条件、数字口径差异与适用边界**一次摊开，方便查阅原文或撰写技术评审时准确引用。关于如何高效精读一篇系统论文的三遍法，可同步参考 [第 23 章](../chapters/chapter-23.md)。
+本档案将全书 24 章主线与专题涉及的里程碑论文统一收拢，按最新章节编号建立索引，把**核心机制、原文实验条件、数字口径差异与适用边界**一次摊开，方便查阅原文或撰写技术评审时准确引用。关于如何高效精读一篇系统论文的三遍法，可同步参考 [第 24 章](../chapters/chapter-24.md)。
 
 ---
 
@@ -28,10 +28,11 @@
 | [StreamingLLM](https://arxiv.org/abs/2309.17453) | ICLR 2024 | Attention Sink 现象与流式无限长滑窗 | [第 9 章](../chapters/chapter-09.md) |
 | [Speculative Decoding](https://arxiv.org/abs/2211.17192) / [Speculative Sampling](https://arxiv.org/abs/2302.01318) | ICML 2023 / arXiv 2023 | 草稿-并行验证框架与无损拒绝采样 | [第 9 章](../chapters/chapter-09.md) |
 | [EAGLE](https://arxiv.org/abs/2401.15077) / [EAGLE-3](https://arxiv.org/abs/2503.01840) | ICML 2024 / NeurIPS 2025 | 特征级自回归起草、多层特征融合与树形验证 | [第 9 章](../chapters/chapter-09.md) · [第 10 章](../chapters/chapter-10.md) |
-| [DistServe](https://www.usenix.org/conference/osdi24/presentation/zhong-yinmin) | OSDI 2024 | Prefill/Decode 阶段解耦与 Goodput 优化 | [第 11 章](../chapters/chapter-11.md) |
+| [DSpark](https://arxiv.org/abs/2607.05147) | arXiv 2026 | 半自回归 Markov 头、STS 置信度校准与负载感知动态截断验证 | [第 11 章](../chapters/chapter-11.md) |
+| [DistServe](https://www.usenix.org/conference/osdi24/presentation/zhong-yinmin) | OSDI 2024 | Prefill/Decode 阶段解耦与 Goodput 优化 | [第 12 章](../chapters/chapter-12.md) |
 | [Splitwise](https://arxiv.org/abs/2311.18677) | ISCA 2024 | 按阶段匹配异构 GPU 的集群硬件设计 | [专题 B](cluster-pd-mooncake.md) |
 | [Mooncake](https://arxiv.org/abs/2407.00079) | FAST 2025 | KV 中心化集群架构、分布式 KV 池与 Conductor | [专题 B](cluster-pd-mooncake.md) |
-| [FlashAttention 1](https://arxiv.org/abs/2205.14135) / [2](https://arxiv.org/abs/2307.08691) / [3](https://arxiv.org/abs/2407.08608) | NeurIPS 2022 / ICLR 2024 / NeurIPS 2024 | IO 感知分块 Online Softmax、Split-Q 与 Hopper 异步流水 | [第 14 章](../chapters/chapter-14.md) · [第 16 章](../chapters/chapter-16.md) |
+| [FlashAttention 1](https://arxiv.org/abs/2205.14135) / [2](https://arxiv.org/abs/2307.08691) / [3](https://arxiv.org/abs/2407.08608) | NeurIPS 2022 / ICLR 2024 / NeurIPS 2024 | IO 感知分块 Online Softmax、Split-Q 与 Hopper 异步流水 | [第 15 章](../chapters/chapter-15.md) · [第 17 章](../chapters/chapter-17.md) |
 
 ---
 
@@ -70,7 +71,7 @@
 
 ---
 
-## D.3 量化、投机解码与长上下文淘汰（第 8–10 章）
+## D.3 量化、投机解码与长上下文淘汰（第 8–11 章）
 
 ### GPTQ、SmoothQuant 与 AWQ（第 8 章）
 
@@ -91,7 +92,7 @@
 - **机制核心**：揭示大模型对序列开头若干 token 分配极高注意力分数的 **Attention Sink（注意力汇）** 现象——即使开头 token 语义普通，它们也承担了 Softmax 归一化“泄洪槽”的角色。直接滑窗丢弃开头 token 会导致困惑度雪崩；只要永久钉住最初 4 个左右 Sink token 再拼接滑动窗口，无需微调即可稳定处理超长流式文本。
 - **数字与边界**：在 Llama-2、MPT、Falcon、Pythia 上稳定外推至 **400 万 token 以上**，流式场景较滑动窗口重算基线最高快 **22.2×**。核心边界在于**它不是无损压缩**——滑出窗口的远距历史信息已被永久丢弃，无法回答超出窗口范围的精确细节检索题。
 
-### 投机解码、EAGLE 与 EAGLE-3（第 9–10 章）
+### 投机解码、EAGLE-3 与 DSpark（第 9–11 章）
 
 | 论文 / 来源 | 机制演进要点 | 原文代表数字与条件 | 适用边界 |
 | --- | --- | --- | --- |
@@ -99,12 +100,13 @@
 | **Chen et al.**（2023） | 独立提出 Speculative Sampling 并在分布式大模型上验证 | Chinchilla 70B 上 **2–2.5×** 加速 | 验证了超大规模解码下并行验证的可行性 |
 | **EAGLE**（ICML 2024） | 在倒数第二层**特征层**做自回归起草，并引入“提前一步的 token 序列”消除特征采样不确定性 | LLaMA2-Chat 70B 延迟加速 **2.7–3.5×**，吞吐约翻倍 | 轻量草稿头极大压低起草成本，但高并发算力饱和时增益消失 |
 | **EAGLE-3**（NeurIPS 2025） | 摒弃特征预测约束改直接预测 token，结合 Training-Time Test、多层特征融合与树形起草验证 | 低 batch 下最高 **6.5×**，batch=1 较 EAGLE-2 快约 **1.4×**（约 8× EAGLE 训练数据） | 6.5× 是高接受率 + 树形多分支 + 低并发叠加的结果；高并发或接受率下滑时迅速回落 |
+| **DSpark**（arXiv:2607.05147，2026） | 并行主干 + 轻量 Markov 头半自回归起草；置信度头经序列温度缩放（STS）校准后按集群实时并发动态截断验证长度 | DeepSeek-V4 线上真实流量同等吞吐下较原生 MTP-1 单用户提速 **60%–85%** | 对照基线为单步 MTP-1（非零投机裸解码）；需要配套置信度头训练与离线 STS 校准 |
 
 另注：[vLLM 投机解码工程博客](https://blog.vllm.ai/2024/10/17/spec-decode.html)给出的最高 **2.8×** 加速来自 Llama-3-70B、4×H100 的特定低 <a class="term-ref" href="/books/llm-inference/glossary#qps" title="Queries Per Second，每秒请求数：系统每秒到达或完成的请求数量">QPS</a>场景，与学术论文的测试脚本、并发区间不可直接跨组对比。
 
 ---
 
-## D.4 PD 解耦与集群级 KV 服务（第 11 章与专题 B）
+## D.4 PD 解耦与集群级 KV 服务（第 12 章与专题 B）
 
 DistServe、Splitwise 与 Mooncake 依次回答了三个正交问题：**要不要拆、拆到什么卡上、拆完 KV 放哪里**。三篇论文的增益各有前提，**绝对不能把它们的倍数相乘**。
 
@@ -116,7 +118,7 @@ DistServe、Splitwise 与 Mooncake 依次回答了三个正交问题：**要不�
 
 ---
 
-## D.5 IO 感知注意力算子演进（第 14 章与第 16 章）
+## D.5 IO 感知注意力算子演进（第 15 章与第 17 章）
 
 三代 <a class="term-ref" href="/books/llm-inference/glossary#flash_attention" title="通过片上分块与在线 Softmax 消除 N×N 中间矩阵 HBM 读写的 IO 感知精确注意力算法">FlashAttention</a>的演进堪称“紧贴 GPU 硬件微架构写算子”的教科书范例：
 
@@ -145,6 +147,7 @@ DistServe、Splitwise 与 Mooncake 依次回答了三个正交问题：**要不�
 | [vLLM](https://github.com/vllm-project/vllm) | 主流高吞吐服务引擎（PagedAttention、V1 架构、多硬件平台插件体系） |
 | [SGLang](https://docs.sglang.io) | RadixAttention 前缀复用与高吞吐结构化生成引擎 |
 | [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) | NVIDIA 官方深度优化推理运行时（PyTorch 后端 + 高性能 CUDA/FP8 内核） |
+| [DeepInfer](https://github.com/deepseek-ai/DeepInfer) | DeepSeek 开源的生产级垂直协同推理引擎（Apache 2.0，面向 DeepSeek-V4.1-Flash、SM100 与昇腾 950，集成 FlashMLA/DeepGEMM/DeepEP/TileLang/DSpark） |
 | [Mooncake](https://github.com/kvcache-ai/Mooncake) | 分布式 KV 缓存池（Mooncake Store）与 RDMA 聚合传输引擎（Transfer Engine） |
 | [vLLM production-stack](https://github.com/vllm-project/production-stack) / [llm-d](https://llm-d.ai) | Kubernetes 推理编排、前缀感知路由与延迟预测式负载均衡 |
 | [GuideLLM](https://github.com/vllm-project/guidellm) / [genai-perf](https://github.com/triton-inference-server/perf_analyzer) / [LLMPerf](https://github.com/ray-project/llmperf) | SLO 感知的恒定速率扫描与端到端流式压测工具 |
